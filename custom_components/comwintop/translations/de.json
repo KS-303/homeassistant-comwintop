@@ -1,0 +1,140 @@
+{
+  "title": "ComWinTop",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Verbindung hinzufügen",
+        "data": {
+          "transport": "Verbindungsart"
+        }
+      },
+      "connection": {
+        "title": "Verbindung",
+        "data": {
+          "name": "Name",
+          "host": "Hostname / IP-Adresse",
+          "port": "Port (laut Gateway-Konfiguration)",
+          "device": "Serieller Gerätepfad",
+          "baudrate": "Baudrate",
+          "parity": "Parität",
+          "stopbits": "Stoppbits"
+        },
+        "description": "Danach CWT-Geräte einzeln hinzufügen. Bei RTU über TCP gelten die tatsächlichen Leitungsparameter des Gateways."
+      },
+      "reconfigure": {
+        "title": "Verbindung ändern",
+        "data": {
+          "name": "Name",
+          "host": "Hostname / IP-Adresse",
+          "port": "Port (laut Gateway-Konfiguration)",
+          "device": "Serieller Gerätepfad",
+          "baudrate": "Baudrate",
+          "parity": "Parität",
+          "stopbits": "Stoppbits"
+        }
+      }
+    },
+    "error": {
+      "invalid_connection": "Ungültige oder bereits verwendete Verbindung.",
+      "cannot_connect": "Keine passende gültige Modbus-Antwort. Modus, Port, Adresse und Verdrahtung prüfen.",
+      "duplicate_unit": "Diese Modbus-Adresse ist auf dieser Verbindung bereits eingerichtet.",
+      "acknowledge_required": "Bitte den Status der Testversion bestätigen.",
+      "invalid_device": "Ungültige Geräteeinstellungen.",
+      "invalid_channel": "Ungültiger Signalbereich oder ungültige Skalierung."
+    },
+    "abort": {
+      "already_configured": "Verbindung bereits eingerichtet.",
+      "reconfigure_successful": "Einstellungen aktualisiert."
+    }
+  },
+  "config_subentries": {
+    "device": {
+      "step": {
+        "user": {
+          "title": "Gerät hinzufügen",
+          "data": {
+            "name": "Name",
+            "model": "Gerätemodell",
+            "unit_id": "Modbus-Adresse (1–247)",
+            "acknowledge_beta": "Experimentelle, nur lesende Version verstanden"
+          },
+          "description": "Schreibzugriffe sind in 0.1.0b1 technisch gesperrt. Ein erfolgreicher Lesetest erkennt nicht das Modell. Analogmodi müssen anschließend je Kanal eingestellt werden."
+        },
+        "reconfigure": {
+          "title": "Gerät konfigurieren",
+          "menu_options": {
+            "device": "Name / Modbus-Adresse",
+            "channel": "Kanal konfigurieren",
+            "intervals": "Abfrageintervalle"
+          }
+        },
+        "device": {
+          "title": "Gerät ändern",
+          "data": {
+            "name": "Name",
+            "unit_id": "Modbus-Adresse (1–247)"
+          }
+        },
+        "channel": {
+          "title": "Kanal auswählen",
+          "data": {
+            "channel": "Kanal"
+          }
+        },
+        "channel_settings": {
+          "title": "Kanal {channel}",
+          "data": {
+            "name": "Name",
+            "enabled": "Kanal auswerten",
+            "nc": "NC: logischen Eingang invertieren",
+            "mode": "Tatsächlicher elektrischer Signalbereich",
+            "display": "Anzeige / geplanter AO-Sollwertbereich",
+            "scale_min": "Messgröße am unteren Signalwert",
+            "scale_max": "Messgröße am oberen Signalwert",
+            "unit": "Einheit der Messgröße"
+          },
+          "description": "Deaktivieren schaltet einen Ausgang NICHT aus. Jumper und Verdrahtung müssen zum Signalbereich passen. Schreibzugriff bleibt gesperrt."
+        },
+        "intervals": {
+          "title": "Abfrageintervalle",
+          "data": {
+            "temperature": "Temperaturen (Sekunden)",
+            "di": "Digitale Eingänge (Sekunden)",
+            "do": "Digitale Ausgänge (Sekunden)",
+            "ai": "Analoge Eingänge (Sekunden)",
+            "ao": "Analoge Ausgänge (Sekunden)"
+          }
+        }
+      },
+      "error": {
+        "invalid_connection": "Ungültige oder bereits verwendete Verbindung.",
+        "cannot_connect": "Keine passende gültige Modbus-Antwort. Modus, Port, Adresse und Verdrahtung prüfen.",
+        "duplicate_unit": "Diese Modbus-Adresse ist auf dieser Verbindung bereits eingerichtet.",
+        "acknowledge_required": "Bitte den Status der Testversion bestätigen.",
+        "invalid_device": "Ungültige Geräteeinstellungen.",
+        "invalid_channel": "Ungültiger Signalbereich oder ungültige Skalierung."
+      },
+      "abort": {
+        "reconfigure_successful": "Einstellungen aktualisiert."
+      },
+      "entry_type": "CWT-Gerät",
+      "initiate_flow": {
+        "user": "Gerät hinzufügen"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "communication": {
+        "name": "Kommunikation",
+        "state": {
+          "initializing": "Initialisierung",
+          "online": "Online",
+          "suspect": "Kommunikation prüfen",
+          "offline": "Offline",
+          "recovering": "Wiederherstellung"
+        }
+      }
+    }
+  }
+}

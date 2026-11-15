@@ -1,0 +1,140 @@
+{
+  "title": "ComWinTop",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add connection",
+        "data": {
+          "transport": "Transport"
+        }
+      },
+      "connection": {
+        "title": "Connection",
+        "data": {
+          "name": "Name",
+          "host": "Host / IP address",
+          "port": "Port (as configured on the gateway)",
+          "device": "Serial device path",
+          "baudrate": "Baud rate",
+          "parity": "Parity",
+          "stopbits": "Stop bits"
+        },
+        "description": "Add individual CWT devices next. For RTU over TCP use the actual gateway line settings."
+      },
+      "reconfigure": {
+        "title": "Change connection",
+        "data": {
+          "name": "Name",
+          "host": "Host / IP address",
+          "port": "Port (as configured on the gateway)",
+          "device": "Serial device path",
+          "baudrate": "Baud rate",
+          "parity": "Parity",
+          "stopbits": "Stop bits"
+        }
+      }
+    },
+    "error": {
+      "invalid_connection": "Invalid or duplicate connection.",
+      "cannot_connect": "No matching valid Modbus response. Check mode, port, unit address and wiring.",
+      "duplicate_unit": "This unit address is already configured on this connection.",
+      "acknowledge_required": "Acknowledge the beta limitations.",
+      "invalid_device": "Invalid device settings.",
+      "invalid_channel": "Invalid electrical range or scaling."
+    },
+    "abort": {
+      "already_configured": "Connection already configured.",
+      "reconfigure_successful": "Settings updated."
+    }
+  },
+  "config_subentries": {
+    "device": {
+      "step": {
+        "user": {
+          "title": "Add device",
+          "data": {
+            "name": "Name",
+            "model": "Device model",
+            "unit_id": "Modbus unit address (1–247)",
+            "acknowledge_beta": "I understand this experimental read-only version"
+          },
+          "description": "Writes are technically locked in 0.1.0b1. A successful read does not identify the model. Set the actual analog mode for each channel afterwards."
+        },
+        "reconfigure": {
+          "title": "Configure device",
+          "menu_options": {
+            "device": "Name / unit address",
+            "channel": "Configure channel",
+            "intervals": "Polling intervals"
+          }
+        },
+        "device": {
+          "title": "Change device",
+          "data": {
+            "name": "Name",
+            "unit_id": "Modbus unit address (1–247)"
+          }
+        },
+        "channel": {
+          "title": "Select channel",
+          "data": {
+            "channel": "Channel"
+          }
+        },
+        "channel_settings": {
+          "title": "Channel {channel}",
+          "data": {
+            "name": "Name",
+            "enabled": "Evaluate channel",
+            "nc": "NC: invert logical input",
+            "mode": "Actual electrical signal range",
+            "display": "Display / planned AO setpoint range",
+            "scale_min": "Engineering value at minimum signal",
+            "scale_max": "Engineering value at maximum signal",
+            "unit": "Engineering unit"
+          },
+          "description": "Disabling does NOT turn an output off. Jumpers and wiring must match the selected range. Writes remain locked."
+        },
+        "intervals": {
+          "title": "Polling intervals",
+          "data": {
+            "temperature": "Temperature interval (seconds)",
+            "di": "Digital input interval (seconds)",
+            "do": "Digital output interval (seconds)",
+            "ai": "Analog input interval (seconds)",
+            "ao": "Analog output interval (seconds)"
+          }
+        }
+      },
+      "error": {
+        "invalid_connection": "Invalid or duplicate connection.",
+        "cannot_connect": "No matching valid Modbus response. Check mode, port, unit address and wiring.",
+        "duplicate_unit": "This unit address is already configured on this connection.",
+        "acknowledge_required": "Acknowledge the beta limitations.",
+        "invalid_device": "Invalid device settings.",
+        "invalid_channel": "Invalid electrical range or scaling."
+      },
+      "abort": {
+        "reconfigure_successful": "Settings updated."
+      },
+      "entry_type": "CWT device",
+      "initiate_flow": {
+        "user": "Add device"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "communication": {
+        "name": "Communication",
+        "state": {
+          "initializing": "Initializing",
+          "online": "Online",
+          "suspect": "Check communication",
+          "offline": "Offline",
+          "recovering": "Recovering"
+        }
+      }
+    }
+  }
+}
