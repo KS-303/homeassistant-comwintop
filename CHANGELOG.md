@@ -1,5 +1,11 @@
 # Änderungen
 
+## 0.1.0b4 (HA-Oberfläche)
+
+- Verbindungsart, Parität, Kanäle, Signalbereich und Anzeigeformat erhalten
+  sichtbare Beschriftungen direkt im Auswahlfeld. Technische Werte bleiben
+  intern unverändert, bestehende Verbindungen und Gerätekennungen ebenfalls.
+
 ## 0.1.0b3 (lokaler Entwicklungszweig)
 
 - Deklarative, lokal gespeicherte Geräteprofile für bereits geprüfte Lesemethoden

@@ -127,6 +127,27 @@ async def test_translated_connection_and_channel_choices(hass):
     assert texts["component.comwintop.selector.channel.options.di_1"] == "Digitaler Eingang 1"
 
 
+async def test_setup_dropdown_contains_visible_german_labels(hass):
+    """Frontend must receive labels directly, independent of selector translations."""
+    hass.config.language = "de"
+    flow = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    fields = {key.schema: value for key, value in flow["data_schema"].schema.items()}
+    options = fields["transport"].config["options"]
+    assert options == [
+        {"value": "tcp", "label": "Modbus über Netzwerk"},
+        {"value": "tcp_gateway", "label": "Modbus über Netzwerk-Seriell-Gateway"},
+        {"value": "rtu_tcp", "label": "Transparente serielle Verbindung über Netzwerk"},
+        {"value": "serial", "label": "Direkte serielle Verbindung"},
+    ]
+    form = await hass.config_entries.flow.async_configure(flow["flow_id"], {"transport": "rtu_tcp"})
+    fields = {key.schema: value for key, value in form["data_schema"].schema.items()}
+    assert fields["parity"].config["options"] == [
+        {"value": "N", "label": "Keine Parität"},
+        {"value": "E", "label": "Gerade Parität"},
+        {"value": "O", "label": "Ungerade Parität"},
+    ]
+
+
 async def test_subentry_create_no_write_probe(hass, sim):
     entry = make_entry(sim)
     await hass.config_entries.async_add(entry)

@@ -29,28 +29,77 @@ CHANNEL_LABELS = {
     "de": {
         "temperature": "Temperaturkanal",
         "di": "Digitaler Eingang",
-        "do": "Digitaler Ausgang",
+        "do": "Digitaler Ausgang – Rückmeldung",
         "ai": "Analoger Eingang",
-        "ao": "Analoger Ausgang",
+        "ao": "Analoger Ausgang – Rückmeldung",
     },
     "en": {
         "temperature": "Temperature channel",
         "di": "Digital input",
-        "do": "Digital output",
+        "do": "Digital output – readback",
         "ai": "Analog input",
-        "ao": "Analog output",
+        "ao": "Analog output – readback",
     },
+}
+TRANSPORT_LABELS = {
+    "de": {
+        "tcp": "Modbus über Netzwerk",
+        "tcp_gateway": "Modbus über Netzwerk-Seriell-Gateway",
+        "rtu_tcp": "Transparente serielle Verbindung über Netzwerk",
+        "serial": "Direkte serielle Verbindung",
+    },
+    "en": {
+        "tcp": "Modbus over network",
+        "tcp_gateway": "Modbus through network-to-serial gateway",
+        "rtu_tcp": "Transparent serial connection over network",
+        "serial": "Direct serial connection",
+    },
+}
+SIGNAL_LABELS = {
+    "de": {
+        "0_10v": "0 bis 10 Volt",
+        "0_5v": "0 bis 5 Volt",
+        "0_20ma": "0 bis 20 Milliampere",
+        "4_20ma": "4 bis 20 Milliampere",
+    },
+    "en": {
+        "0_10v": "0 to 10 volts",
+        "0_5v": "0 to 5 volts",
+        "0_20ma": "0 to 20 milliamperes",
+        "4_20ma": "4 to 20 milliamperes",
+    },
+}
+DISPLAY_LABELS = {
+    "de": {
+        "physical": "Physikalischer Messwert",
+        "percent": "Prozentwert",
+        "scaled": "Skalierter Messwert",
+    },
+    "en": {
+        "physical": "Physical measurement",
+        "percent": "Percentage",
+        "scaled": "Scaled measurement",
+    },
+}
+PARITY_LABELS = {
+    "de": {"N": "Keine Parität", "E": "Gerade Parität", "O": "Ungerade Parität"},
+    "en": {"N": "No parity", "E": "Even parity", "O": "Odd parity"},
 }
 
 
-def select(options, translation_key=None):
-    config = {"options": options, "mode": "dropdown"}
-    if translation_key is not None:
-        config["translation_key"] = translation_key
-    return selector({"select": config})
+def ui_language(hass):
+    return "de" if hass.config.language.lower().startswith("de") else "en"
 
 
-def connection_schema(mode, defaults=None):
+def labeled_options(values, labels):
+    return [{"value": value, "label": labels[value]} for value in values]
+
+
+def select(options):
+    return selector({"select": {"options": options, "mode": "dropdown"}})
+
+
+def connection_schema(mode, defaults=None, language="en"):
     defaults = defaults or {}
     fields = {vol.Required("name", default=defaults.get("name", "Modbus-Verbindung")): str}
     if mode == "serial":
@@ -70,8 +119,8 @@ def connection_schema(mode, defaults=None):
                 vol.Required("baudrate", default=defaults.get("baudrate", 9600)): vol.In(
                     [1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200]
                 ),
-                vol.Required("parity", default=defaults.get("parity", "N")): vol.In(
-                    ["N", "E", "O"]
+                vol.Required("parity", default=defaults.get("parity", "N")): select(
+                    labeled_options(["N", "E", "O"], PARITY_LABELS[language])
                 ),
                 vol.Required("stopbits", default=defaults.get("stopbits", 1)): vol.In([1, 2]),
             }
@@ -105,7 +154,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
-                {vol.Required("transport"): select(list(TRANSPORTS), "transport")}
+                {
+                    vol.Required("transport"): select(
+                        labeled_options(TRANSPORTS, TRANSPORT_LABELS[ui_language(self.hass)])
+                    )
+                }
             ),
         )
 
@@ -124,7 +177,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_create_entry(title=data["name"], data=data)
         return self.async_show_form(
             step_id="connection",
-            data_schema=connection_schema(self._transport, user_input),
+            data_schema=connection_schema(self._transport, user_input, ui_language(self.hass)),
             errors=errors,
         )
 
@@ -157,7 +210,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_abort(reason="reconfigure_successful")
         return self.async_show_form(
             step_id="reconfigure",
-            data_schema=connection_schema(entry.data["transport"], entry.data),
+            data_schema=connection_schema(
+                entry.data["transport"], entry.data, ui_language(self.hass)
+            ),
             errors=errors,
         )
 
@@ -312,16 +367,13 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
             self._channel = user_input["channel"]
             return await self.async_step_channel_settings()
         model = sub.data["model"]
-        if model in BUILTIN_PROFILES:
-            channel_selector = select([key for key, _, _ in channels(model)], "channel")
-        else:
-            labels = CHANNEL_LABELS["de" if self.hass.config.language == "de" else "en"]
-            channel_selector = select(
-                [
-                    {"value": key, "label": f"{labels[group.kind]} {index + 1}"}
-                    for key, group, index in channels(model)
-                ]
-            )
+        labels = CHANNEL_LABELS[ui_language(self.hass)]
+        channel_selector = select(
+            [
+                {"value": key, "label": f"{labels[group.kind]} {index + 1}"}
+                for key, group, index in channels(model)
+            ]
+        )
         return self.async_show_form(
             step_id="channel",
             data_schema=vol.Schema({vol.Required("channel"): channel_selector}),
@@ -350,11 +402,13 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
             fields[vol.Required("nc", default=options.get("nc", False))] = bool
         if kind in ("ai", "ao"):
             fields[vol.Required("mode", default=options.get("mode", "0_10v"))] = select(
-                list(MODES), "signal_mode"
+                labeled_options(MODES, SIGNAL_LABELS[ui_language(self.hass)])
             )
             fields[vol.Required("display", default=options.get("display", "physical"))] = select(
-                ["physical", "percent", "scaled"] if kind == "ai" else ["physical", "percent"],
-                "display_mode",
+                labeled_options(
+                    ["physical", "percent", "scaled"] if kind == "ai" else ["physical", "percent"],
+                    DISPLAY_LABELS[ui_language(self.hass)],
+                )
             )
             if kind == "ai":
                 fields[vol.Optional("scale_min", default=options.get("scale_min", 0))] = vol.Coerce(

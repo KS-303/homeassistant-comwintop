@@ -1,6 +1,6 @@
 # ComWinTop for Home Assistant
 
-**0.1.0b3 – ausschließlich lesende Entwicklungsversion.** Die veröffentlichte
+**0.1.0b4 – ausschließlich lesende Entwicklungsversion.** Die veröffentlichte
 Version 0.1.0b1 bleibt für den laufenden Hardwaretest verfügbar.
 
 Lokale Modbus-I/O-Integration für CWT-TM-32DS und CWT-MB308N. Gateways und
