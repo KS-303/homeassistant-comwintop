@@ -19,7 +19,7 @@
           "parity": "Parität",
           "stopbits": "Stoppbits"
         },
-        "description": "Danach CWT-Geräte einzeln hinzufügen. Bei RTU über TCP gelten die tatsächlichen Leitungsparameter des Gateways."
+        "description": "Füge anschließend jedes ComWinTop-Gerät einzeln hinzu. Bei einer transparenten seriellen Verbindung über Netzwerk gelten die tatsächlichen Leitungsparameter des Gateways."
       },
       "reconfigure": {
         "title": "Verbindung ändern",
@@ -58,7 +58,7 @@
             "unit_id": "Modbus-Adresse (1–247)",
             "acknowledge_beta": "Experimentelle, nur lesende Version verstanden"
           },
-          "description": "Schreibzugriffe sind in 0.1.0b1 technisch gesperrt. Ein erfolgreicher Lesetest erkennt nicht das Modell. Analogmodi müssen anschließend je Kanal eingestellt werden."
+          "description": "Schreibzugriffe sind in 0.1.0b2 technisch gesperrt. Ein erfolgreicher Lesetest erkennt nicht das Modell. Analogmodi müssen anschließend je Kanal eingestellt werden."
         },
         "reconfigure": {
           "title": "Gerät konfigurieren",
@@ -86,14 +86,14 @@
           "data": {
             "name": "Name",
             "enabled": "Kanal auswerten",
-            "nc": "NC: logischen Eingang invertieren",
+            "nc": "Eingang umkehren (Öffnerkontakt)",
             "mode": "Tatsächlicher elektrischer Signalbereich",
-            "display": "Anzeige / geplanter AO-Sollwertbereich",
+            "display": "Anzeigeart des Messwerts",
             "scale_min": "Messgröße am unteren Signalwert",
             "scale_max": "Messgröße am oberen Signalwert",
             "unit": "Einheit der Messgröße"
           },
-          "description": "Deaktivieren schaltet einen Ausgang NICHT aus. Jumper und Verdrahtung müssen zum Signalbereich passen. Schreibzugriff bleibt gesperrt."
+          "description": "Das Deaktivieren eines Kanals schaltet keinen Ausgang aus. Jumper und Verdrahtung müssen zum gewählten Signalbereich passen. Schreiben bleibt gesperrt."
         },
         "intervals": {
           "title": "Abfrageintervalle",
@@ -117,7 +117,7 @@
       "abort": {
         "reconfigure_successful": "Einstellungen aktualisiert."
       },
-      "entry_type": "CWT-Gerät",
+      "entry_type": "ComWinTop-Gerät",
       "initiate_flow": {
         "user": "Gerät hinzufügen"
       }
@@ -134,6 +134,127 @@
           "offline": "Offline",
           "recovering": "Wiederherstellung"
         }
+      },
+      "temperature": {
+        "name": "Temperaturkanal {channel}"
+      },
+      "temperature_raw": {
+        "name": "Temperaturkanal {channel} – Rohwert"
+      },
+      "ai": {
+        "name": "Analoger Eingang {channel}"
+      },
+      "ai_raw": {
+        "name": "Analoger Eingang {channel} – Rohwert"
+      },
+      "ao": {
+        "name": "Analoger Ausgang {channel} – Rückmeldung"
+      },
+      "ao_raw": {
+        "name": "Analoger Ausgang {channel} – Rückmeldung – Rohwert"
+      },
+      "di_raw": {
+        "name": "Digitaler Eingang {channel} – Rohwert"
+      },
+      "do_raw": {
+        "name": "Digitaler Ausgang {channel} – Rückmeldung – Rohwert"
+      }
+    },
+    "binary_sensor": {
+      "di": {
+        "name": "Digitaler Eingang {channel}"
+      },
+      "do": {
+        "name": "Digitaler Ausgang {channel} – Rückmeldung"
+      }
+    }
+  },
+  "selector": {
+    "transport": {
+      "options": {
+        "tcp": "Modbus über Netzwerk",
+        "tcp_gateway": "Modbus über Netzwerk-Seriell-Gateway",
+        "rtu_tcp": "Transparente serielle Verbindung über Netzwerk",
+        "serial": "Direkte serielle Verbindung"
+      }
+    },
+    "channel": {
+      "options": {
+        "temperature_1": "Temperaturkanal 1",
+        "temperature_2": "Temperaturkanal 2",
+        "temperature_3": "Temperaturkanal 3",
+        "temperature_4": "Temperaturkanal 4",
+        "temperature_5": "Temperaturkanal 5",
+        "temperature_6": "Temperaturkanal 6",
+        "temperature_7": "Temperaturkanal 7",
+        "temperature_8": "Temperaturkanal 8",
+        "temperature_9": "Temperaturkanal 9",
+        "temperature_10": "Temperaturkanal 10",
+        "temperature_11": "Temperaturkanal 11",
+        "temperature_12": "Temperaturkanal 12",
+        "temperature_13": "Temperaturkanal 13",
+        "temperature_14": "Temperaturkanal 14",
+        "temperature_15": "Temperaturkanal 15",
+        "temperature_16": "Temperaturkanal 16",
+        "temperature_17": "Temperaturkanal 17",
+        "temperature_18": "Temperaturkanal 18",
+        "temperature_19": "Temperaturkanal 19",
+        "temperature_20": "Temperaturkanal 20",
+        "temperature_21": "Temperaturkanal 21",
+        "temperature_22": "Temperaturkanal 22",
+        "temperature_23": "Temperaturkanal 23",
+        "temperature_24": "Temperaturkanal 24",
+        "temperature_25": "Temperaturkanal 25",
+        "temperature_26": "Temperaturkanal 26",
+        "temperature_27": "Temperaturkanal 27",
+        "temperature_28": "Temperaturkanal 28",
+        "temperature_29": "Temperaturkanal 29",
+        "temperature_30": "Temperaturkanal 30",
+        "temperature_31": "Temperaturkanal 31",
+        "temperature_32": "Temperaturkanal 32",
+        "di_1": "Digitaler Eingang 1",
+        "di_2": "Digitaler Eingang 2",
+        "di_3": "Digitaler Eingang 3",
+        "di_4": "Digitaler Eingang 4",
+        "di_5": "Digitaler Eingang 5",
+        "di_6": "Digitaler Eingang 6",
+        "di_7": "Digitaler Eingang 7",
+        "di_8": "Digitaler Eingang 8",
+        "do_1": "Digitaler Ausgang 1 – Rückmeldung",
+        "do_2": "Digitaler Ausgang 2 – Rückmeldung",
+        "do_3": "Digitaler Ausgang 3 – Rückmeldung",
+        "do_4": "Digitaler Ausgang 4 – Rückmeldung",
+        "do_5": "Digitaler Ausgang 5 – Rückmeldung",
+        "do_6": "Digitaler Ausgang 6 – Rückmeldung",
+        "do_7": "Digitaler Ausgang 7 – Rückmeldung",
+        "do_8": "Digitaler Ausgang 8 – Rückmeldung",
+        "ai_1": "Analoger Eingang 1",
+        "ai_2": "Analoger Eingang 2",
+        "ai_3": "Analoger Eingang 3",
+        "ai_4": "Analoger Eingang 4",
+        "ai_5": "Analoger Eingang 5",
+        "ai_6": "Analoger Eingang 6",
+        "ai_7": "Analoger Eingang 7",
+        "ai_8": "Analoger Eingang 8",
+        "ao_1": "Analoger Ausgang 1 – Rückmeldung",
+        "ao_2": "Analoger Ausgang 2 – Rückmeldung",
+        "ao_3": "Analoger Ausgang 3 – Rückmeldung",
+        "ao_4": "Analoger Ausgang 4 – Rückmeldung"
+      }
+    },
+    "signal_mode": {
+      "options": {
+        "0_10v": "0 bis 10 Volt",
+        "0_5v": "0 bis 5 Volt",
+        "0_20ma": "0 bis 20 Milliampere",
+        "4_20ma": "4 bis 20 Milliampere"
+      }
+    },
+    "display_mode": {
+      "options": {
+        "physical": "Physikalischer Messwert",
+        "percent": "Prozentwert",
+        "scaled": "Skalierter Messwert"
       }
     }
   }

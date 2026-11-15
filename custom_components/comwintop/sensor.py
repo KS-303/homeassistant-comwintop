@@ -61,7 +61,9 @@ class RawSensor(ChannelEntity, SensorEntity):
     def __init__(self, coordinator, key, group, index):
         super().__init__(coordinator, key, group, index)
         self._attr_unique_id += "_raw"
-        self._attr_name += " raw"
+        self._attr_translation_key = f"{group.kind}_raw"
+        if custom_name := coordinator.options(key).get("name"):
+            self._attr_name = f"{custom_name} – Rohwert"
         self._attr_entity_registry_enabled_default = False
 
     @property

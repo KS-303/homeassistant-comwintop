@@ -5,6 +5,7 @@ from types import MappingProxyType
 import pytest
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.translation import async_get_translations
 
 from custom_components.comwintop.const import DOMAIN
 from custom_components.comwintop.diagnostics import async_get_config_entry_diagnostics
@@ -74,6 +75,7 @@ async def test_real_ha_setup_poll_reload_registry_no_writes(hass, sim):
     assert entity_id is not None
     await hass.async_block_till_done()
     assert hass.states.get(entity_id).state == "23.1"
+    assert hass.states.get(entity_id).attributes["friendly_name"].endswith("Temperature channel 32")
     await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     assert registry.async_get_entity_id("sensor", DOMAIN, uid) == entity_id
@@ -105,6 +107,24 @@ async def test_config_flow_and_duplicate(hass, sim):
         flow["flow_id"], {"name": "duplicate", "host": "127.0.0.1", "port": sim.port}
     )
     assert result["type"] == "abort" and result["reason"] == "already_configured"
+
+
+async def test_german_channel_name_without_ch_abbreviation(hass, sim):
+    hass.config.language = "de"
+    entry = make_entry(sim)
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id("sensor", DOMAIN, "device-id_temperature_1")
+    assert hass.states.get(entity_id).attributes["friendly_name"].endswith("Temperaturkanal 1")
+
+
+async def test_translated_connection_and_channel_choices(hass):
+    texts = await async_get_translations(hass, "de", "selector", {DOMAIN}, config_flow=True)
+    assert texts["component.comwintop.selector.transport.options.rtu_tcp"] == (
+        "Transparente serielle Verbindung über Netzwerk"
+    )
+    assert texts["component.comwintop.selector.channel.options.di_1"] == "Digitaler Eingang 1"
 
 
 async def test_subentry_create_no_write_probe(hass, sim):
@@ -326,4 +346,5 @@ async def test_mb308_channel_ui_and_entities(hass, sim):
     assert hass.states.get(ai).state == "50.0"
     assert hass.states.get(ai).attributes["unit_of_measurement"] == "%"
     assert hass.states.get(di).state == "on"
+    assert hass.states.get(di).attributes["friendly_name"].endswith("Digital input 1")
     assert not [r for r in sim.trace if r[1] > 4]

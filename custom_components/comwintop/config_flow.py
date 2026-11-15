@@ -19,13 +19,16 @@ from .transport import MODES as TRANSPORTS
 from .transport import endpoint_key, params_from
 
 
-def select(options):
-    return selector({"select": {"options": options, "mode": "dropdown"}})
+def select(options, translation_key=None):
+    config = {"options": options, "mode": "dropdown"}
+    if translation_key is not None:
+        config["translation_key"] = translation_key
+    return selector({"select": config})
 
 
 def connection_schema(mode, defaults=None):
     defaults = defaults or {}
-    fields = {vol.Required("name", default=defaults.get("name", "Modbus")): str}
+    fields = {vol.Required("name", default=defaults.get("name", "Modbus-Verbindung")): str}
     if mode == "serial":
         fields[vol.Required("device", default=defaults.get("device", "/dev/serial/by-id/"))] = str
     else:
@@ -77,7 +80,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return await self.async_step_connection()
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema({vol.Required("transport"): select(list(TRANSPORTS))}),
+            data_schema=vol.Schema(
+                {vol.Required("transport"): select(list(TRANSPORTS), "transport")}
+            ),
         )
 
     async def async_step_connection(self, user_input=None):
@@ -247,7 +252,7 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
             data_schema=vol.Schema(
                 {
                     vol.Required("channel"): select(
-                        [key for key, _, _ in channels(sub.data["model"])]
+                        [key for key, _, _ in channels(sub.data["model"])], "channel"
                     )
                 }
             ),
@@ -275,9 +280,12 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
         if kind == "di":
             fields[vol.Required("nc", default=options.get("nc", False))] = bool
         if kind in ("ai", "ao"):
-            fields[vol.Required("mode", default=options.get("mode", "0_10v"))] = select(list(MODES))
+            fields[vol.Required("mode", default=options.get("mode", "0_10v"))] = select(
+                list(MODES), "signal_mode"
+            )
             fields[vol.Required("display", default=options.get("display", "physical"))] = select(
-                ["physical", "percent", "scaled"] if kind == "ai" else ["physical", "percent"]
+                ["physical", "percent", "scaled"] if kind == "ai" else ["physical", "percent"],
+                "display_mode",
             )
             if kind == "ai":
                 fields[vol.Optional("scale_min", default=options.get("scale_min", 0))] = vol.Coerce(

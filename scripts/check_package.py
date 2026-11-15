@@ -3,6 +3,7 @@
 import ast
 import json
 import re
+import struct
 import tomllib
 from pathlib import Path
 
@@ -27,6 +28,10 @@ def check():
     expected = leaves(json.loads((COMPONENT / "strings.json").read_text()))
     for name in ("de", "en"):
         assert leaves(json.loads((COMPONENT / f"translations/{name}.json").read_text())) == expected
+    for name, size in (("icon.png", 256), ("icon@2x.png", 512)):
+        image = (COMPONENT / "brand" / name).read_bytes()
+        assert image.startswith(b"\x89PNG\r\n\x1a\n")
+        assert struct.unpack(">II", image[16:24]) == (size, size)
     for path in COMPONENT.glob("*.py"):
         tree = ast.parse(path.read_text(), filename=str(path))
         for node in ast.walk(tree):

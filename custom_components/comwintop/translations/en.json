@@ -5,7 +5,7 @@
       "user": {
         "title": "Add connection",
         "data": {
-          "transport": "Transport"
+          "transport": "Connection type"
         }
       },
       "connection": {
@@ -19,7 +19,7 @@
           "parity": "Parity",
           "stopbits": "Stop bits"
         },
-        "description": "Add individual CWT devices next. For RTU over TCP use the actual gateway line settings."
+        "description": "Add each ComWinTop device separately. A transparent serial connection over the network uses the actual gateway line settings."
       },
       "reconfigure": {
         "title": "Change connection",
@@ -58,7 +58,7 @@
             "unit_id": "Modbus unit address (1–247)",
             "acknowledge_beta": "I understand this experimental read-only version"
           },
-          "description": "Writes are technically locked in 0.1.0b1. A successful read does not identify the model. Set the actual analog mode for each channel afterwards."
+          "description": "Writes are technically locked in 0.1.0b2. A successful read does not identify the model. Set the actual analog mode for each channel afterwards."
         },
         "reconfigure": {
           "title": "Configure device",
@@ -86,14 +86,14 @@
           "data": {
             "name": "Name",
             "enabled": "Evaluate channel",
-            "nc": "NC: invert logical input",
+            "nc": "Invert input (normally closed contact)",
             "mode": "Actual electrical signal range",
-            "display": "Display / planned AO setpoint range",
+            "display": "Measurement display format",
             "scale_min": "Engineering value at minimum signal",
             "scale_max": "Engineering value at maximum signal",
             "unit": "Engineering unit"
           },
-          "description": "Disabling does NOT turn an output off. Jumpers and wiring must match the selected range. Writes remain locked."
+          "description": "Disabling a channel does not turn off an output. Jumpers and wiring must match the selected range. Writes remain locked."
         },
         "intervals": {
           "title": "Polling intervals",
@@ -117,7 +117,7 @@
       "abort": {
         "reconfigure_successful": "Settings updated."
       },
-      "entry_type": "CWT device",
+      "entry_type": "ComWinTop device",
       "initiate_flow": {
         "user": "Add device"
       }
@@ -134,6 +134,127 @@
           "offline": "Offline",
           "recovering": "Recovering"
         }
+      },
+      "temperature": {
+        "name": "Temperature channel {channel}"
+      },
+      "temperature_raw": {
+        "name": "Temperature channel {channel} – raw value"
+      },
+      "ai": {
+        "name": "Analog input {channel}"
+      },
+      "ai_raw": {
+        "name": "Analog input {channel} – raw value"
+      },
+      "ao": {
+        "name": "Analog output {channel} – readback"
+      },
+      "ao_raw": {
+        "name": "Analog output {channel} – readback – raw value"
+      },
+      "di_raw": {
+        "name": "Digital input {channel} – raw value"
+      },
+      "do_raw": {
+        "name": "Digital output {channel} – readback – raw value"
+      }
+    },
+    "binary_sensor": {
+      "di": {
+        "name": "Digital input {channel}"
+      },
+      "do": {
+        "name": "Digital output {channel} – readback"
+      }
+    }
+  },
+  "selector": {
+    "transport": {
+      "options": {
+        "tcp": "Modbus over network",
+        "tcp_gateway": "Modbus through network-to-serial gateway",
+        "rtu_tcp": "Transparent serial connection over network",
+        "serial": "Direct serial connection"
+      }
+    },
+    "channel": {
+      "options": {
+        "temperature_1": "Temperature channel 1",
+        "temperature_2": "Temperature channel 2",
+        "temperature_3": "Temperature channel 3",
+        "temperature_4": "Temperature channel 4",
+        "temperature_5": "Temperature channel 5",
+        "temperature_6": "Temperature channel 6",
+        "temperature_7": "Temperature channel 7",
+        "temperature_8": "Temperature channel 8",
+        "temperature_9": "Temperature channel 9",
+        "temperature_10": "Temperature channel 10",
+        "temperature_11": "Temperature channel 11",
+        "temperature_12": "Temperature channel 12",
+        "temperature_13": "Temperature channel 13",
+        "temperature_14": "Temperature channel 14",
+        "temperature_15": "Temperature channel 15",
+        "temperature_16": "Temperature channel 16",
+        "temperature_17": "Temperature channel 17",
+        "temperature_18": "Temperature channel 18",
+        "temperature_19": "Temperature channel 19",
+        "temperature_20": "Temperature channel 20",
+        "temperature_21": "Temperature channel 21",
+        "temperature_22": "Temperature channel 22",
+        "temperature_23": "Temperature channel 23",
+        "temperature_24": "Temperature channel 24",
+        "temperature_25": "Temperature channel 25",
+        "temperature_26": "Temperature channel 26",
+        "temperature_27": "Temperature channel 27",
+        "temperature_28": "Temperature channel 28",
+        "temperature_29": "Temperature channel 29",
+        "temperature_30": "Temperature channel 30",
+        "temperature_31": "Temperature channel 31",
+        "temperature_32": "Temperature channel 32",
+        "di_1": "Digital input 1",
+        "di_2": "Digital input 2",
+        "di_3": "Digital input 3",
+        "di_4": "Digital input 4",
+        "di_5": "Digital input 5",
+        "di_6": "Digital input 6",
+        "di_7": "Digital input 7",
+        "di_8": "Digital input 8",
+        "do_1": "Digital output 1 – readback",
+        "do_2": "Digital output 2 – readback",
+        "do_3": "Digital output 3 – readback",
+        "do_4": "Digital output 4 – readback",
+        "do_5": "Digital output 5 – readback",
+        "do_6": "Digital output 6 – readback",
+        "do_7": "Digital output 7 – readback",
+        "do_8": "Digital output 8 – readback",
+        "ai_1": "Analog input 1",
+        "ai_2": "Analog input 2",
+        "ai_3": "Analog input 3",
+        "ai_4": "Analog input 4",
+        "ai_5": "Analog input 5",
+        "ai_6": "Analog input 6",
+        "ai_7": "Analog input 7",
+        "ai_8": "Analog input 8",
+        "ao_1": "Analog output 1 – readback",
+        "ao_2": "Analog output 2 – readback",
+        "ao_3": "Analog output 3 – readback",
+        "ao_4": "Analog output 4 – readback"
+      }
+    },
+    "signal_mode": {
+      "options": {
+        "0_10v": "0 to 10 volts",
+        "0_5v": "0 to 5 volts",
+        "0_20ma": "0 to 20 milliamperes",
+        "4_20ma": "4 to 20 milliamperes"
+      }
+    },
+    "display_mode": {
+      "options": {
+        "physical": "Physical measurement",
+        "percent": "Percentage",
+        "scaled": "Scaled measurement"
       }
     }
   }

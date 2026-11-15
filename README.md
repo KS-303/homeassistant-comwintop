@@ -1,6 +1,7 @@
 # ComWinTop for Home Assistant
 
-**0.1.0b1 – ausschließlich lesende Beta-Version.**
+**0.1.0b2 – ausschließlich lesende Beta-Version.** Die veröffentlichte
+Version 0.1.0b1 bleibt für den laufenden Hardwaretest verfügbar.
 
 Lokale Modbus-I/O-Integration für CWT-TM-32DS und CWT-MB308N. Gateways und
 USB-RS485-Adapter sind herstellerunabhängig; Einrichtung ohne Register-YAML.
@@ -13,6 +14,8 @@ Keine Cloud, keine Anlagenregelung, keine Sicherheitssteuerung.
 - 32 Temperaturkanäle; MB308N 8 AI / 4 AO-Readbacks / 8 DI / 8 DO-Readbacks.
 - NO/NC pro DI; Skalierung/Signalbereich pro AI; Gruppen-Pollintervalle.
 - Stabile Geräte-UUIDs, Kanalqualität, Ablauf veralteter Daten, anonymisierte Diagnose.
+- Ausgeschriebene Kanalnamen in Deutsch und Englisch; eigenes Integrationsicon
+  mit dem Projekthandle KS-303.
 - **Keine produktiven Schreibentitäten oder Schreibdienste.** Hardwaretests und
   ein nachgewiesenes Busy-Retry des HA-Unterbaus verhindern derzeit deren Freigabe.
 
@@ -36,7 +39,13 @@ Vollständige Abgrenzung: [Implementierungsstatus](docs/implementation_status.md
 8. Analogkanäle über **Gerät konfigurieren → Kanal konfigurieren** entsprechend
    tatsächlichem Jumper/Signalbereich einrichten. Ohne Modus sind diese Werte unavailable.
 9. Für Rohtelegrammvergleiche die standardmäßig deaktivierte jeweilige
-   `... raw`-Diagnoseentität in HA aktivieren. Ein Rohwert ist keine validierte Temperatur.
+   `... Rohwert`-Diagnoseentität in HA aktivieren. Ein Rohwert ist keine validierte Temperatur.
+
+Bei einem Update bleiben Gerätekennungen und die bestehenden Entitäts-IDs
+erhalten. Anzeigenamen werden ausgeschrieben; manuell umbenannte Entitäten
+behalten ihre eigenen Namen. Home Assistant 2026.11 kann das Icon direkt aus
+`custom_components/comwintop/brand/` laden. Nach einem Update ist ein
+vollständiger Neustart erforderlich.
 
 Die Beta wird manuell per ZIP installiert. Eine Aufnahme in den HACS-Katalog
 ist noch nicht erfolgt.

@@ -13,7 +13,11 @@ def build():
     destination = ROOT / "dist"
     destination.mkdir(exist_ok=True)
     output = destination / f"comwintop-{version}-install.zip"
-    files = sorted(p for p in COMPONENT.rglob("*") if p.suffix in (".py", ".json"))
+    files = sorted(
+        p
+        for p in COMPONENT.rglob("*")
+        if p.suffix in (".py", ".json") or (p.parent == COMPONENT / "brand" and p.suffix == ".png")
+    )
     with ZipFile(output, "w", compression=ZIP_DEFLATED) as archive:
         for path in files:
             info = ZipInfo(path.relative_to(ROOT).as_posix(), (2026, 11, 15, 0, 0, 0))
