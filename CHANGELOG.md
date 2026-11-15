@@ -1,5 +1,13 @@
 # Änderungen
 
+## 0.1.0b3 (lokaler Entwicklungszweig)
+
+- Deklarative, lokal gespeicherte Geräteprofile für bereits geprüfte Lesemethoden
+  und Decoder; keine Schreibmethoden oder frei programmierbaren Formeln.
+- Registervorschau im Einrichtungsdialog für neue lokale Modelle.
+- Fehlerhafte Profile fallen auf die letzte validierte Fassung zurück; eine
+  vorherige gültige Version wird für manuelle Rücknahme gesichert.
+
 ## 0.1.0b2 (Vorbereitung)
 
 Ausgeschriebene, übersetzte Kanal- und Auswahlbezeichnungen. Ein Icon mit

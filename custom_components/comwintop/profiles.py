@@ -1,7 +1,11 @@
 """Documented profiles. Unknown temperature encodings fail closed."""
 
 import math
+import re
 from dataclasses import dataclass
+from pathlib import Path
+
+import yaml
 
 
 class InvalidValue(ValueError):
@@ -26,6 +30,163 @@ PROFILES = {
     ),
 }
 MODEL_NAMES = {"tm_32ds": "CWT-TM-32DS", "mb_308n": "CWT-MB308N"}
+BUILTIN_PROFILES = dict(PROFILES)
+BUILTIN_NAMES = dict(MODEL_NAMES)
+READ_METHODS = {
+    "temperature": "read_holding_registers",
+    "di": "read_discrete_inputs",
+    "do": "read_coils",
+    "ai": "read_input_registers",
+    "ao": "read_holding_registers",
+}
+DECODERS = {
+    "temperature": "tm_32ds_temperature",
+    "di": "digital_input",
+    "do": "digital_output_readback",
+    "ai": "mb_308n_analog_input",
+    "ao": "mb_308n_analog_output_readback",
+}
+
+
+class UniqueKeyLoader(yaml.SafeLoader):
+    """Refuse ambiguous YAML mappings instead of silently taking the last key."""
+
+
+def _unique_mapping(loader, node):
+    result = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node)
+        if not isinstance(key, str) or key in result:
+            raise InvalidValue("duplicate_or_non_string_yaml_key")
+        result[key] = loader.construct_object(value_node)
+    return result
+
+
+UniqueKeyLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _unique_mapping)
+
+
+def parse_profile(source, *, filename=None):
+    """Compile a declarative, read-only device profile; never execute file content."""
+    try:
+        data = yaml.load(source, Loader=UniqueKeyLoader)
+    except yaml.YAMLError as err:
+        raise InvalidValue("invalid_profile_yaml") from err
+    if not isinstance(data, dict) or set(data) != {"version", "model", "name", "groups"}:
+        raise InvalidValue("invalid_profile_fields")
+    model, name, groups = data["model"], data["name"], data["groups"]
+    if type(data["version"]) is not int or data["version"] != 1:
+        raise InvalidValue("unsupported_profile_version")
+    if not isinstance(model, str) or not re.fullmatch(r"[a-z][a-z0-9_]{2,39}", model):
+        raise InvalidValue("invalid_model_id")
+    if filename is not None and filename != f"{model}.yaml":
+        raise InvalidValue("profile_filename_mismatch")
+    if model in BUILTIN_PROFILES:
+        raise InvalidValue("builtin_profile_locked")
+    if not isinstance(name, str) or not 3 <= len(name.strip()) <= 80 or name != name.strip():
+        raise InvalidValue("invalid_model_name")
+    if not isinstance(groups, list) or not 1 <= len(groups) <= len(READ_METHODS):
+        raise InvalidValue("invalid_groups")
+    compiled = []
+    seen = set()
+    for item in groups:
+        if not isinstance(item, dict) or set(item) != {
+            "kind",
+            "method",
+            "decoder",
+            "start",
+            "count",
+        }:
+            raise InvalidValue("invalid_group_fields")
+        kind, method, start, count = (item[k] for k in ("kind", "method", "start", "count"))
+        if (
+            not isinstance(kind, str)
+            or kind not in READ_METHODS
+            or method != READ_METHODS[kind]
+            or item["decoder"] != DECODERS[kind]
+            or kind in seen
+        ):
+            raise InvalidValue("unverified_read_method_or_duplicate_group")
+        if type(start) is not int or type(count) is not int:
+            raise InvalidValue("invalid_register_range")
+        # A single short request per group keeps polling bounded on serial buses.
+        if not 0 <= start <= 65535 or not 1 <= count <= 64 or start + count > 65536:
+            raise InvalidValue("invalid_register_range")
+        seen.add(kind)
+        compiled.append(Group(kind, method, start, count))
+    return model, name, tuple(compiled)
+
+
+def load_local_profiles(root: Path):
+    """Load verified local profiles with a last-valid snapshot per model."""
+    root = Path(root)
+    active = root / "profiles"
+    backup = root / "last_valid"
+    result = {}
+    failures = {}
+    if not active.is_dir() and not backup.is_dir():
+        return result, failures
+    for path in sorted(active.glob("*.yaml")):
+        try:
+            if path.is_symlink() or path.stat().st_size > 16_384:
+                raise InvalidValue("invalid_profile_file")
+            source = path.read_text(encoding="utf-8")
+            model, name, groups = parse_profile(source, filename=path.name)
+            if model in result:
+                raise InvalidValue("duplicate_profile")
+            result[model] = name, groups
+            backup.mkdir(parents=True, exist_ok=True)
+            previous = backup / path.name
+            if not previous.exists() or previous.read_text(encoding="utf-8") != source:
+                # Keep a known valid previous revision for explicit rollback.
+                if previous.is_file() and not previous.is_symlink():
+                    old = previous.read_text(encoding="utf-8")
+                    parse_profile(old, filename=path.name)
+                    older = backup / f"{path.stem}.previous"
+                    older_tmp = backup / f".{path.stem}.previous.new"
+                    older_tmp.write_text(old, encoding="utf-8")
+                    older_tmp.replace(older)
+                temporary = backup / f".{path.stem}.new"
+                temporary.write_text(source, encoding="utf-8")
+                temporary.replace(previous)
+        except (OSError, UnicodeError, InvalidValue) as err:
+            failures[path.name] = str(err)
+            previous = backup / path.name
+            try:
+                if previous.is_file() and not previous.is_symlink():
+                    model, name, groups = parse_profile(
+                        previous.read_text(encoding="utf-8"), filename=path.name
+                    )
+                    result[model] = name, groups
+            except OSError, UnicodeError, InvalidValue:
+                pass
+    if backup.is_dir():
+        for path in sorted(backup.glob("*.yaml")):
+            if path.name in {f"{model}.yaml" for model in result} or path.is_symlink():
+                continue
+            try:
+                model, name, groups = parse_profile(
+                    path.read_text(encoding="utf-8"), filename=path.name
+                )
+                result[model] = name, groups
+                failures[path.name] = "active_profile_missing_using_last_valid"
+            except OSError, UnicodeError, InvalidValue:
+                pass
+    return result, failures
+
+
+def install_local_profiles(root: Path):
+    """Refresh installed models, retaining built-ins and valid local snapshots."""
+    local, failures = load_local_profiles(root)
+    PROFILES.clear()
+    PROFILES.update(BUILTIN_PROFILES)
+    MODEL_NAMES.clear()
+    MODEL_NAMES.update(BUILTIN_NAMES)
+    for model, (name, groups) in local.items():
+        PROFILES[model] = groups
+        MODEL_NAMES[model] = name
+    return failures
+
+
 # (physical minimum, maximum, raw units per physical unit for input/output)
 MODES = {
     "0_10v": (0.0, 10.0, 5000.0, 5000.0, "V"),

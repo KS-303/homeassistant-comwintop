@@ -23,6 +23,7 @@ class UnitCoordinator(DataUpdateCoordinator):
         self.subentry, self.unit, self.bus_lock = subentry, unit, bus_lock
         self.settings = dict(subentry.data)
         self.model = self.settings["model"]
+        self.groups = tuple(PROFILES[self.model])
         self.uid = self.settings["device_uid"]
         self.intervals = DEFAULT_INTERVALS | self.settings.get("intervals", {})
         self.samples = {key: Sample() for key, _, _ in channels(self.model)}
@@ -34,11 +35,11 @@ class UnitCoordinator(DataUpdateCoordinator):
         self._poll_task = None
         self._age_task = None
         self._stopping = False
-        self._next = {group.kind: 0.0 for group in PROFILES[self.model]}
+        self._next = {group.kind: 0.0 for group in self.groups}
         # A split plan is retained on register exceptions. One request per turn,
         # with finite splitting depth, no unbounded recursive bus burst.
-        self._blocks = {g.kind: [(0, g.count)] for g in PROFILES[self.model]}
-        self._positions = {g.kind: 0 for g in PROFILES[self.model]}
+        self._blocks = {g.kind: [(0, g.count)] for g in self.groups}
+        self._positions = {g.kind: 0 for g in self.groups}
         self._last_available = None
         self._unsubscribe = unit.on_connection_lost(self.connection_lost)
         unit.set_message_spacing(0.01)
@@ -91,7 +92,7 @@ class UnitCoordinator(DataUpdateCoordinator):
             await asyncio.sleep(0.5)
 
     async def _poll(self):
-        groups = PROFILES[self.model]
+        groups = self.groups
         while True:
             now = time.monotonic()
             due = min(groups, key=lambda group: self._next[group.kind])

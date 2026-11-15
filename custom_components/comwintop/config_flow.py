@@ -14,9 +14,33 @@ from modbus_connection.exceptions import ModbusError
 
 from .const import DEFAULT_INTERVALS, DOMAIN, MIN_INTERVALS
 from .model import revise_device, validate_device
-from .profiles import MODEL_NAMES, MODES, PROFILES, channels
+from .profiles import (
+    BUILTIN_PROFILES,
+    MODEL_NAMES,
+    MODES,
+    PROFILES,
+    channels,
+    install_local_profiles,
+)
 from .transport import MODES as TRANSPORTS
 from .transport import endpoint_key, params_from
+
+CHANNEL_LABELS = {
+    "de": {
+        "temperature": "Temperaturkanal",
+        "di": "Digitaler Eingang",
+        "do": "Digitaler Ausgang",
+        "ai": "Analoger Eingang",
+        "ao": "Analoger Ausgang",
+    },
+    "en": {
+        "temperature": "Temperature channel",
+        "di": "Digital input",
+        "do": "Digital output",
+        "ai": "Analog input",
+        "ao": "Analog output",
+    },
+}
 
 
 def select(options, translation_key=None):
@@ -140,6 +164,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 class DeviceFlow(config_entries.ConfigSubentryFlow):
     async def async_step_user(self, user_input=None):
+        await self.hass.async_add_executor_job(
+            install_local_profiles, self.hass.config.path("comwintop")
+        )
         errors = {}
         if user_input is not None:
             entry = self._get_entry()
@@ -147,27 +174,22 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                 errors["base"] = "duplicate_unit"
             elif not user_input.get("acknowledge_beta"):
                 errors["base"] = "acknowledge_required"
+            elif user_input["model"] not in BUILTIN_PROFILES:
+                self._pending_device = {
+                    key: value for key, value in user_input.items() if key != "acknowledge_beta"
+                }
+                self._preview_groups = tuple(PROFILES[self._pending_device["model"]])
+                return await self.async_step_profile_preview()
             else:
                 data = {
                     key: value for key, value in user_input.items() if key != "acknowledge_beta"
                 }
-                data |= {
-                    "device_uid": str(uuid4()),
-                    "connection_uid": entry.data["connection_uid"],
-                    "intervals": dict(DEFAULT_INTERVALS),
-                    "channels": {},
-                }
                 try:
-                    validate_device(data)
-                    await probe(self.hass, entry.data, data)
+                    return await self._create_device(data)
                 except ModbusError, TimeoutError, HomeAssistantError:
                     errors["base"] = "cannot_connect"
                 except ValueError, KeyError:
                     errors["base"] = "invalid_device"
-                else:
-                    return self.async_create_entry(
-                        title=data["name"], data=data, unique_id=data["device_uid"]
-                    )
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
@@ -184,6 +206,48 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
             ),
             errors=errors,
         )
+
+    async def async_step_profile_preview(self, user_input=None):
+        data = self._pending_device
+        groups = self._preview_groups
+        errors = {}
+        if user_input is not None:
+            if not user_input["confirm"] or tuple(PROFILES.get(data["model"], ())) != groups:
+                errors["base"] = "invalid_device"
+            else:
+                try:
+                    return await self._create_device(data)
+                except ModbusError, TimeoutError, HomeAssistantError:
+                    errors["base"] = "cannot_connect"
+                except ValueError, KeyError:
+                    errors["base"] = "invalid_device"
+        return self.async_show_form(
+            step_id="profile_preview",
+            data_schema=vol.Schema({vol.Required("confirm", default=False): bool}),
+            errors=errors,
+            description_placeholders={
+                "model": MODEL_NAMES[data["model"]],
+                "reads": "; ".join(
+                    f"{group.kind}: {group.method} {group.start}–{group.start + group.count - 1}"
+                    for group in groups
+                ),
+            },
+        )
+
+    async def _create_device(self, data):
+        entry = self._get_entry()
+        if any(s.data["unit_id"] == data["unit_id"] for s in entry.subentries.values()):
+            raise ValueError("duplicate_unit")
+        data = dict(data)
+        data |= {
+            "device_uid": str(uuid4()),
+            "connection_uid": entry.data["connection_uid"],
+            "intervals": dict(DEFAULT_INTERVALS),
+            "channels": {},
+        }
+        validate_device(data)
+        await probe(self.hass, entry.data, data)
+        return self.async_create_entry(title=data["name"], data=data, unique_id=data["device_uid"])
 
     async def async_step_reconfigure(self, user_input=None):
         self._sub = self._get_reconfigure_subentry()
@@ -247,15 +311,20 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
         if user_input is not None:
             self._channel = user_input["channel"]
             return await self.async_step_channel_settings()
+        model = sub.data["model"]
+        if model in BUILTIN_PROFILES:
+            channel_selector = select([key for key, _, _ in channels(model)], "channel")
+        else:
+            labels = CHANNEL_LABELS["de" if self.hass.config.language == "de" else "en"]
+            channel_selector = select(
+                [
+                    {"value": key, "label": f"{labels[group.kind]} {index + 1}"}
+                    for key, group, index in channels(model)
+                ]
+            )
         return self.async_show_form(
             step_id="channel",
-            data_schema=vol.Schema(
-                {
-                    vol.Required("channel"): select(
-                        [key for key, _, _ in channels(sub.data["model"])], "channel"
-                    )
-                }
-            ),
+            data_schema=vol.Schema({vol.Required("channel"): channel_selector}),
         )
 
     async def async_step_channel_settings(self, user_input=None):

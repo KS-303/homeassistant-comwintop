@@ -1,10 +1,11 @@
 # ComWinTop for Home Assistant
 
-**0.1.0b2 – ausschließlich lesende Beta-Version.** Die veröffentlichte
+**0.1.0b3 – ausschließlich lesende Entwicklungsversion.** Die veröffentlichte
 Version 0.1.0b1 bleibt für den laufenden Hardwaretest verfügbar.
 
 Lokale Modbus-I/O-Integration für CWT-TM-32DS und CWT-MB308N. Gateways und
-USB-RS485-Adapter sind herstellerunabhängig; Einrichtung ohne Register-YAML.
+USB-RS485-Adapter sind herstellerunabhängig. Für die beiden mitgelieferten
+Modelle ist keine Register-YAML erforderlich.
 Keine Cloud, keine Anlagenregelung, keine Sicherheitssteuerung.
 
 ## Stand
@@ -16,6 +17,8 @@ Keine Cloud, keine Anlagenregelung, keine Sicherheitssteuerung.
 - Stabile Geräte-UUIDs, Kanalqualität, Ablauf veralteter Daten, anonymisierte Diagnose.
 - Ausgeschriebene Kanalnamen in Deutsch und Englisch; eigenes Integrationsicon
   mit dem Projekthandle KS-303.
+- Weitere kompatible Modelle über lokal gespeicherte, strikt geprüfte YAML-Profile;
+  Profilvorschau vor dem Anlegen eines Geräts, ohne automatische Veröffentlichung.
 - **Keine produktiven Schreibentitäten oder Schreibdienste.** Hardwaretests und
   ein nachgewiesenes Busy-Retry des HA-Unterbaus verhindern derzeit deren Freigabe.
 
@@ -50,6 +53,23 @@ vollständiger Neustart erforderlich.
 Die Beta wird manuell per ZIP installiert. Eine Aufnahme in den HACS-Katalog
 ist noch nicht erfolgt.
 [Schrittweiser HA-Test](docs/ha_test_plan.md).
+
+## Weitere Geräteprofile lokal pflegen
+
+Ein eigenes Modellprofil liegt als `/config/comwintop/profiles/<modellkennung>.yaml`
+in Home Assistant, außerhalb der Integrationsdateien. Die Kennung im Inhalt muss
+dem Dateinamen entsprechen. Das Format, die zulässigen Decoder und die Grenzen
+stehen in [Lokale Geräteprofile](docs/local_profiles.md). Die Integration liest
+Profile beim Start sowie beim Öffnen von „Gerät hinzufügen“. Änderungen an einem
+bereits eingerichteten Gerät erfordern einen Neustart. Vor dem Anlegen zeigt HA
+die Lesezugriffe und führt nach Bestätigung einen Lesetest aus. Der Test erkennt
+das Modell und die korrekte Registerdeutung nicht selbstständig.
+
+Eine fehlerhafte Datei wird abgewiesen; die letzte **syntaktisch validierte**
+Fassung bleibt lokal unter `/config/comwintop/last_valid/` erhalten. Bei einer
+gültigen Änderung wird dort zusätzlich eine vorherige Fassung mit Endung
+`.previous` gesichert. Die Sicherung ist keine Hardwarefreigabe. Profile geben
+keine Schreibfunktionen frei; sensible Verbindungsdaten gehören nicht hinein.
 
 ## Entwicklung / Tests
 

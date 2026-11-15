@@ -36,7 +36,9 @@ def check():
         tree = ast.parse(path.read_text(), filename=str(path))
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-                assert not node.func.attr.startswith("write_"), (path, node.lineno)
+                assert not (
+                    node.func.attr.startswith("write_") and node.func.attr != "write_text"
+                ), (path, node.lineno)
     for name in ("switch", "number"):
         tree = ast.parse((COMPONENT / f"{name}.py").read_text())
         assert not any(isinstance(node, ast.ClassDef) for node in ast.walk(tree))

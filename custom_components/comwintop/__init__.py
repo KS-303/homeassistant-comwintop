@@ -12,6 +12,7 @@ from homeassistant.exceptions import ConfigEntryError
 from .const import PLATFORMS
 from .coordinator import UnitCoordinator
 from .model import validate_device
+from .profiles import install_local_profiles
 from .transport import params_from
 
 _LOGGER = logging.getLogger(__name__)
@@ -24,6 +25,11 @@ class Runtime:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    failures = await hass.async_add_executor_job(
+        install_local_profiles, hass.config.path("comwintop")
+    )
+    for filename, reason in failures.items():
+        _LOGGER.warning("Local ComWinTop profile %s rejected: %s", filename, reason)
     params = await hass.async_add_executor_job(params_from, dict(entry.data))
     lock = asyncio.Lock()
     coordinators = {}
