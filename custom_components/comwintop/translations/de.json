@@ -129,7 +129,8 @@
           "data": {
             "target_id": "Neue Slave-ID (1–247)",
             "isolated": "Ich bestätige: physisch isolierter Bus mit einem einzigen TM-32DS",
-            "understand_retry": "Ich akzeptiere das Risiko mehrfacher FC06-Telegramme bei Busy."
+            "understand_retry": "Ich akzeptiere das Risiko mehrfacher FC06-Telegramme bei Busy.",
+            "lab_notice": "Wichtiger Hinweis (nur Anzeige, dieser Text kann den Test nicht ändern)"
           }
         },
         "address_test_confirm": {
