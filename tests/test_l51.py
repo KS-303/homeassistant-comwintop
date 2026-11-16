@@ -130,8 +130,14 @@ async def test_ha_inspection_reads_once_and_never_writes(hass):
         markers = {marker.schema: marker for marker in flow["data_schema"].schema}
         selectors = {marker.schema: value for marker, value in flow["data_schema"].schema.items()}
         assert set(markers) == {
-            "address", "configured_address", "raw", "baudrate", "parity",
-            "databits", "stopbits", "status"
+            "address",
+            "configured_address",
+            "raw",
+            "baudrate",
+            "parity",
+            "databits",
+            "stopbits",
+            "status",
         }
         expected = {
             "address": "1",
