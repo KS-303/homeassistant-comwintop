@@ -17,10 +17,16 @@ from .wire import Simulator
 @pytest.mark.parametrize(
     ("interval", "failures", "expected"),
     [
-        (2, 0, 2), (2, 1, 4), (2, 5, 30),
-        (15, 1, 30), (15, 5, 30),
-        (30, 1, 30), (60, 1, 60), (300, 1, 300),
-        (3600, 1, 3600), (3600, 5, 3600),
+        (2, 0, 2),
+        (2, 1, 4),
+        (2, 5, 30),
+        (15, 1, 30),
+        (15, 5, 30),
+        (30, 1, 30),
+        (60, 1, 60),
+        (300, 1, 300),
+        (3600, 1, 3600),
+        (3600, 5, 3600),
     ],
 )
 def test_transient_retry_never_accelerates_slow_channel(interval, failures, expected):
@@ -53,8 +59,10 @@ async def test_invalid_configuration_is_not_retried(hass):
         from custom_components.comwintop.profiles import InvalidValue
 
         original = module.validate_device
+
         def invalid(_):
             raise InvalidValue("invalid_scale")
+
         module.validate_device = invalid
         try:
             with pytest.raises(ConfigEntryError):
