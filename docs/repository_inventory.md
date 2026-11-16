@@ -14,7 +14,11 @@ erneut mit GitHub vergleichen. Keine Branches und keine Historie umgeschrieben.
 | `feature/l51-no-retry-upstream-proposal` | `56c08c66` | PR #2; getrennte Upstream-Entwürfe | [#3](https://github.com/KS-303/homeassistant-comwintop/pull/3), Draft |
 | `feature/l51-upstream-wire-review` | `79fc0cfb` | PR #3 → `771070cd` PTY → `a8ec5145` Cancellation → Review | [#4](https://github.com/KS-303/homeassistant-comwintop/pull/4), Draft |
 
-Vier offene Pull Requests sind Drafts; keine eigenständigen offenen Issues.
+Bei der ersten Bestandsaufnahme waren vier Draft-PRs und keine eigenständigen
+offenen Issues vorhanden. Für die zwei konkret offenen Hardwareabnahmen wurden
+anschließend [#6](https://github.com/KS-303/homeassistant-comwintop/issues/6)
+und [#7](https://github.com/KS-303/homeassistant-comwintop/issues/7)
+angelegt. Der Aufbereitungs-Draft ist [#5](https://github.com/KS-303/homeassistant-comwintop/pull/5).
 Einziger Release und Tag: `v0.1.0b1`, beide auf `ce208393`, zwei Release-Dateien.
 Die letzte PR-#4-Actions-Ausführung (`43865376760`) war erfolgreich. Diese
 Ausführung deckt die Upstream-PTY-Skripte noch nicht als eigenen CI-Job ab.

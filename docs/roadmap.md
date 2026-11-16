@@ -9,7 +9,9 @@
 | DO/AO | Transport-No-Retry, 2-s-Frist direkt vor Senden, Grenzen, Readback und kein Sollwert-Replay unabhängig nachweisen | Produktive Writes gesperrt |
 | Veröffentlichung/HACS | Lizenz, Privacy-Audit der gesamten Historie, Brands-Eintrag und HACS-Prüfungen | Separate Freigabe nötig |
 
-72-h-TM-32DS/Waveshare- und MB308N-Abnahme bleiben bewusst sichtbar offen.
-Neue Issues erst anlegen, wenn ein konkreter Testtermin oder ein klarer
-Verantwortlicher vorhanden ist. Die vorhandenen vier Draft-PRs erfassen
-bereits ihre Entwicklungsarbeit; keine Doppel-Issues erzeugen.
+72-h-TM-32DS/Waveshare-Abnahme ist als
+[Issue #7](https://github.com/KS-303/homeassistant-comwintop/issues/7) offen;
+MB308N-Abnahme als
+[Issue #6](https://github.com/KS-303/homeassistant-comwintop/issues/6).
+Die vorhandenen Draft-PRs erfassen bereits die Entwicklungsarbeit; keine
+weiteren Doppel-Issues erzeugen.
