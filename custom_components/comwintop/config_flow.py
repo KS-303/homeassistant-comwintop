@@ -379,9 +379,7 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
         }
         validate_device(data)
         if data["model"] == "tm_32ds":
-            data["channels"] = await scan_tm32ds_channels(
-                self.hass, entry.data, data["unit_id"]
-            )
+            data["channels"] = await scan_tm32ds_channels(self.hass, entry.data, data["unit_id"])
         else:
             await probe(self.hass, entry.data, data)
         validate_device(data)
