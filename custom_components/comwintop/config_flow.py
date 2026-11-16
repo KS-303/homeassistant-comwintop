@@ -412,9 +412,7 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                 try:
                     first = integral_seconds(user_input["first"])
                     last = integral_seconds(user_input["last"])
-                    updated = set_temperature_range_enabled(
-                        dict(sub.data), first, last, enabled
-                    )
+                    updated = set_temperature_range_enabled(dict(sub.data), first, last, enabled)
                 except (ValueError, vol.Invalid):
                     errors["base"] = "invalid_channel_range"
                 else:
@@ -432,14 +430,10 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
         )
 
     async def async_step_disable_temperature_range(self, user_input=None):
-        return await self._temperature_range_form(
-            "disable_temperature_range", False, user_input
-        )
+        return await self._temperature_range_form("disable_temperature_range", False, user_input)
 
     async def async_step_enable_temperature_range(self, user_input=None):
-        return await self._temperature_range_form(
-            "enable_temperature_range", True, user_input
-        )
+        return await self._temperature_range_form("enable_temperature_range", True, user_input)
 
     async def async_step_communication(self, user_input=None):
         """Read fresh register 16 and show each value in its own locked field."""
