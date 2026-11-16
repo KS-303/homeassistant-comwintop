@@ -55,8 +55,10 @@ class UnitCoordinator(DataUpdateCoordinator):
         self._pending = deque()
         self._known_bad = set()
         self._last_available = None
-        self._unsubscribe = unit.on_connection_lost(self.connection_lost)
+        # Register the listener last so a rejected unit setting cannot leak
+        # a live callback from a partially constructed coordinator.
         unit.set_message_spacing(0.01)
+        self._unsubscribe = unit.on_connection_lost(self.connection_lost)
         self.data = self.samples
 
     def options(self, key):
