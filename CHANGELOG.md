@@ -1,5 +1,12 @@
 # Änderungen
 
+## 0.1.0b7 (HA-Dialog-Reparatur, Labor, kein Release)
+
+- Fehler aus dem realen HA-2026.11-UI-Video korrigiert: Die Kommunikationsdaten werden zusätzlich als sichtbarer Textfeldwert ausgegeben, selbst wenn HA den Beschreibungstext nicht lädt.
+- Experimentelle TM-32DS-Adressänderung nutzt ein Zahleneingabefeld statt 247er-Schieberegler. Ein sichtbarer Warnhinweis und die zweite Bestätigung enthalten Adressen und Registerrohwerte auch bei fehlender Beschreibungstranslation.
+- Deutsche/englische Übersetzungsschlüssel und Tests erweitert; nur eine physisch isolierte TM-32DS-Slave-ID-Änderung bleibt als Schreib-Laborversuch erlaubt.
+- Kein produktives FC06-No-Retry und keine DO-/AO-Ausgangsschreibfunktion. Die 0.1.0b6-Testbasis bleibt unverändert; b7 wird separat überprüft.
+
 ## 0.1.0b6 (TM-32DS-FC06-Labortest, nicht freigegeben)
 
 - Über HA ist eine **experimentelle Änderung der TM-32DS-Slave-ID** auf einem ausdrücklich bestätigten, physisch isolierten Ein-Geräte-Bus testbar.
