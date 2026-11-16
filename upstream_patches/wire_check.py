@@ -44,7 +44,7 @@ async def exercise(mode, fc, fault):
         else:
             try:
                 await operations[fc]()
-            except ModbusError, TimeoutError:
+            except (ModbusError, TimeoutError):
                 pass
             else:
                 raise AssertionError((mode, fc, fault, "expected failure"))
@@ -87,7 +87,7 @@ async def legacy_busy_retry_still_exists():
         try:
             async with asyncio.timeout(1.4):
                 await connection.for_unit(1).write_register(16, 0x0204)
-        except ModbusError, TimeoutError:
+        except (ModbusError, TimeoutError):
             pass
         assert len([r for r in sim.trace if r[1] == 6]) >= 2
     finally:
@@ -109,7 +109,7 @@ async def cancelled_write_never_replays(backend):
         task.cancel()
         try:
             await task
-        except asyncio.CancelledError, ModbusError:
+        except (asyncio.CancelledError, ModbusError):
             pass
         else:
             raise AssertionError("write was not cancelled")
