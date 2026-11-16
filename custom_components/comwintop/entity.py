@@ -13,7 +13,7 @@ class ChannelEntity(CoordinatorEntity):
 
     def __init__(self, coordinator, key, group, index):
         super().__init__(coordinator)
-        self.key, self.group, self.index = key, group, index
+        self.key, self.channel_group, self.index = key, group, index
         self._attr_unique_id = f"{coordinator.uid}_{key}"
         self._attr_translation_key = group.kind
         self._attr_translation_placeholders = {"channel": str(index + 1)}
