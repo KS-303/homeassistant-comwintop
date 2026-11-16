@@ -15,10 +15,12 @@ def params_from(data):
         path = data["device"]
         if not path.startswith("/dev/") or ".." in path.split("/"):
             raise ValueError("invalid_serial_path")
-        # Resolve by-id aliases so two spellings do not create two masters.
+        # Resolve by-id aliases, but never allow them to escape /dev.
         path = os.path.realpath(path)
+        if not path.startswith("/dev/") or os.path.commonpath(("/dev", path)) != "/dev":
+            raise ValueError("invalid_resolved_serial_path")
     else:
-        host = data["host"].strip()
+        host = data["host"].strip().lower()
         if not host or any(c.isspace() for c in host) or any(c in host for c in "/@?#"):
             raise ValueError("invalid_host")
         port = int(data["port"])
