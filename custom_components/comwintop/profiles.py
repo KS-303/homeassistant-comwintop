@@ -157,7 +157,7 @@ def load_local_profiles(root: Path):
                         previous.read_text(encoding="utf-8"), filename=path.name
                     )
                     result[model] = name, groups
-            except OSError, UnicodeError, InvalidValue:
+            except (OSError, UnicodeError, InvalidValue):
                 pass
     if backup.is_dir():
         for path in sorted(backup.glob("*.yaml")):
@@ -169,7 +169,7 @@ def load_local_profiles(root: Path):
                 )
                 result[model] = name, groups
                 failures[path.name] = "active_profile_missing_using_last_valid"
-            except OSError, UnicodeError, InvalidValue:
+            except (OSError, UnicodeError, InvalidValue):
                 pass
     return result, failures
 
