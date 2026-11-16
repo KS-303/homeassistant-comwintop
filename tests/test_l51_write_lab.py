@@ -79,6 +79,7 @@ async def test_tm32ds_lab_write_change_id_and_preserve_subentry(hass):
         )
         assert flow["type"] == "abort", flow
         assert flow["reason"] == "reconfigure_successful", flow
+        await hass.async_block_till_done()
         assert entry.subentries[sub.subentry_id].unique_id == old_unique_id
         assert entry.subentries[sub.subentry_id].data["unit_id"] == 2
         assert len([call for call in simulator.trace if call[1] == 6]) == 1
