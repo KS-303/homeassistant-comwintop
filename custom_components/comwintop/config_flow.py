@@ -594,11 +594,13 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
             return await self.async_step_channel_settings()
         model = sub.data["model"]
         labels = CHANNEL_LABELS[ui_language(self.hass)]
-        channel_selector = select(
-            [
-                {"value": key, "label": f"{labels[group.kind]} {index + 1}"}
+        # A labeled membership validator serializes to a native HA dropdown.
+        # Values remain stable internal IDs (e.g. temperature_3), not labels.
+        channel_selector = vol.In(
+            {
+                key: f"{labels[group.kind]} {index + 1}"
                 for key, group, index in channels(model)
-            ]
+            }
         )
         return self.async_show_form(
             step_id="channel",
@@ -619,8 +621,11 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                 selected.pop("poll_interval", None)
             elif mode != "individual" or selected.get("poll_interval") is None:
                 errors["base"] = "invalid_interval"
-            elif type(selected["poll_interval"]) is not int:
-                errors["base"] = "invalid_interval"
+            else:
+                try:
+                    selected["poll_interval"] = integral_seconds(selected["poll_interval"])
+                except vol.Invalid:
+                    errors["base"] = "invalid_interval"
             channel_options = dict(options) | selected
             if mode == "standard":
                 channel_options.pop("poll_interval", None)
@@ -656,7 +661,7 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                     else {}
                 ),
             ): vol.All(
-                integral_seconds,
+                vol.Coerce(float),
                 vol.Range(min=MIN_INTERVALS[kind], max=3600),
             ),
         }
