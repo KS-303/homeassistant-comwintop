@@ -270,8 +270,11 @@ class UnitCoordinator(DataUpdateCoordinator):
             # Serial late replies must not remain buffered for the next request.
             # This briefly interrupts the shared bus, not just the failed unit.
             if self.config_entry.data["transport"] in ("serial", "rtu_tcp"):
-                with suppress(ModbusConnectionError):
-                    await self.unit.disconnect()
+                # Never close the shared transport while another unit is
+                # actively exchanging a frame on the same ComWinTop bus.
+                async with self.bus_lock:
+                    with suppress(ModbusConnectionError):
+                        await self.unit.disconnect()
                 await asyncio.sleep(0.1)
         except asyncio.CancelledError:
             raise
@@ -283,9 +286,16 @@ class UnitCoordinator(DataUpdateCoordinator):
                 self.samples[key].fail(type(err).__name__)
         if not split and not recovery:
             completed = time.monotonic()
-            backoff = min(30, 2 ** min(self.failures, 5)) if self.failures else 1
             for key in keys:
-                self._next[key] = completed + self.interval(key) * backoff
+                # Bound the *absolute* delay after a device exception to 30 s.
+                # A Busy reply on a slow polling channel must not schedule
+                # hundreds of seconds of unavailability.
+                retry_delay = (
+                    min(30, self.interval(key) * 2 ** min(self.failures, 5))
+                    if self.failures
+                    else self.interval(key)
+                )
+                self._next[key] = completed + retry_delay
         self.async_set_updated_data(self.samples)
 
     async def _async_update_data(self):
