@@ -11,6 +11,7 @@ async def async_get_config_entry_diagnostics(hass, entry):
         "transport": entry.data["transport"],
         "hardware_validated": False,
         "writes": "locked",
+        "experimental_fc06_address_write": "disabled",
         "devices": [
             {
                 "model": unit.model,
