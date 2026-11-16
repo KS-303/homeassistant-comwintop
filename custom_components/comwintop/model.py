@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 from .const import DEFAULT_INTERVALS, MIN_INTERVALS, STALE_FACTOR
 from .profiles import MODES, InvalidValue, channels, finite
@@ -26,6 +27,8 @@ class Sample:
     raw_received: float | None = None
     error: str | None = None
     invalid: bool = False
+    successful_reads: int = 0
+    last_successful_read_utc: str | None = None
 
     def available(self, now, interval):
         return (
@@ -36,6 +39,8 @@ class Sample:
 
     def accept(self, value, raw, now):
         self.value, self.raw, self.received = value, raw, now
+        self.successful_reads += 1
+        self.last_successful_read_utc = datetime.now(timezone.utc).isoformat()
         self.raw_received = now
         self.error, self.invalid = None, False
 
