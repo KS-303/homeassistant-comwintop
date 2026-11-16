@@ -509,8 +509,7 @@ async def test_actual_wire_cadence_for_three_temperature_intervals(hass, sim):
     c = next(iter(entry.runtime_data.units.values()))
     await wait_for(lambda: c.available("temperature_3"))
     initial = {
-        key: c.samples[key].received
-        for key in ("temperature_1", "temperature_2", "temperature_3")
+        key: c.samples[key].received for key in ("temperature_1", "temperature_2", "temperature_3")
     }
     async with asyncio.timeout(12):
         while c.samples["temperature_1"].successful_reads < 2:  # noqa: ASYNC110
