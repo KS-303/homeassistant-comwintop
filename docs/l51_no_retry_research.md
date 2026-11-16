@@ -66,7 +66,7 @@ Cancellation teilweise als `ModbusTimeoutError`; der Wire-Trace blieb
 eindeutig. Ein tatsächlicher HA-Prozessneustart während eines unbestätigten
 Write ist weiterhin **nicht** nachgewiesen.
 
-## Zwei-Sekunden-Frist
+## Zwei-Sekunden-Frist für DO/AO, nicht für L-51a
 
 Der ComWinTop-WriteManager verwendet eine monotone Frist von zwei Sekunden
 und einen `guard()`. `retry=False` reicht diesen Guard nicht zum tatsächlichen
@@ -76,7 +76,9 @@ optionales `before_send` oder `expires_at`, das **unter dem gemeinsamen
 Transportlock unmittelbar vor dem physischen Send** geprüft wird. Unbekannte
 Backends müssen dabei fail-closed reagieren. Der hier vorliegende Patch
 enthält diesen Hook noch nicht. Deadline-Tests mit belegtem Lock und
-Connect-Verzögerung sind offen. Die 2-s-Frist darf nicht als erfüllt gelten.
+Connect-Verzögerung sind offen. Diese Frist gilt für spätere produktive
+DO-/AO-Schaltbefehle und ist kein Blocker der manuellen L-51a-Parametrierung.
+Deren [Vorprüfung und Bestätigung](l51a_address_change.md) sind getrennt.
 
 ## Offizielle Upstream-Repositories und Versionen
 
@@ -111,3 +113,4 @@ Wire-Tests einschließlich serieller PTY und pymodbus, tatsächlicher
 HA-Neustart während unklarer Änderung, Buskonfliktprüfung, expliziter
 Bestätigungsdialog, Leseverifikation an alter/neuer ID und isolierter
 TM-32DS-Hardwaretest. Bis dahin bleibt `write_enabled=False`.
+Die [Blocker](l51_blockers.md) für L-51a, L-51b und DO/AO sind getrennt.
