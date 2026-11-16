@@ -82,7 +82,6 @@ def validate_device(data):
                 raise InvalidValue("invalid_scale")
 
 
-
 def disable_temperature_range(old, first: int, last: int):
     """Disable an explicitly chosen range; never infer wiring from unavailable values.
 
@@ -91,11 +90,7 @@ def disable_temperature_range(old, first: int, last: int):
     """
     if old.get("model") != "tm_32ds":
         raise InvalidValue("bulk_disable_not_supported")
-    if (
-        type(first) is not int
-        or type(last) is not int
-        or not 1 <= first <= last <= 32
-    ):
+    if type(first) is not int or type(last) is not int or not 1 <= first <= last <= 32:
         raise InvalidValue("invalid_channel_range")
     updated = deepcopy(old)
     settings = updated.setdefault("channels", {})
