@@ -83,8 +83,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             raise
         if isinstance(err, (InvalidValue, ValueError, KeyError, TypeError)):
             raise ConfigEntryError("Invalid ComWinTop configuration") from err
-        if isinstance(err, (ModbusError, TimeoutError, ConnectionError, OSError, HomeAssistantError)):
-            raise ConfigEntryNotReady("ComWinTop Modbus service is temporarily unavailable") from err
+        if isinstance(
+            err, (ModbusError, TimeoutError, ConnectionError, OSError, HomeAssistantError)
+        ):
+            raise ConfigEntryNotReady(
+                "ComWinTop Modbus service is temporarily unavailable"
+            ) from err
         raise ConfigEntryError("ComWinTop setup failed") from err
 
     entry.async_on_unload(entry.add_update_listener(async_update_entry))
