@@ -1,0 +1,118 @@
+--- a/tmodbus/client/async_client.py
++++ b/tmodbus/client/async_client.py
+@@ -137,7 +137,7 @@
+         """Close the server connection."""
+         await self.transport.close()
+ 
+-    async def execute(self, pdu: BaseClientPDU[RT]) -> RT:
++    async def execute(self, pdu: BaseClientPDU[RT], *, retry: bool = True) -> RT:
+         """Execute PDU Request.
+ 
+         Args:
+@@ -149,6 +149,8 @@
+             InvalidResponseError: If response is invalid or does not match request
+ 
+         """
++        if not retry:
++            return await self.transport.send_and_receive_once(self.unit_id, pdu)
+         return await self.transport.send_and_receive(self.unit_id, pdu)
+ 
+     async def read_coils(
+@@ -252,6 +254,8 @@
+         self,
+         address: int,
+         value: bool,  # noqa: FBT001
++        *,
++        retry: bool = True,
+     ) -> bool:
+         """Write Single Coil (Function Code 0x05).
+ 
+@@ -269,12 +273,14 @@
+                 await client.write_single_coil(0, True)  # Write ON to coil 0
+ 
+         """
+-        return await self.execute(WriteSingleCoilPDU(address, value))
++        return await self.execute(WriteSingleCoilPDU(address, value), retry=retry)
+ 
+     async def write_single_register(
+         self,
+         address: int,
+         value: int,
++        *,
++        retry: bool = True,
+     ) -> int:
+         """Write Single Register (Function Code 0x06).
+ 
+@@ -291,7 +297,7 @@
+                 await client.write_single_register(0, 1234)  # Write 1234 to register 0
+ 
+         """
+-        return await self.execute(WriteSingleRegisterPDU(address, value))
++        return await self.execute(WriteSingleRegisterPDU(address, value), retry=retry)
+ 
+     async def read_exception_status(self) -> int:
+         """Read Exception Status (Function Code 0x07).
+@@ -312,6 +318,8 @@
+         self,
+         start_address: int,
+         values: list[bool],
++        *,
++        retry: bool = True,
+     ) -> int:
+         """Write Multiple Coils (Function Code 0x0F).
+ 
+@@ -329,12 +337,14 @@
+                 await client.write_multiple_coils(0, [True, False, True, False])
+ 
+         """
+-        return await self.execute(WriteMultipleCoilsPDU(start_address, values))
++        return await self.execute(WriteMultipleCoilsPDU(start_address, values), retry=retry)
+ 
+     async def write_multiple_registers(
+         self,
+         start_address: int,
+         values: list[int],
++        *,
++        retry: bool = True,
+     ) -> int:
+         """Write Multiple Registers (Function Code 0x10).
+ 
+@@ -352,7 +362,7 @@
+                 await client.write_multiple_registers(0, [1234, 5678, 9012])
+ 
+         """
+-        return await self.execute(WriteMultipleRegistersPDU(start_address, values))
++        return await self.execute(WriteMultipleRegistersPDU(start_address, values), retry=retry)
+ 
+     async def read_server_id(self) -> "ServerIdResponse":
+         """Read Server ID (Function Code 0x11).
+--- a/tmodbus/transport/async_base.py
++++ b/tmodbus/transport/async_base.py
+@@ -104,6 +104,10 @@
+ 
+         """
+ 
++    async def send_and_receive_once(self, unit_id: int, pdu: BaseClientPDU[RT]) -> RT:
++        """Opt-in single-attempt API; unsupported transports fail closed."""
++        raise NotImplementedError("single-attempt transport is not supported")
++
+     async def __aenter__(self) -> Self:
+         """Async Context Manager Entry."""
+         await self.open()
+--- a/tmodbus/transport/async_smart.py
++++ b/tmodbus/transport/async_smart.py
+@@ -375,6 +375,14 @@
+             finally:
+                 self._last_request_finished_at = time.monotonic()
+ 
++    async def send_and_receive_once(self, unit_id: int, pdu: BaseClientPDU[RT]) -> RT:
++        """One attempt under the same communication lock; no retry strategy."""
++        async with self._communication_lock:
++            try:
++                return await self._reconnect_send_and_receive(unit_id, pdu)
++            finally:
++                self._last_request_finished_at = time.monotonic()
++
+     def _retry_with_new_connection_if_needed(self, retry_state: RetryCallState) -> bool:
+         """Retry with a new connection if the connection was lost."""
+         if retry_state.outcome and retry_state.outcome.failed:

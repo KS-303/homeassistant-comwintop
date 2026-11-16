@@ -166,3 +166,26 @@ async def test_inspection_fault_and_recovery_never_emit_fc06(hass, fault):
         assert not [call for call in sim.trace if call[1] == 6]
     finally:
         await sim.close()
+
+
+async def test_ha_reload_after_inspection_has_no_deferred_write(hass):
+    sim = await Simulator().start()
+    try:
+        sim.registers[1, 16] = 0x0104
+        entry = configured_entry(port=sim.port)
+        await hass.config_entries.async_add(entry)
+        await hass.async_block_till_done()
+        sub = next(iter(entry.subentries.values()))
+        flow = await hass.config_entries.subentries.async_init(
+            (entry.entry_id, "device"),
+            context={"source": "reconfigure", "subentry_id": sub.subentry_id},
+        )
+        await hass.config_entries.subentries.async_configure(
+            flow["flow_id"], {"next_step_id": "communication"}
+        )
+        assert await hass.config_entries.async_reload(entry.entry_id)
+        await hass.async_block_till_done()
+        assert not [call for call in sim.trace if call[1] in (5, 6, 15, 16)]
+        assert sub.data["unit_id"] == 1
+    finally:
+        await sim.close()
