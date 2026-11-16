@@ -67,7 +67,8 @@
             "channel": "Kanal konfigurieren",
             "intervals": "Abfrageintervalle",
             "communication": "Modbus-Kommunikation anzeigen",
-            "disable_temperature_range": "Temperaturkanäle gesammelt deaktivieren"
+            "disable_temperature_range": "Temperaturkanäle gesammelt deaktivieren",
+            "enable_temperature_range": "Temperaturkanäle gesammelt aktivieren"
           }
         },
         "device": {
@@ -137,6 +138,15 @@
             "first": "Erster Kanal (1–32)",
             "last": "Letzter Kanal (1–32)",
             "confirm": "Ich bestätige die Deaktivierung des gewählten Bereichs"
+          }
+        },
+        "enable_temperature_range": {
+          "title": "Temperaturkanäle gesammelt aktivieren",
+          "description": "Nur für CWT-TM-32DS. Gewählten Kanalbereich zum Lesen und Anzeigen aktivieren, auch wenn dort kein Fühler angeschlossen ist. Ohne gültigen Messwert bleibt der Kanal nicht verfügbar. Vorhandene Namen und Intervalle bleiben gespeichert. Kein Schreibzugriff auf das Gerät.",
+          "data": {
+            "first": "Erster Kanal (1–32)",
+            "last": "Letzter Kanal (1–32)",
+            "confirm": "Ich bestätige die Aktivierung des gewählten Bereichs"
           }
         }
       },
