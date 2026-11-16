@@ -4,7 +4,33 @@ import hashlib
 import json
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
-from check_package import COMPONENT, ROOT, check
+if __package__:
+    from .check_package import COMPONENT, ROOT, check
+else:
+    from check_package import COMPONENT, ROOT, check
+
+INSTALL_FILES = (
+    "__init__.py",
+    "binary_sensor.py",
+    "communication.py",
+    "config_flow.py",
+    "const.py",
+    "coordinator.py",
+    "diagnostics.py",
+    "entity.py",
+    "manifest.json",
+    "model.py",
+    "number.py",
+    "profiles.py",
+    "sensor.py",
+    "strings.json",
+    "switch.py",
+    "transport.py",
+    "translations/de.json",
+    "translations/en.json",
+    "brand/icon.png",
+    "brand/icon@2x.png",
+)
 
 
 def build():
@@ -13,11 +39,13 @@ def build():
     destination = ROOT / "dist"
     destination.mkdir(exist_ok=True)
     output = destination / f"comwintop-{version}-install.zip"
-    files = sorted(
-        p
-        for p in COMPONENT.rglob("*")
-        if p.suffix in (".py", ".json") or (p.parent == COMPONENT / "brand" and p.suffix == ".png")
-    )
+    # A strict allowlist keeps local profiles, untracked files and the dormant
+    # WriteManager prototype out of a read-only HA installation package.
+    files = [COMPONENT / relative for relative in INSTALL_FILES]
+    for path in files:
+        assert path.is_file() and not any(
+            candidate.is_symlink() for candidate in (COMPONENT, path.parent, path)
+        ), path
     with ZipFile(output, "w", compression=ZIP_DEFLATED) as archive:
         for path in files:
             info = ZipInfo(path.relative_to(ROOT).as_posix(), (2026, 11, 15, 0, 0, 0))

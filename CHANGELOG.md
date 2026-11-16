@@ -1,5 +1,15 @@
 # Änderungen
 
+## 0.1.0b14 (lesendes HA-Testpaket; kein Release)
+
+- Installationsarchiv auf eine explizite Dateiliste begrenzt. Der isolierte,
+  im Produkt nicht aufgerufene Schreibmanager sowie versehentlich abgelegte
+  Python-/JSON-Dateien gelangen nicht mehr in das HA-ZIP.
+- Aktuelle Installationsanleitung und Statusseiten korrigiert: Das frühere
+  FC06-Labormenü ist seit b13 gesperrt; b14 bleibt vollständig lesend.
+- Version im Manifest, Modul und Projektmetadaten abgeglichen. Keine Änderung
+  an Modbus-Polling, Geräteidentitäten, Konfigurationsdaten oder Ausgängen.
+
 ## 0.1.0b8 (getrennte Kommunikationsfelder und Diagnose, Laborstand)
 
 - TM-32DS-Kommunikation über Home Assistant als **acht einzeln beschriftete, echte schreibgeschützte Felder**: Geräte-ID, konfigurierte HA-ID, Register-16-Rohwert, Baudrate, Parität, Datenbits, Stoppbits und Lesestatus. Der rohe Inhalt wird nicht mehr als editierbarer Textblock dargestellt.
