@@ -88,7 +88,7 @@
           "data": {
             "name": "Name",
             "enabled": "Evaluate channel",
-            "nc": "Invert input (normally closed contact)",
+            "nc": "Contact type: NC / normally closed (checked = invert; unchecked = NO)",
             "mode": "Actual electrical signal range",
             "display": "Measurement display format",
             "scale_min": "Engineering value at minimum signal",
@@ -97,7 +97,7 @@
             "poll_interval_mode": "Polling interval",
             "poll_interval": "Individual value (seconds; ignored for default)"
           },
-          "description": "Disabling a channel does not turn off an output. Jumpers and wiring must match the selected range. Writes remain locked."
+          "description": "DI: NC only inverts the logical input reading; NO uses the raw value. AI/AO: the selected signal range changes decoding only, not hardware jumpers or device parameters. DO/AO writes remain locked in this beta. Disabling a channel does not switch off any load."
         },
         "intervals": {
           "title": "Polling intervals",
