@@ -67,7 +67,8 @@
             "channel": "Configure channel",
             "intervals": "Polling intervals",
             "communication": "Configure Modbus communication",
-            "address_test": "Change slave ID (isolated hardware test)"
+            "address_test": "Change slave ID (isolated hardware test)",
+            "disable_temperature_range": "Disable temperature channels in bulk"
           }
         },
         "device": {
@@ -147,6 +148,15 @@
             "confirm": "Explicitly start this experimental write request",
             "write_preview": "Planned write operation (display only; editing this text has no effect)"
           }
+        },
+        "disable_temperature_range": {
+          "title": "Disable temperature channels in bulk",
+          "description": "TM-32DS only. Disable the selected inclusive channel range. Default 3–32 is only a suggested test setup; verify it before confirming! This only disables polling and entities, not physical outputs. Saved names and intervals remain. No automatic sensor detection.",
+          "data": {
+            "first": "First channel (1–32)",
+            "last": "Last channel (1–32)",
+            "confirm": "I confirm disabling the selected range"
+          }
         }
       },
       "error": {
@@ -158,14 +168,17 @@
         "invalid_channel": "Invalid electrical range or scaling.",
         "invalid_interval": "Invalid polling interval. Enter a value within the channel limits.",
         "test_acknowledgement_required": "Both isolated-test acknowledgements are required.",
-        "address_test_invalid": "Invalid target address, inconsistent register value or possible address collision."
+        "address_test_invalid": "Invalid target address, inconsistent register value or possible address collision.",
+        "bulk_confirmation_required": "Explicitly confirm bulk disabling.",
+        "invalid_channel_range": "Invalid channel range: first must not exceed last."
       },
       "abort": {
         "reconfigure_successful": "Settings updated.",
         "address_test_unavailable": "This test is only available for a single TM-32DS per ComWinTop connection.",
         "address_test_cancelled": "Address change cancelled.",
         "address_test_changed": "Register 16 changed since confirmation; no write attempted.",
-        "address_test_unconfirmed": "Outcome unconfirmed. Check both old and new slave IDs read-only. No automatic retry."
+        "address_test_unconfirmed": "Outcome unconfirmed. Check both old and new slave IDs read-only. No automatic retry.",
+        "bulk_disable_unavailable": "Available only for the TM-32DS."
       },
       "entry_type": "ComWinTop device",
       "initiate_flow": {

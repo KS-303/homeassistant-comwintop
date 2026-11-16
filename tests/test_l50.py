@@ -369,3 +369,125 @@ async def test_rtu_gateway_multiple_units_and_read_only(hass):
         assert all(call[1] in (1, 2, 3, 4) for call in sim.trace)
     finally:
         await sim.close()
+
+
+async def test_opt_in_raw_sensor_reports_actual_poll_timing(hass):
+    """Live read cadence is measurable without HA history or permanent entity noise."""
+    c, unit = coordinator(
+        hass,
+        {
+            "temperature_1": {"poll_interval": 30},
+            "temperature_2": {"poll_interval": 60},
+        },
+    )
+    try:
+        await c._poll_one(time.monotonic())
+        diagnostic_fast = RawSensor(c, "temperature_1", PROFILES["tm_32ds"][0], 0)
+        diagnostic_slow = RawSensor(c, "temperature_2", PROFILES["tm_32ds"][0], 1)
+        fast = diagnostic_fast.extra_state_attributes
+        slow = diagnostic_slow.extra_state_attributes
+        assert fast["poll_interval_seconds"] == 30
+        assert slow["poll_interval_seconds"] == 60
+        assert fast["successful_read_count_since_reload"] == 1
+        assert slow["successful_read_count_since_reload"] == 1
+        assert fast["last_successful_read_utc"] is not None
+        assert fast["seconds_between_successful_reads"] is None
+
+        old_slow = slow["last_successful_read_utc"]
+        old_slow_count = slow["successful_read_count_since_reload"]
+        c._next["temperature_1"] = 0
+        await c._poll_one(time.monotonic())
+        fast = diagnostic_fast.extra_state_attributes
+        slow = diagnostic_slow.extra_state_attributes
+        assert fast["successful_read_count_since_reload"] == 2
+        assert fast["seconds_between_successful_reads"] is not None
+        assert slow["successful_read_count_since_reload"] == old_slow_count
+        assert slow["last_successful_read_utc"] == old_slow
+        assert [(start, count) for start, count, _ in unit.calls] == [(32, 32), (32, 1)]
+    finally:
+        await c.stop()
+
+
+def test_poll_diagnostics_delta_uses_previous_successful_timestamp():
+    from custom_components.comwintop.model import Sample
+
+    sample = Sample()
+    sample.accept(21.5, 215, 100.0)
+    assert sample.successful_reads == 1
+    assert sample.last_successful_read_delta_seconds is None
+    sample.accept(21.6, 216, 130.25)
+    assert sample.successful_reads == 2
+    assert sample.last_successful_read_delta_seconds == 30.25
+    sample.fail("timeout")
+    sample.accept(21.7, 217, 195.0)
+    assert sample.successful_reads == 3
+    assert sample.last_successful_read_delta_seconds == 64.75
+
+
+def test_bulk_disable_temperature_range_retains_options_and_identity():
+    from custom_components.comwintop.model import disable_temperature_range
+
+    original = dict(next(iter(configured_entry().subentries.values())).data)
+    original["channels"] = {
+        "temperature_1": {"name": "Room", "poll_interval": 60},
+        "temperature_2": {"name": "Supply", "poll_interval": 30},
+        "temperature_3": {"name": "Reserved", "poll_interval": 120},
+    }
+    result = disable_temperature_range(original, 3, 32)
+    assert result["device_uid"] == original["device_uid"]
+    assert result["channels"]["temperature_1"] == original["channels"]["temperature_1"]
+    assert result["channels"]["temperature_2"] == original["channels"]["temperature_2"]
+    assert result["channels"]["temperature_3"] == {
+        "name": "Reserved",
+        "poll_interval": 120,
+        "enabled": False,
+        "write_enabled": False,
+    }
+    assert all(not result["channels"][f"temperature_{i}"]["enabled"] for i in range(3, 33))
+    assert "temperature_4" not in original["channels"]
+
+
+@pytest.mark.parametrize("first,last", [(0, 32), (3, 33), (5, 4), (True, 32), (3, 1)])
+def test_bulk_disable_rejects_invalid_ranges(first, last):
+    from custom_components.comwintop.model import disable_temperature_range
+
+    original = dict(next(iter(configured_entry().subentries.values())).data)
+    with pytest.raises(InvalidValue):
+        disable_temperature_range(original, first, last)
+
+
+async def test_bulk_disable_ha_flow_requires_confirmation_and_never_writes(hass, sim):
+    from homeassistant.helpers import config_validation as cv
+    from probatio.codecs.fields import to_field_list
+
+    entry = configured_entry(
+        {"temperature_1": {"poll_interval": 60}, "temperature_2": {"poll_interval": 30}},
+        port=sim.port,
+    )
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+    sub = next(iter(entry.subentries.values()))
+    mgr = hass.config_entries.subentries
+    flow = await mgr.async_init(
+        (entry.entry_id, "device"),
+        context={"source": "reconfigure", "subentry_id": sub.subentry_id},
+    )
+    assert "disable_temperature_range" in flow["menu_options"]
+    form = await mgr.async_configure(flow["flow_id"], {"next_step_id": "disable_temperature_range"})
+    to_field_list(form["data_schema"], custom_serializer=cv.custom_serializer)
+    rejected = await mgr.async_configure(
+        flow["flow_id"], {"first": 3, "last": 32, "confirm": False}
+    )
+    assert rejected["type"] == "form"
+    assert rejected["errors"]["base"] == "bulk_confirmation_required"
+    rejected = await mgr.async_configure(flow["flow_id"], {"first": 32, "last": 3, "confirm": True})
+    assert rejected["type"] == "form"
+    assert rejected["errors"]["base"] == "invalid_channel_range"
+    saved = await mgr.async_configure(flow["flow_id"], {"first": 3, "last": 32, "confirm": True})
+    assert saved["type"] == "abort", saved
+    await hass.async_block_till_done()
+    current = entry.subentries[sub.subentry_id].data
+    assert current["channels"]["temperature_1"]["poll_interval"] == 60
+    assert current["channels"]["temperature_2"]["poll_interval"] == 30
+    assert all(not current["channels"][f"temperature_{i}"]["enabled"] for i in range(3, 33))
+    assert not [call for call in sim.trace if call[1] not in (1, 2, 3, 4)]

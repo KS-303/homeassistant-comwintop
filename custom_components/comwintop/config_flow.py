@@ -15,7 +15,7 @@ from modbus_connection.exceptions import ModbusError
 
 from .communication import plan_tm32ds_address
 from .const import DEFAULT_INTERVALS, DOMAIN, MIN_INTERVALS
-from .model import revise_device, validate_device
+from .model import disable_temperature_range, revise_device, validate_device
 from .profiles import (
     BUILTIN_PROFILES,
     MODEL_NAMES,
@@ -331,9 +331,47 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
 
     async def async_step_reconfigure(self, user_input=None):
         self._sub = self._get_reconfigure_subentry()
+        options = ["device", "channel", "intervals"]
+        if self._sub.data["model"] == "tm_32ds":
+            options.append("disable_temperature_range")
+        options.extend(("communication", "address_test"))
         return self.async_show_menu(
             step_id="reconfigure",
-            menu_options=["device", "channel", "intervals", "communication", "address_test"],
+            menu_options=options,
+        )
+
+    async def async_step_disable_temperature_range(self, user_input=None):
+        """Explicitly disable selected TM-32DS channels; never infer unused sensors."""
+        sub = self._get_reconfigure_subentry()
+        if sub.data["model"] != "tm_32ds":
+            return self.async_abort(reason="bulk_disable_unavailable")
+        errors = {}
+        if user_input is not None:
+            first = int(user_input["first"])
+            last = int(user_input["last"])
+            if not user_input["confirm"]:
+                errors["base"] = "bulk_confirmation_required"
+            else:
+                try:
+                    updated = disable_temperature_range(dict(sub.data), first, last)
+                except ValueError:
+                    errors["base"] = "invalid_channel_range"
+                else:
+                    return self.async_update_and_abort(self._get_entry(), sub, data=updated)
+        return self.async_show_form(
+            step_id="disable_temperature_range",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("first", default=3): vol.All(
+                        vol.Coerce(int), vol.Range(min=1, max=32)
+                    ),
+                    vol.Required("last", default=32): vol.All(
+                        vol.Coerce(int), vol.Range(min=1, max=32)
+                    ),
+                    vol.Required("confirm", default=False): bool,
+                }
+            ),
+            errors=errors,
         )
 
     async def async_step_communication(self, user_input=None):
@@ -597,10 +635,7 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
         # A labeled membership validator serializes to a native HA dropdown.
         # Values remain stable internal IDs (e.g. temperature_3), not labels.
         channel_selector = vol.In(
-            {
-                key: f"{labels[group.kind]} {index + 1}"
-                for key, group, index in channels(model)
-            }
+            {key: f"{labels[group.kind]} {index + 1}" for key, group, index in channels(model)}
         )
         return self.async_show_form(
             step_id="channel",
