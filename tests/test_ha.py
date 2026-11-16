@@ -513,21 +513,33 @@ async def test_tm32ds_creation_scans_registers_and_skips_unplugged_entities(hass
     flow = await manager.async_init((entry.entry_id, "device"), context={"source": "user"})
     result = await manager.async_configure(
         flow["flow_id"],
-        {"name": "New temperature module", "model": "tm_32ds", "unit_id": 2, "acknowledge_beta": True},
+        {
+            "name": "New temperature module",
+            "model": "tm_32ds",
+            "unit_id": 2,
+            "acknowledge_beta": True,
+        },
     )
     assert result["type"] == "create_entry", result
     await hass.async_block_till_done()
     sub = next(s for s in entry.subentries.values() if s.data["unit_id"] == 2)
     assert all(
-        sub.data["channels"][f"temperature_{index}"]["enabled"] is False
-        for index in range(3, 33)
+        sub.data["channels"][f"temperature_{index}"]["enabled"] is False for index in range(3, 33)
     )
     assert "temperature_1" not in sub.data["channels"]
     registry = er.async_get(hass)
     assert registry.async_get_entity_id("sensor", DOMAIN, f"{sub.data['device_uid']}_temperature_1")
     assert registry.async_get_entity_id("sensor", DOMAIN, f"{sub.data['device_uid']}_temperature_2")
-    assert registry.async_get_entity_id("sensor", DOMAIN, f"{sub.data['device_uid']}_temperature_3") is None
-    assert registry.async_get_entity_id("sensor", DOMAIN, f"{sub.data['device_uid']}_temperature_3_raw") is None
+    assert (
+        registry.async_get_entity_id("sensor", DOMAIN, f"{sub.data['device_uid']}_temperature_3")
+        is None
+    )
+    assert (
+        registry.async_get_entity_id(
+            "sensor", DOMAIN, f"{sub.data['device_uid']}_temperature_3_raw"
+        )
+        is None
+    )
     scans = [frame for frame in sim.trace if frame[:3] == (2, 3, 32) and frame[3] == 32]
     assert len(scans) == 3
     assert not [frame for frame in sim.trace if frame[1] not in (1, 2, 3, 4)]
@@ -577,11 +589,19 @@ async def test_reconfigure_bulk_menu_has_visible_label_and_numeric_boxes(hass, s
         (entry.entry_id, "device"),
         context={"source": "reconfigure", "subentry_id": sub.subentry_id},
     )
-    assert flow["menu_options"]["disable_temperature_range"] == "Temperaturkanäle gesammelt deaktivieren"
+    assert (
+        flow["menu_options"]["disable_temperature_range"]
+        == "Temperaturkanäle gesammelt deaktivieren"
+    )
     translations = await async_get_translations(
         hass, "de", "config_subentries", {DOMAIN}, config_flow=True
     )
-    assert translations["component.comwintop.config_subentries.device.step.disable_temperature_range.data.first"] == "Erster Kanal (1–32)"
+    assert (
+        translations[
+            "component.comwintop.config_subentries.device.step.disable_temperature_range.data.first"
+        ]
+        == "Erster Kanal (1–32)"
+    )
     form = await manager.async_configure(
         flow["flow_id"], {"next_step_id": "disable_temperature_range"}
     )
