@@ -1,6 +1,20 @@
---- a/modbus_connection/_protocol.py
-+++ b/modbus_connection/_protocol.py
-@@ -14,14 +14,14 @@
+--- a/src/modbus_connection/_protocol.py
++++ b/src/modbus_connection/_protocol.py
+@@ -6,7 +6,12 @@
+ 
+ @runtime_checkable
+ class ModbusUnit(Protocol):
+-    """Represent one unit on a shared Modbus connection."""
++    """Represent one unit on a shared Modbus connection.
++
++    The four basic write methods accept retry=False for a single transport
++    attempt. Failure or cancellation can leave the remote outcome unknown.
++    Other write function codes are not covered by this opt-in.
++    """
+ 
+     @property
+     def connected(self) -> bool: ...
+@@ -14,14 +19,14 @@
      # raw register I/O
      async def read_holding_registers(self, address: int, count: int) -> list[int]: ...
      async def read_input_registers(self, address: int, count: int) -> list[int]: ...
@@ -19,8 +33,8 @@
  
      async def read_exception_status(self) -> int: ...  # 0x07
      async def report_server_id(self) -> bytes: ...  # 0x11
---- a/modbus_connection/tmodbus/__init__.py
-+++ b/modbus_connection/tmodbus/__init__.py
+--- a/src/modbus_connection/tmodbus/__init__.py
++++ b/src/modbus_connection/tmodbus/__init__.py
 @@ -380,12 +380,12 @@
          return await self._client.read_input_registers(address, count)
  
@@ -59,14 +73,27 @@
  
      # -- full function-code surface -------------------------------------------
  
---- a/modbus_connection/pymodbus/__init__.py
-+++ b/modbus_connection/pymodbus/__init__.py
-@@ -291,13 +291,13 @@
+--- a/src/modbus_connection/pymodbus/__init__.py
++++ b/src/modbus_connection/pymodbus/__init__.py
+@@ -257,6 +257,11 @@
+             raise ModbusConnectionError("connection is not established")
+         return client
+ 
++    def _require_no_retry(self, retry: bool) -> None:
++        """Fail closed if a later pymodbus client enables request retries."""
++        if not retry and getattr(getattr(self._client, "ctx", None), "retries", None) != 0:
++            raise ModbusError("single-attempt write is unavailable for this pymodbus client")
++
+     @property
+     def connected(self) -> bool:
+         return self._conn.connected
+@@ -291,13 +296,15 @@
          return list(response.registers)
  
      @_map_errors
 -    async def write_register(self, address: int, value: int) -> None:
 +    async def write_register(self, address: int, value: int, *, retry: bool = True) -> None:
++        self._require_no_retry(retry)
          _check(
              await self._client.write_register(address, value, device_id=self._unit_id)
          )
@@ -74,20 +101,23 @@
      @_map_errors
 -    async def write_registers(self, address: int, values: list[int]) -> None:
 +    async def write_registers(self, address: int, values: list[int], *, retry: bool = True) -> None:
++        self._require_no_retry(retry)
          _check(
              await self._client.write_registers(address, values, device_id=self._unit_id)
          )
-@@ -321,11 +321,11 @@
+@@ -321,11 +328,13 @@
          return list(response.bits[:count])
  
      @_map_errors
 -    async def write_coil(self, address: int, value: bool) -> None:
 +    async def write_coil(self, address: int, value: bool, *, retry: bool = True) -> None:
++        self._require_no_retry(retry)
          _check(await self._client.write_coil(address, value, device_id=self._unit_id))
  
      @_map_errors
 -    async def write_coils(self, address: int, values: list[bool]) -> None:
 +    async def write_coils(self, address: int, values: list[bool], *, retry: bool = True) -> None:
++        self._require_no_retry(retry)
          _check(await self._client.write_coils(address, values, device_id=self._unit_id))
  
      # -- full function-code surface -------------------------------------------
