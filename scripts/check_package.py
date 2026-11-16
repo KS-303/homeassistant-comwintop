@@ -41,24 +41,15 @@ def check():
         image = (COMPONENT / "brand" / name).read_bytes()
         assert image.startswith(b"\x89PNG\r\n\x1a\n")
         assert struct.unpack(">II", image[16:24]) == (size, size)
-    # Exactly one experimental write site is allowed in this LAB build:
-    # FC06, register 16 in the isolated TM-32DS address-change flow.
+    # b13 releases no Modbus write entry points, including old FC06 lab flows.
     write_sites = []
     for path in COMPONENT.glob("*.py"):
         tree = ast.parse(path.read_text(), filename=str(path))
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-                if not node.func.attr.startswith("write_") or node.func.attr == "write_text":
-                    continue
-                write_sites.append((path.name, node))
-    assert len(write_sites) == 1, [(p, n.lineno) for p, n in write_sites]
-    write_file, write_call = write_sites[0]
-    assert write_file == "config_flow.py"
-    assert write_call.func.attr == "write_register"
-    assert len(write_call.args) == 2
-    assert isinstance(write_call.args[0], ast.Constant) and write_call.args[0].value == 16
-    assert isinstance(write_call.args[1], ast.Subscript)
-    assert isinstance(write_call.args[1].value, ast.Name) and write_call.args[1].value.id == "plan"
+                if node.func.attr.startswith("write_") and node.func.attr != "write_text":
+                    write_sites.append((path.name, node.lineno))
+    assert write_sites == [], write_sites
     for name in ("switch", "number"):
         tree = ast.parse((COMPONENT / f"{name}.py").read_text())
         assert not any(isinstance(node, ast.ClassDef) for node in ast.walk(tree))
@@ -66,7 +57,7 @@ def check():
         for target in re.findall(r"\]\(([^)]+)\)", path.read_text()):
             if "://" not in target and not target.startswith("#"):
                 assert (path.parent / target.split("#")[0]).exists(), (path, target)
-    print("Package metadata, translations, links and isolated FC06 laboratory boundary: PASS")
+    print("Package metadata, translations, links and zero active Modbus write sites: PASS")
 
 
 if __name__ == "__main__":

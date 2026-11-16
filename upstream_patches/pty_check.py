@@ -83,7 +83,7 @@ async def scenario(backend, fc, fault):
             try:
                 async with asyncio.timeout(1):
                     await ops[fc]()
-            except ModbusError, TimeoutError, OSError:
+            except (ModbusError, TimeoutError, OSError):
                 pass
             else:
                 raise AssertionError((backend, fc, fault, "expected failure"))
@@ -110,7 +110,7 @@ async def cancelled_serial_write(backend):
         task.cancel()
         try:
             await task
-        except asyncio.CancelledError, ModbusError:
+        except (asyncio.CancelledError, ModbusError):
             pass
         else:
             raise AssertionError("write was not cancelled")

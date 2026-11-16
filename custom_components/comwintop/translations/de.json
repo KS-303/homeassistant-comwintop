@@ -56,9 +56,9 @@
             "name": "Name",
             "model": "Gerätemodell",
             "unit_id": "Modbus-Adresse (1–247)",
-            "acknowledge_beta": "Experimentelle Beta: nur TM-32DS-Adressänderung am isolierten Testbus"
+            "acknowledge_beta": "Experimentelle Beta-Version bestätigen"
           },
-          "description": "Produktive DO-/AO-Schreibfunktionen bleiben gesperrt. Die TM-32DS-Slave-ID kann ausschließlich nach ausdrücklicher Bestätigung auf einem physisch isolierten Testbus versuchsweise geändert werden. Modbus-Busy kann FC06-Wiederholungen verursachen. Lesetests erkennen das Modell nicht zuverlässig. Analogmodi je Kanal konfigurieren."
+          "description": "DO/AO-Schreiben und Slave-ID-Änderungen sind in dieser Beta gesperrt. Ein erfolgreicher Lesezugriff bestätigt weder den Gerätetyp noch die elektrische Funktion. Analoge Signalbereiche je Kanal einstellen."
         },
         "reconfigure": {
           "title": "Gerät konfigurieren",
@@ -67,7 +67,6 @@
             "channel": "Kanal konfigurieren",
             "intervals": "Abfrageintervalle",
             "communication": "Modbus-Kommunikation konfigurieren",
-            "address_test": "Slave-ID ändern (isolierter Hardwaretest)",
             "disable_temperature_range": "Temperaturkanäle gesammelt deaktivieren"
           }
         },
@@ -119,7 +118,7 @@
         },
         "communication": {
           "title": "Modbus-Kommunikation (nur Lesen)",
-          "description": "Alle Werte werden beim Öffnen frisch vom TM-32DS gelesen und einzeln schreibgeschützt angezeigt. Die Diagnoseentität »Modbus-Adresse (Gerät)« zeigt den letzten Lesevorgang samt Attributen. Eine Änderung der Slave-ID erfolgt nur über den gesonderten Labor-Testdialog.",
+          "description": "Alle Felder werden beim Öffnen nur lesend aus dem TM-32DS abgefragt. Die Diagnoseentität zeigt den zuletzt gelesenen Registerwert. Änderungen der Slave-ID sind in dieser Beta gesperrt.",
           "data": {
             "address": "Slave-ID (Gerät)",
             "configured_address": "Slave-ID (Home Assistant)",
@@ -129,24 +128,6 @@
             "databits": "Datenbits",
             "stopbits": "Stoppbits",
             "status": "Lesestatus"
-          }
-        },
-        "address_test": {
-          "title": "TM-32DS: Slave-ID im Labor ändern",
-          "description": "NUR FÜR ISOLIERTEN EIN-GERÄTE-TESTBUS. Der HA-Modbus-Unterbau kann FC06 bei Busy MEHRFACH übertragen. Prüfe vor dem Fortsetzen, dass die Zieladresse frei ist und kein anderer RS485-Teilnehmer angeschlossen ist. Beide Bestätigungen sind zwingend.",
-          "data": {
-            "target_id": "Neue Slave-ID (1–247)",
-            "isolated": "Ich bestätige: physisch isolierter Bus mit einem einzigen TM-32DS",
-            "understand_retry": "Ich akzeptiere das Risiko mehrfacher FC06-Telegramme bei Busy.",
-            "lab_notice": "Wichtiger Hinweis (nur Anzeige, dieser Text kann den Test nicht ändern)"
-          }
-        },
-        "address_test_confirm": {
-          "title": "TM-32DS: letzte Bestätigung",
-          "description": "GEFAHR: Ein einzelner HA-Schreibaufruf kann mehrere FC06-Frames erzeugen. Geplante Änderung: Adresse {old_id} → {target_id}, Register 16 {old_raw} → {new_raw}. Die Integration versucht anschließend, die neue Adresse lesend zu prüfen. Bei unklarer Antwort bleibt die HA-Adresse unverändert. Jetzt genau einen Testauftrag auslösen?",
-          "data": {
-            "confirm": "Einmaligen Testauftrag bewusst auslösen",
-            "write_preview": "Geplanter Schreibversuch (nur Anzeige, keine Änderung dieses Textes)"
           }
         },
         "disable_temperature_range": {
@@ -167,17 +148,13 @@
         "invalid_device": "Ungültige Geräteeinstellungen.",
         "invalid_channel": "Ungültiger Signalbereich oder ungültige Skalierung.",
         "invalid_interval": "Ungültiges Abfrageintervall. Individuellen Wert innerhalb der Kanalgrenzen eingeben.",
-        "test_acknowledgement_required": "Beide Bestätigungen für den isolierten Testbus sind erforderlich.",
-        "address_test_invalid": "Ungültige Zieladresse, Registerwert abweichend oder eine mögliche Adresskollision.",
         "bulk_confirmation_required": "Bitte die Sammeldeaktivierung ausdrücklich bestätigen.",
-        "invalid_channel_range": "Ungültiger Kanalbereich: Beginn darf nicht hinter Ende liegen."
+        "invalid_channel_range": "Ungültiger Kanalbereich: Beginn darf nicht hinter Ende liegen.",
+        "invalid_scale": "Ungültige Skalierung: Minimum und Maximum müssen verschieden und endlich sein."
       },
       "abort": {
         "reconfigure_successful": "Einstellungen aktualisiert.",
-        "address_test_unavailable": "Der Test ist ausschließlich für genau einen TM-32DS pro ComWinTop-Verbindung verfügbar.",
-        "address_test_cancelled": "Adressänderung abgebrochen.",
-        "address_test_changed": "Register 16 hat sich seit der Bestätigung verändert – kein Schreibversuch.",
-        "address_test_unconfirmed": "Ergebnis unbestätigt. Prüfe die alte und neue Slave-ID nur lesend. Keine automatische Wiederholung.",
+        "address_test_unavailable": "Die Slave-ID-Änderung ist in dieser Beta gesperrt.",
         "bulk_disable_unavailable": "Nur für den TM-32DS verfügbar."
       },
       "entry_type": "ComWinTop-Gerät",

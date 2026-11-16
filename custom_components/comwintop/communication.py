@@ -1,4 +1,4 @@
-"""Read-only communication-register profiles; no configuration write path."""
+"""Read-only communication-register profiles; experimental FC06 UI is disabled."""
 
 from dataclasses import dataclass
 

@@ -19,6 +19,13 @@ from .model import Sample, effective_interval
 from .profiles import PROFILES, InvalidValue, channel_key, channels, decode_channel
 
 
+def failed_poll_delay(interval: float, failures: int) -> float:
+    """Back off transient read failures without accelerating slow channels."""
+    if failures <= 0:
+        return interval
+    return min(max(30, interval), interval * 2 ** min(failures, 5))
+
+
 class UnitCoordinator(DataUpdateCoordinator):
     def __init__(self, hass, entry, subentry, unit, bus_lock, logger):
         super().__init__(hass, logger, config_entry=entry, name=f"comwintop_{subentry.subentry_id}")
@@ -48,8 +55,10 @@ class UnitCoordinator(DataUpdateCoordinator):
         self._pending = deque()
         self._known_bad = set()
         self._last_available = None
-        self._unsubscribe = unit.on_connection_lost(self.connection_lost)
+        # Register the listener last so a rejected unit setting cannot leak
+        # a live callback from a partially constructed coordinator.
         unit.set_message_spacing(0.01)
+        self._unsubscribe = unit.on_connection_lost(self.connection_lost)
         self.data = self.samples
 
     def options(self, key):
@@ -270,8 +279,11 @@ class UnitCoordinator(DataUpdateCoordinator):
             # Serial late replies must not remain buffered for the next request.
             # This briefly interrupts the shared bus, not just the failed unit.
             if self.config_entry.data["transport"] in ("serial", "rtu_tcp"):
-                with suppress(ModbusConnectionError):
-                    await self.unit.disconnect()
+                # Never close the shared transport while another unit is
+                # actively exchanging a frame on the same ComWinTop bus.
+                async with self.bus_lock:
+                    with suppress(ModbusConnectionError):
+                        await self.unit.disconnect()
                 await asyncio.sleep(0.1)
         except asyncio.CancelledError:
             raise
@@ -283,9 +295,11 @@ class UnitCoordinator(DataUpdateCoordinator):
                 self.samples[key].fail(type(err).__name__)
         if not split and not recovery:
             completed = time.monotonic()
-            backoff = min(30, 2 ** min(self.failures, 5)) if self.failures else 1
             for key in keys:
-                self._next[key] = completed + self.interval(key) * backoff
+                # Never retry more frequently than the configured channel
+                # interval. The 30-second cap only applies to short intervals.
+                retry_delay = failed_poll_delay(self.interval(key), self.failures)
+                self._next[key] = completed + retry_delay
         self.async_set_updated_data(self.samples)
 
     async def _async_update_data(self):

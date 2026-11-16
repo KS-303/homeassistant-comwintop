@@ -65,7 +65,9 @@ class RawSensor(ChannelEntity, SensorEntity):
         self._attr_unique_id += "_raw"
         self._attr_translation_key = f"{group.kind}_raw"
         if custom_name := coordinator.options(key).get("name"):
-            self._attr_name = f"{custom_name} – Rohwert"
+            language = coordinator.hass.config.language.lower()
+            suffix = "Rohwert" if language.startswith("de") else "Raw value"
+            self._attr_name = f"{custom_name} – {suffix}"
         self._attr_entity_registry_enabled_default = False
 
     @property
