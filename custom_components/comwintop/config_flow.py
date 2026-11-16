@@ -13,8 +13,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.selector import selector
 from modbus_connection.exceptions import ModbusError
 
-from .communication import PROFILES as COMMUNICATION_PROFILES
-from .communication import inspect_tm32ds, plan_tm32ds_address
+from .communication import plan_tm32ds_address
 from .const import DEFAULT_INTERVALS, DOMAIN, MIN_INTERVALS
 from .model import revise_device, validate_device
 from .profiles import (
@@ -118,6 +117,11 @@ def unit_id_box():
 def informational_text():
     """Use a multi-line text field for readable, non-persisted flow previews."""
     return selector({"text": {"multiline": True}})
+
+
+def read_only_text():
+    """Display a disabled text selector, not a writable text input."""
+    return selector({"text": {"read_only": True}})
 
 
 def connection_schema(mode, defaults=None, language="en"):
@@ -245,6 +249,8 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
         )
         errors = {}
         if user_input is not None:
+            user_input = dict(user_input)
+            user_input["unit_id"] = int(user_input["unit_id"])
             entry = self._get_entry()
             if any(s.data["unit_id"] == user_input["unit_id"] for s in entry.subentries.values()):
                 errors["base"] = "duplicate_unit"
@@ -274,9 +280,7 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                     vol.Required("model"): select(
                         [{"value": key, "label": name} for key, name in MODEL_NAMES.items()]
                     ),
-                    vol.Required("unit_id", default=1): vol.All(
-                        vol.Coerce(int), vol.Range(min=1, max=247)
-                    ),
+                    vol.Required("unit_id", default=1): unit_id_box(),
                     vol.Required("acknowledge_beta", default=False): bool,
                 }
             ),
@@ -333,10 +337,9 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
         )
 
     async def async_step_communication(self, user_input=None):
-        """Show a fresh bus-serialized read; never expose a write action."""
+        """Read fresh register 16 and show each value in its own locked field."""
         sub = self._get_reconfigure_subentry()
         entry = self._get_entry()
-        profile = COMMUNICATION_PROFILES.get(sub.data["model"])
         values = {
             "address": "?",
             "configured_address": str(sub.data["unit_id"]),
@@ -347,38 +350,31 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
             "raw": "?",
             "status": "unsupported",
         }
-        if profile is not None and profile.register is not None:
-            runtime = getattr(entry, "runtime_data", None)
-            coordinator = runtime.units.get(sub.subentry_id) if runtime else None
-            if coordinator is not None:
-                try:
-                    async with runtime.bus_lock, asyncio.timeout(3):
-                        words = await getattr(coordinator.unit, profile.read_method)(
-                            profile.register, 1
-                        )
-                    if len(words) != 1:
-                        raise ValueError("invalid_length")
-                    values = inspect_tm32ds(words[0], sub.data["unit_id"])
-                except ModbusError, TimeoutError, ValueError, OSError:
-                    values["status"] = "read_failed"
-        # A description-only empty form renders as a completely blank dialog
-        # if HA/frontend translations are cached. Expose the actual raw data in
-        # a visible read-only *workflow*: this displayed text is never persisted
-        # or used as a device setting.
-        report = (
-            f"Modbus-ID (Gerät / HA): {values['address']} / {values['configured_address']}\\n"
-            f"Register 16: {values['raw']}\\n"
-            f"Baudrate: {values['baudrate']}\\n"
-            f"Parität: {values['parity']}\\n"
-            f"Datenbits / Stoppbits: {values['databits']} / {values['stopbits']}\\n"
-            f"Status: {values['status']}"
-        )
+        runtime = getattr(entry, "runtime_data", None)
+        coordinator = runtime.units.get(sub.subentry_id) if runtime else None
+        if coordinator is not None and sub.data["model"] == "tm_32ds":
+            current = await coordinator.read_communication()
+            if current is not None:
+                values = current
+            else:
+                values["status"] = "read_failed"
+
+        fields = {
+            vol.Optional(key, default=values[key]): read_only_text()
+            for key in (
+                "address",
+                "configured_address",
+                "raw",
+                "baudrate",
+                "parity",
+                "databits",
+                "stopbits",
+                "status",
+            )
+        }
         return self.async_show_form(
             step_id="communication",
-            data_schema=vol.Schema(
-                {vol.Optional("inspection", default=report): informational_text()}
-            ),
-            description_placeholders=values,
+            data_schema=vol.Schema(fields),
         )
 
     async def async_step_address_test(self, user_input=None):
@@ -545,6 +541,8 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
         entry = self._get_entry()
         errors = {}
         if user_input is not None:
+            user_input = dict(user_input)
+            user_input["unit_id"] = int(user_input["unit_id"])
             if any(
                 s.subentry_id != sub.subentry_id and s.data["unit_id"] == user_input["unit_id"]
                 for s in entry.subentries.values()
@@ -563,9 +561,7 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
             data_schema=vol.Schema(
                 {
                     vol.Required("name", default=sub.title): str,
-                    vol.Required("unit_id", default=sub.data["unit_id"]): vol.All(
-                        vol.Coerce(int), vol.Range(min=1, max=247)
-                    ),
+                    vol.Required("unit_id", default=sub.data["unit_id"]): unit_id_box(),
                 }
             ),
             errors=errors,

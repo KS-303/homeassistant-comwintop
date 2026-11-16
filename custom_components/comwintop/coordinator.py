@@ -13,6 +13,7 @@ from modbus_connection.exceptions import (
     ModbusProtocolError,
 )
 
+from .communication import inspect_tm32ds
 from .const import DEFAULT_INTERVALS
 from .model import Sample, effective_interval
 from .profiles import PROFILES, InvalidValue, channel_key, channels, decode_channel
@@ -36,6 +37,10 @@ class UnitCoordinator(DataUpdateCoordinator):
         self.latency_ms = None
         self._poll_task = None
         self._age_task = None
+        self._communication_task = None
+        self.communication_values = None
+        self.communication_received = None
+        self.communication_error = None
         self._stopping = False
         self._next = {key: 0.0 if self.enabled(key) else float("inf") for key in self.samples}
         # Only a failed block is split. Its finite children are tried one at a
@@ -66,6 +71,9 @@ class UnitCoordinator(DataUpdateCoordinator):
             return
         self.status = "OFFLINE"
         self.counters["transport_errors"] += 1
+        self.communication_values = None
+        self.communication_received = None
+        self.communication_error = "transport_lost"
         self._pending.clear()
         recovery_at = time.monotonic() + min(30, 2 ** min(max(self.failures, 1), 5))
         for key in self._next:
@@ -82,16 +90,56 @@ class UnitCoordinator(DataUpdateCoordinator):
         self._age_task = self.config_entry.async_create_background_task(
             self.hass, self._age(), f"comwintop_age_{self.uid}"
         )
+        if self.model == "tm_32ds":
+            self._communication_task = self.config_entry.async_create_background_task(
+                self.hass, self._communication_poll(), f"comwintop_comm_{self.uid}"
+            )
 
     async def stop(self):
         self._stopping = True
         self._unsubscribe()
-        tasks = [t for t in (self._poll_task, self._age_task) if t]
+        tasks = [t for t in (self._poll_task, self._age_task, self._communication_task) if t]
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
         self.unit.require_timeout(None)
         self.unit.require_connect_delay(None)
+
+    async def read_communication(self):
+        """Refresh TM-32DS configuration via FC03 under the shared bus lock.
+
+        This performs a read only. All parameter entities use the same cached
+        register so their states agree and create no additional bus traffic.
+        """
+        if self.model != "tm_32ds":
+            return None
+        try:
+            async with self.bus_lock:
+                async with asyncio.timeout(3):
+                    raw_values = await self.unit.read_holding_registers(16, 1)
+            if len(raw_values) != 1:
+                raise ValueError("invalid_communication_register_length")
+            result = inspect_tm32ds(raw_values[0], self.settings["unit_id"])
+        except asyncio.CancelledError:
+            raise
+        except Exception as err:
+            self.communication_values = None
+            self.communication_received = None
+            self.communication_error = type(err).__name__
+            self.async_set_updated_data(self.samples)
+            return None
+        self.communication_values = result
+        self.communication_received = time.monotonic()
+        self.communication_error = None
+        self.async_set_updated_data(self.samples)
+        return result
+
+    async def _communication_poll(self):
+        """Initial delayed read, then one shared FC03 diagnostic read every 5 min."""
+        await asyncio.sleep(5)
+        while True:
+            await self.read_communication()
+            await asyncio.sleep(300)
 
     async def _age(self):
         while True:

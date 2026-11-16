@@ -1,5 +1,14 @@
 # Änderungen
 
+## 0.1.0b8 (getrennte Kommunikationsfelder und Diagnose, Laborstand)
+
+- TM-32DS-Kommunikation über Home Assistant als **acht einzeln beschriftete, echte schreibgeschützte Felder**: Geräte-ID, konfigurierte HA-ID, Register-16-Rohwert, Baudrate, Parität, Datenbits, Stoppbits und Lesestatus. Der rohe Inhalt wird nicht mehr als editierbarer Textblock dargestellt.
+- Beim Hinzufügen und Bearbeiten eines Geräts wird die Modbus-Adresse als Zahlen-Eingabefeld (`1–247`) statt als Schieberegler angezeigt.
+- Neue Diagnose-Entität `Kommunikationsregister 16` nur beim TM-32DS: Zustand ist der letzte erfolgreich gelesene Rohwert, z. B. `0x0204`. Attribute: Geräte-/HA-Adresse, Baudrate, Parität, Datenbits, Stoppbits und Lesestatus.
+- Alle Diagnoseattribute stammen aus **einer gemeinsamen FC03-Lesung**; kein Modbus-Request pro Entity. Initiales Lesen ca. fünf Sekunden nach Start, danach etwa alle fünf Minuten und beim Öffnen des Konfigurationsdialogs.
+- Nach Lesefehlern zeigt die Diagnoseentität `unavailable` und behält keinen scheinbar gültigen alten Registerwert bei.
+- Die separate experimentelle TM-32DS-Laboradressänderung aus b6/b7 bleibt bestehen. Keine produktiven DO-/AO-Schreibfunktionen und keine neue Serial-Parametrierung. Keine Änderungen an `main`.
+
 ## 0.1.0b7 (HA-Dialog-Reparatur, Labor, kein Release)
 
 - Fehler aus dem realen HA-2026.11-UI-Video korrigiert: Die Kommunikationsdaten werden zusätzlich als sichtbarer Textfeldwert ausgegeben, selbst wenn HA den Beschreibungstext nicht lädt.
