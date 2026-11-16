@@ -500,3 +500,92 @@ async def test_mb308n_all_channel_forms_serialize_and_preserve_settings(hass, si
         for setting in entry.subentries[sub.subentry_id].data["channels"].values()
     )
     assert not [call for call in sim.trace if call[1] not in (1, 2, 3, 4)]
+
+
+async def test_tm32ds_creation_scans_registers_and_skips_unplugged_entities(hass, sim):
+    """The one-time scan uses FC03 blocks; only confirmed channels get entities."""
+    for index in range(32):
+        sim.registers[(2, 32 + index)] = 213 if index == 0 else 212 if index == 1 else 0xFC18
+    entry = make_entry(sim)
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+    manager = hass.config_entries.subentries
+    flow = await manager.async_init((entry.entry_id, "device"), context={"source": "user"})
+    result = await manager.async_configure(
+        flow["flow_id"],
+        {"name": "New temperature module", "model": "tm_32ds", "unit_id": 2, "acknowledge_beta": True},
+    )
+    assert result["type"] == "create_entry", result
+    await hass.async_block_till_done()
+    sub = next(s for s in entry.subentries.values() if s.data["unit_id"] == 2)
+    assert all(
+        sub.data["channels"][f"temperature_{index}"]["enabled"] is False
+        for index in range(3, 33)
+    )
+    assert "temperature_1" not in sub.data["channels"]
+    registry = er.async_get(hass)
+    assert registry.async_get_entity_id("sensor", DOMAIN, f"{sub.data['device_uid']}_temperature_1")
+    assert registry.async_get_entity_id("sensor", DOMAIN, f"{sub.data['device_uid']}_temperature_2")
+    assert registry.async_get_entity_id("sensor", DOMAIN, f"{sub.data['device_uid']}_temperature_3") is None
+    assert registry.async_get_entity_id("sensor", DOMAIN, f"{sub.data['device_uid']}_temperature_3_raw") is None
+    scans = [frame for frame in sim.trace if frame[:3] == (2, 3, 32) and frame[3] == 32]
+    assert len(scans) == 3
+    assert not [frame for frame in sim.trace if frame[1] not in (1, 2, 3, 4)]
+    flow = await manager.async_init(
+        (entry.entry_id, "device"),
+        context={"source": "reconfigure", "subentry_id": sub.subentry_id},
+    )
+    flow = await manager.async_configure(flow["flow_id"], {"next_step_id": "channel"})
+    flow = await manager.async_configure(flow["flow_id"], {"channel": "temperature_3"})
+    result = await manager.async_configure(
+        flow["flow_id"],
+        {"name": "", "enabled": True, "poll_interval_mode": "standard"},
+    )
+    assert result["type"] == "abort", result
+    await hass.async_block_till_done()
+    assert registry.async_get_entity_id("sensor", DOMAIN, f"{sub.data['device_uid']}_temperature_3")
+
+
+async def test_scan_rejects_ambiguous_and_partial_values():
+    from custom_components.comwintop.config_flow import detected_tm32ds_channels
+
+    first = [210] * 32
+    second = [210] * 32
+    third = [211] * 32
+    second[1] = third[1] = 0
+    second[2] = third[2] = 850
+    second[3] = third[3] = 0xFC18
+    third[4] = 0xFC18
+    disabled = detected_tm32ds_channels((first, second, third))
+    assert "temperature_1" not in disabled
+    assert set(disabled) == {f"temperature_{i}" for i in range(2, 6)}
+    with pytest.raises(ValueError, match="invalid_scan_length"):
+        detected_tm32ds_channels((first, second[:31], third))
+
+
+async def test_reconfigure_bulk_menu_has_visible_label_and_numeric_boxes(hass, sim):
+    from homeassistant.helpers import config_validation as cv
+    from probatio.codecs.fields import to_field_list
+
+    hass.config.language = "de"
+    entry = make_entry(sim)
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+    sub = next(iter(entry.subentries.values()))
+    manager = hass.config_entries.subentries
+    flow = await manager.async_init(
+        (entry.entry_id, "device"),
+        context={"source": "reconfigure", "subentry_id": sub.subentry_id},
+    )
+    assert flow["menu_options"]["disable_temperature_range"] == "Temperaturkanäle gesammelt deaktivieren"
+    translations = await async_get_translations(
+        hass, "de", "config_subentries", {DOMAIN}, config_flow=True
+    )
+    assert translations["component.comwintop.config_subentries.device.step.disable_temperature_range.data.first"] == "Erster Kanal (1–32)"
+    form = await manager.async_configure(
+        flow["flow_id"], {"next_step_id": "disable_temperature_range"}
+    )
+    fields = {marker.schema: value for marker, value in form["data_schema"].schema.items()}
+    assert fields["first"].config["max"] == fields["last"].config["max"] == 32
+    to_field_list(form["data_schema"], custom_serializer=cv.custom_serializer)
+    assert not [frame for frame in sim.trace if frame[1] not in (1, 2, 3, 4)]

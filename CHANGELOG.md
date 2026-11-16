@@ -1,5 +1,21 @@
 # Änderungen
 
+## 0.1.0b15 (TM-32DS: konservative Kanalerkennung; kein Release)
+
+- Neues TM-32DS-Gerät: drei reine FC03-Blocklesungen der 32
+  Temperaturregister über HA-Shared-Modbus; zwei frische gültige Werte
+  nach dem ersten Lesevorgang aktivieren den jeweiligen Kanal.
+- Fehlerwert 0xFC18, mehrdeutige 85,0 °C, Nullregister und unbestätigte
+  Kanäle bleiben deaktiviert. Bei Kommunikationsfehler kein stilles
+  Deaktivieren aller Kanäle. Nur die Ersteinrichtung ändert Kanaloptionen.
+- Deaktivierte Kanäle erzeugen bei einem neuen Gerät zunächst keine Entitäten.
+  Bestehende IDs und Einstellungen bleiben erhalten; spätere Aktivierung
+  erfolgt über die Kanaloptionen.
+- Das Menü für die manuelle Bereichsdeaktivierung erhält sichtbare
+  deutsch/englische Labels und Zahleneingaben statt Schiebereglern.
+  Reine Lesefunktion, keine FC05/06/15/16-Freigabe.
+
+
 ## 0.1.0b14 (lesendes HA-Testpaket; kein Release)
 
 - Installationsarchiv auf eine explizite Dateiliste begrenzt. Der isolierte,

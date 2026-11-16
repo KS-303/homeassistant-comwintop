@@ -1,4 +1,4 @@
-# Hardwareabnahme – lesendes 0.1.0b14-Testpaket
+# Hardwareabnahme – lesendes 0.1.0b15-Testpaket
 
 ## L-51 vor jeder Schreibfreigabe
 
@@ -26,6 +26,17 @@ mit zwei DS18B20 am Waveshare-Gateway lesend geprüft (FC03, Adressen 32/33,
 sich nach Wiederanschluss. Das ersetzt keinen Test gemischter Intervalle.
 Erster Test auf einer Home-Assistant-Testinstanz, zunächst mit TM-32DS;
 MB308N separat ergänzen.
+
+## Einmalige TM-32DS-Kanalerkennung
+
+Beim Anlegen eines neuen TM-32DS die FC03-Lesungen 32–63 prüfen: drei
+Blocktelegramme; erst die letzten beiden gültigen Messwerte zählen.
+Unbeschaltete Fühler (`0xFC18`) bleiben deaktiviert und ohne Entität.
+Stecker ziehen, während der Erkennung wieder anstecken und das Verhalten
+nach Neustart prüfen. Bestehende manuelle Kanalnamen/-freigaben dürfen
+durch ein Softwareupdate nicht überschrieben werden. Ein einzelner
+Kommunikationsfehler darf nicht als Beweis für 32 fehlende Sensoren gelten.
+Nullwerte/85,0 °C manuell nachmessen und bei Bedarf den Kanal aktivieren.
 
 ## Vorbereitung
 

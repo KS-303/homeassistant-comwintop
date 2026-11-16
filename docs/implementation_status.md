@@ -1,4 +1,4 @@
-# Implementierungsstatus – 0.1.0b14, lesendes Testpaket
+# Implementierungsstatus – 0.1.0b15, lesendes Testpaket
 
 L-51 ist für den TM-32DS lesend implementiert. Das historische FC06-Labormenü
 aus b6–b12 ist seit b13 vollständig gesperrt. Die verwendete HA-Modbus-Version
@@ -21,7 +21,7 @@ Dies ist die erste **lesende Testversion**, kein vollständiger stabiler P0-Rele
 | AI physisch / Prozent / Zwei-Punkt-Skalierung | implementiert; tatsächlichen Signalmodus je Kanal manuell setzen |
 | AO-Skalierung und Eingabevalidierung | Rechenfunktionen/testbare Regeln vorhanden; keine produktive number-Entität |
 | Pollintervalle pro Gruppe und Kanal, Stale-Timer, Backoff | L-50 implementiert; TCP-/RTU-Simulator, Konfigurations- und Fehlertests; Hardwaretest der gemischten Intervalle offen |
-| Kanaldeaktivierung, stabile UUID, Unit-Adressänderung | implementiert; keine Hardwareadressänderung |
+| Kanaldeaktivierung, stabile UUID, Unit-Adressänderung | implementiert; keine Hardwareadressänderung; neue TM-32DS-Geräte prüfen 32 Register einmalig und starten mit unbestätigten Kanälen deaktiviert |
 | Verbindungshost/-port ändern | implementiert mit Lesetest und stabilen IDs |
 | Gerät zwischen zwei bestehenden Verbindungseinträgen umziehen | noch nicht in Beta-UI; darf bis Implementierung nicht durch Löschen/Neuanlage simuliert werden |
 | Transportart eines bestehenden Eintrags wechseln | noch nicht in Beta-UI; neue Verbindung erforderlich |
@@ -40,6 +40,6 @@ Telegramme steht im [L-50-Prüfbericht](l50_test_report.md).
 Einzelversuche und offene Gesamtabnahmen stehen in der zentralen
 [Test- und Freigabematrix](test_release_matrix.md).
 
-Der b6-Laborversuch ist ein historischer Zweig und nicht im b14-Paket enthalten.
+Der b6-Laborversuch ist ein historischer Zweig und nicht im b15-Paket enthalten.
 Slave-ID, DO/AO und L-51b bleiben gesperrt. Der separate WriteManager gehört
 nicht zum Installations-ZIP und belegt keine Hardware-Schreibfreigabe.

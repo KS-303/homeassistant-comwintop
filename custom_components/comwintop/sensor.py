@@ -18,6 +18,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
         if coordinator.model == "tm_32ds":
             entities.append(CommunicationRegister(coordinator))
         for key, group, index in channels(coordinator.model):
+            if not coordinator.enabled(key):
+                continue
             if group.kind not in ("di", "do"):
                 entities.append(ValueSensor(coordinator, key, group, index))
             entities.append(RawSensor(coordinator, key, group, index))
