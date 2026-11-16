@@ -84,6 +84,18 @@ class RawSensor(ChannelEntity, SensorEntity):
         value = self.coordinator.samples[self.key].raw
         return int(value) if isinstance(value, bool) else value
 
+    @property
+    def extra_state_attributes(self):
+        """Opt-in polling diagnostics live on the disabled-by-default raw sensor."""
+        sample = self.coordinator.samples[self.key]
+        return {
+            "poll_interval_seconds": self.coordinator.interval(self.key),
+            "successful_read_count_since_reload": sample.successful_reads,
+            "last_successful_read_utc": sample.last_successful_read_utc,
+            "seconds_between_successful_reads": sample.last_successful_read_delta_seconds,
+            "quality": sample.error or "valid",
+        }
+
 
 class CommunicationRegister(CoordinatorEntity, SensorEntity):
     """Expose the device Modbus address; keep raw register 16 as a diagnostic."""
