@@ -212,3 +212,32 @@ async def test_ha_reload_after_inspection_has_no_deferred_write(hass):
         assert sub.data["unit_id"] == 1
     finally:
         await sim.close()
+
+
+async def test_communication_entity_shows_decoded_address_and_preserves_raw(hass):
+    """User-facing entity shows Slave ID 2, not opaque 0x0204; reads only."""
+    from homeassistant.helpers import entity_registry as er
+
+    sim = await Simulator().start()
+    try:
+        sim.registers[1, 16] = 0x0204
+        entry = configured_entry(port=sim.port)
+        await hass.config_entries.async_add(entry)
+        await hass.async_block_till_done()
+        coordinator = next(iter(entry.runtime_data.units.values()))
+        details = await coordinator.read_communication()
+        assert details["address"] == "2"
+        await hass.async_block_till_done()
+        entity_id = er.async_get(hass).async_get_entity_id(
+            "sensor", "comwintop", f"{coordinator.uid}_communication_register"
+        )
+        assert entity_id is not None
+        state = hass.states.get(entity_id)
+        assert state is not None
+        assert state.state == "2"
+        assert state.attributes["register_16_raw"] == "0x0204"
+        assert state.attributes["address_matches_configuration"] is False
+        assert coordinator.settings["unit_id"] == 1
+        assert not [call for call in sim.trace if call[1] not in (1, 2, 3, 4)]
+    finally:
+        await sim.close()
