@@ -2,7 +2,7 @@
 
 ComWinTop verbindet CWT-I/O-Geräte lokal über Modbus mit Home Assistant.
 Der veröffentlichte Stand ist **v0.1.0b1 (lesende Beta)**. Das
-**0.1.0b5-Testpaket** baut auf der 0.1.0b4-Entwicklungsbasis auf;
+**0.1.0b6-Labortestpaket** baut auf der 0.1.0b5-Entwicklungsbasis auf;
 es ist noch kein GitHub-Release. Die Integration ist
 herstellerunabhängig beim Gateway,
 aber für die mitgelieferten Registerprofile gerätespezifisch. Sie ist kein
@@ -12,16 +12,19 @@ Produkt des Geräteherstellers und enthält keine Anlagenregelung.
 [Einschränkungen](docs/known_limits.md),
 [schrittweiser HA-Test](docs/ha_test_plan.md).
 
-**L-51-Entwicklungsstand:** Unter „Gerät konfigurieren → Modbus-Kommunikation
-konfigurieren“ lässt sich beim TM-32DS Register 16 lesend prüfen. Änderungen
-von Adresse oder seriellen Parametern sind noch gesperrt. Der bisherige
-lesende Betrieb einschließlich L-50 bleibt erhalten. Hintergründe und offene
-Freigabekriterien: [L-51-Status](docs/l51_status.md).
-L-51a betrifft ausschließlich die Slave-ID; L-51b (Baudrate/Parität) bleibt
-separat. Simulatorversuche haben wiederholte FC06-Telegramme auf eine
-Busy-Antwort nachgewiesen. Eine Hardwareänderung über HA ist nicht freigegeben.
+**L-51a – isolierter HA-Hardwaretest (nur 0.1.0b6-Laborbranch):** Unter
+„Gerät konfigurieren → Slave-ID ändern (isolierter Hardwaretest)“ kann ein
+einziger, ausdrücklich bestätigter TM-32DS-Testaufbau erstmals FC06/Register
+16 über HA ausprobieren. **Nicht an produktiven RS485-Bussen einsetzen.**
+Der HA-Unterbau kann einen FC06-Schreibaufruf bei Busy mehrfach übertragen;
+die Funktion bietet ausdrücklich **keine No-Retry-Garantie**. Bei unbestätigtem
+Ergebnis keine erneute Schreibübertragung auslösen. Alle DO-/AO-Ausgänge,
+andere Gerätemodelle und L-51b (Baudrate/Parität) bleiben schreibend gesperrt.
+[Labortestanleitung, Sicherheit und Wiederherstellung](docs/l51a_isolated_ha_lab.md).
+Die getrennte, ausschließlich lesende Kommunikationsinspektion bleibt erhalten.
+Dies ist **kein stabiler Release** und kein produktiv freigegebenes Modul.
 
-**L-50 – im 0.1.0b5-Testpaket auf Basis 0.1.0b4, ausschließlich lesend.**
+**L-50 – in der 0.1.0b6-Laborversion weiter ausschließlich lesend.**
 Dies ist noch kein Installationsrelease. Die veröffentlichte Version 0.1.0b1
 bleibt davon unberührt.
 
@@ -43,7 +46,7 @@ Keine Cloud, keine Anlagenregelung, keine Sicherheitssteuerung.
   mit dem Projekthandle KS-303.
 - Weitere kompatible Modelle über lokal gespeicherte, strikt geprüfte YAML-Profile;
   Profilvorschau vor dem Anlegen eines Geräts, ohne automatische Veröffentlichung.
-- **Keine produktiven Schreibentitäten oder Schreibdienste.** Hardwaretests und
+- **Keine produktiven DO-/AO-Schreibentitäten oder Schreibdienste.** Hardwaretests und
   ein nachgewiesenes Busy-Retry des HA-Unterbaus verhindern derzeit deren Freigabe.
 
 Vollständige Abgrenzung: [Implementierungsstatus](docs/implementation_status.md),
@@ -169,7 +172,7 @@ geprüft. [Bestandsaufnahme und Merge-Reihenfolge](docs/repository_inventory.md)
 ## English
 
 Local, manufacturer-neutral Modbus connections with model-specific CWT profiles.
-Published v0.1.0b1 is a read-only beta; this unreleased 0.1.0b5 test package
+Published v0.1.0b1 is a read-only beta; this unreleased 0.1.0b6 lab test package
 builds on the 0.1.0b4 development base. TM-32DS offers 32 temperature
 channels; MB308N offers
 8 analog inputs, 8 digital inputs and read-only output register values.
