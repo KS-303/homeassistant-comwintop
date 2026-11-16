@@ -375,7 +375,9 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
         )
         return self.async_show_form(
             step_id="communication",
-            data_schema=vol.Schema({vol.Optional("inspection", default=report): informational_text()}),
+            data_schema=vol.Schema(
+                {vol.Optional("inspection", default=report): informational_text()}
+            ),
             description_placeholders=values,
         )
 
