@@ -18,13 +18,16 @@ Vor einer schreibenden Beta: passende vorgelagerte Korrektur oder geprüfte,
 öffentliche Steuerungsmöglichkeit erforderlich; sämtliche tatsächlichen
 Sendetraces für Timeout, Busy und Disconnect erneut prüfen.
 
-## Harte 2-Sekunden-Frist
+## Harte 2-Sekunden-Frist für spätere DO/AO-Schaltbefehle
 
 Eine Prüfung vor dem Aufruf einer shared-unit-Methode beweist nicht, dass ein
 Telegramm binnen 2 Sekunden gesendet wird: die Methode kann intern hinter einer
 anderen Integration warten. Die isolierte Write-Engine besitzt deshalb einen
 Sendeguard-Contract. Der aktuelle HA-Unit-Adapter ist noch kein zertifizierter
 Write-Executor. Kein Write-Release ohne nachgewiesenen Guard am realen Sendepunkt.
+Die manuelle L-51a-Slave-ID-Parametrierung hat einen eigenen frischen
+Bestätigungs- und Verifikationsablauf; die Ausgangs-Schaltfrist blockiert sie
+nicht. Der FC06-Weg bleibt aus anderen Gründen gesperrt.
 
 ## Sensor- und Hardwaregrenzen
 

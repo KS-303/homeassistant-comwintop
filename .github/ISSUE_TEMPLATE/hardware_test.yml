@@ -1,0 +1,25 @@
+name: Hardwaretest
+description: Reproduzierbarer Messbericht mit offenem oder erreichtem Status
+title: 'Hardware: '
+body:
+  - type: input
+    id: setup
+    attributes:
+      label: Testaufbau
+      description: Gerät/Firmware, Gateway, HA-/Integrationsversion, Transport; private Adressen auslassen
+    validations:
+      required: true
+  - type: textarea
+    id: method
+    attributes:
+      label: Prüfschritte und Messmethode
+      description: Sollintervall, Dauer, Zeitstempel/Telegramme und unabhängige Referenz
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Gemessene Ergebnisse und noch offene Fälle
+      description: Simulatorbeobachtungen ausdrücklich von echter Hardware trennen
+    validations:
+      required: true
