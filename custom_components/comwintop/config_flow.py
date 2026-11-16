@@ -110,6 +110,16 @@ def select(options):
     return selector({"select": {"options": options, "mode": "dropdown"}})
 
 
+def unit_id_box():
+    """Display a numeric input instead of a slider with 247 positions."""
+    return selector({"number": {"min": 1, "max": 247, "step": 1, "mode": "box"}})
+
+
+def informational_text():
+    """Use a multi-line text field for readable, non-persisted flow previews."""
+    return selector({"text": {"multiline": True}})
+
+
 def connection_schema(mode, defaults=None, language="en"):
     defaults = defaults or {}
     fields = {vol.Required("name", default=defaults.get("name", "Modbus-Verbindung")): str}
@@ -351,9 +361,23 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                     values = inspect_tm32ds(words[0], sub.data["unit_id"])
                 except ModbusError, TimeoutError, ValueError, OSError:
                     values["status"] = "read_failed"
+        # A description-only empty form renders as a completely blank dialog
+        # if HA/frontend translations are cached. Expose the actual raw data in
+        # a visible read-only *workflow*: this displayed text is never persisted
+        # or used as a device setting.
+        report = (
+            f"Modbus-ID (Gerät / HA): {values['address']} / {values['configured_address']}\\n"
+            f"Register 16: {values['raw']}\\n"
+            f"Baudrate: {values['baudrate']}\\n"
+            f"Parität: {values['parity']}\\n"
+            f"Datenbits / Stoppbits: {values['databits']} / {values['stopbits']}\\n"
+            f"Status: {values['status']}"
+        )
         return self.async_show_form(
             step_id="communication",
-            data_schema=vol.Schema({}),
+            data_schema=vol.Schema(
+                {vol.Optional("inspection", default=report): informational_text()}
+            ),
             description_placeholders=values,
         )
 
@@ -373,7 +397,9 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
 
         errors = {}
         if user_input is not None:
-            target = user_input["target_id"]
+            # Number selectors may return integral floats (e.g. 3.0).
+            # The register planner deliberately accepts only genuine ints.
+            target = int(user_input["target_id"])
             if not user_input["isolated"] or not user_input["understand_retry"]:
                 errors["base"] = "test_acknowledgement_required"
             else:
@@ -423,11 +449,17 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                     errors["base"] = "cannot_connect"
                 else:
                     return await self.async_step_address_test_confirm()
+        notice = (
+            "ACHTUNG: Ausschließlich EIN physisch isolierter TM-32DS am RS485-Bus! "
+            "Der HA-Modbus-Unterbau kann FC06 bei Busy mehrfach senden. "
+            "Ohne zwei Bestätigungen wird nicht geschrieben."
+        )
         return self.async_show_form(
             step_id="address_test",
             data_schema=vol.Schema(
                 {
-                    vol.Required("target_id"): vol.All(vol.Coerce(int), vol.Range(min=1, max=247)),
+                    vol.Optional("lab_notice", default=notice): informational_text(),
+                    vol.Required("target_id"): unit_id_box(),
                     vol.Required("isolated", default=False): bool,
                     vol.Required("understand_retry", default=False): bool,
                 }
@@ -486,9 +518,20 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
             except ModbusError, TimeoutError, OSError, HomeAssistantError, ValueError:
                 return self.async_abort(reason="address_test_unconfirmed")
 
+        preview = (
+            f"ACHTUNG: Nur isolierter TM-32DS! HA kann FC06 bei Busy mehrfach senden. "
+            f"Adresse {plan['old_id']} -> {plan['target_id']}; "
+            f"Register 16: 0x{plan['raw']:04X} -> 0x{plan['new']:04X}. "
+            "Ein fehlender Reply bedeutet keinen bestätigten Schreibfehler."
+        )
         return self.async_show_form(
             step_id="address_test_confirm",
-            data_schema=vol.Schema({vol.Required("confirm", default=False): bool}),
+            data_schema=vol.Schema(
+                {
+                    vol.Optional("write_preview", default=preview): informational_text(),
+                    vol.Required("confirm", default=False): bool,
+                }
+            ),
             description_placeholders={
                 "old_id": str(plan["old_id"]),
                 "target_id": str(plan["target_id"]),

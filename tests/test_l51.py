@@ -129,7 +129,10 @@ async def test_ha_inspection_reads_once_and_never_writes(hass):
         assert flow["step_id"] == "communication"
         assert flow["description_placeholders"]["raw"] == "0x0104"
         assert flow["description_placeholders"]["status"] == "read_only"
-        assert flow["data_schema"].schema == {}
+        fields = {marker.schema: marker for marker in flow["data_schema"].schema}
+        assert "inspection" in fields
+        assert "Register 16: 0x0104" in fields["inspection"].default()
+        assert "Modbus-ID (Gerät / HA): 1 / 1" in fields["inspection"].default()
         assert (1, 3, 16, 1) in sim.trace
         assert all(call[1] in (1, 2, 3, 4) for call in sim.trace)
         assert sub.data["unit_id"] == 1
