@@ -118,9 +118,16 @@
         },
         "communication": {
           "title": "Modbus communication (read only)",
-          "description": "Register 16 is read freshly. Values below are displayed only and never saved. A separate laboratory-only slave-ID write test is available; baud/parity and production output writes remain locked.",
+          "description": "All fields are freshly read from the TM-32DS when opened and displayed read-only. The diagnostic entity 'Communication register 16' shows the cached register and attributes. Slave ID changes are only possible via the separate lab dialog.",
           "data": {
-            "inspection": "Communication parameters read from device (display only)"
+            "address": "Slave ID (device)",
+            "configured_address": "Slave ID (Home Assistant)",
+            "raw": "Register 16 (raw value)",
+            "baudrate": "Baud rate",
+            "parity": "Parity",
+            "databits": "Data bits",
+            "stopbits": "Stop bits",
+            "status": "Read status"
           }
         },
         "address_test": {
@@ -201,6 +208,9 @@
       },
       "do_raw": {
         "name": "Digital output {channel} – readback – raw value"
+      },
+      "communication_register": {
+        "name": "Communication register 16"
       }
     },
     "binary_sensor": {
