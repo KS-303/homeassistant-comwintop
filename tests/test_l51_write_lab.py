@@ -48,6 +48,10 @@ async def test_test_write_requires_both_acknowledgements(hass):
         sub = next(iter(entry.subentries.values()))
         flow = await open_address_flow(hass, entry, sub)
         assert flow["step_id"] == "address_test"
+        fields = {marker.schema: value for marker, value in flow["data_schema"].schema.items()}
+        assert "target_id" in fields
+        assert hasattr(fields["target_id"], "config")
+        assert fields["target_id"].config["mode"] == "box"
         flow = await hass.config_entries.subentries.async_configure(
             flow["flow_id"],
             {"target_id": 2, "isolated": False, "understand_retry": False},
@@ -74,6 +78,9 @@ async def test_tm32ds_lab_write_change_id_and_preserve_subentry(hass):
         )
         assert flow["step_id"] == "address_test_confirm"
         assert flow["description_placeholders"]["new_raw"] == "0x0204"
+        fields = {marker.schema: value for marker, value in flow["data_schema"].schema.items()}
+        assert "write_preview" in fields
+        assert "0x0104 -> 0x0204" in fields["write_preview"].default()
         flow = await hass.config_entries.subentries.async_configure(
             flow["flow_id"], {"confirm": True}
         )
