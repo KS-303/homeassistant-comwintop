@@ -118,11 +118,14 @@
         },
         "communication": {
           "title": "Modbus-Kommunikation (nur Lesen)",
-          "description": "Geräteadresse: {address} (in Home Assistant: {configured_address}); Baudrate: {baudrate}; Parität: {parity}; Datenbits: {databits}; Stoppbits: {stopbits}; Register 16: {raw}; Status: {status}. Die Parametrierung ist gesperrt, solange Registercodierung und einmalige Schreibübertragung nicht für dieses Modell und den Bus nachgewiesen sind. Erneut öffnen, um frisch zu lesen."
+          "description": "Register 16 wird frisch gelesen. Die nachstehenden Werte werden ausschließlich angezeigt und nicht gespeichert. Ein experimenteller Slave-ID-Schreibtest ist über den separaten Labor-Menüpunkt möglich; Baudrate/Parität und produktive Ausgangssteuerung bleiben gesperrt.",
+          "data": {
+            "inspection": "Ausgelesene Kommunikationsparameter (nur Anzeige)"
+          }
         },
         "address_test": {
           "title": "TM-32DS: Slave-ID im Labor ändern",
-          "description": "AUSSCHLIESSLICH ISOLIERTER TESTBUS mit genau einem TM-32DS! Das derzeitige HA-Modbus-Backend kann FC06 bei Busy MEHRFACH übertragen. Keine anderen RS485-Teilnehmer, keine angeschlossenen Ausgänge. Die Zieladresse muss frei sein; ein ausbleibender Lesereply beweist dies nicht. Bei Verbindungsverlust kann der Ausgang des Schreibversuchs unklar bleiben.",
+          "description": "NUR FÜR ISOLIERTEN EIN-GERÄTE-TESTBUS. Der HA-Modbus-Unterbau kann FC06 bei Busy MEHRFACH übertragen. Prüfe vor dem Fortsetzen, dass die Zieladresse frei ist und kein anderer RS485-Teilnehmer angeschlossen ist. Beide Bestätigungen sind zwingend.",
           "data": {
             "target_id": "Neue Slave-ID (1–247)",
             "isolated": "Ich bestätige: physisch isolierter Bus mit einem einzigen TM-32DS",
@@ -133,7 +136,8 @@
           "title": "TM-32DS: letzte Bestätigung",
           "description": "GEFAHR: Ein einzelner HA-Schreibaufruf kann mehrere FC06-Frames erzeugen. Geplante Änderung: Adresse {old_id} → {target_id}, Register 16 {old_raw} → {new_raw}. Die Integration versucht anschließend, die neue Adresse lesend zu prüfen. Bei unklarer Antwort bleibt die HA-Adresse unverändert. Jetzt genau einen Testauftrag auslösen?",
           "data": {
-            "confirm": "Einmaligen Testauftrag bewusst auslösen"
+            "confirm": "Einmaligen Testauftrag bewusst auslösen",
+            "write_preview": "Geplanter Schreibversuch (nur Anzeige, keine Änderung dieses Textes)"
           }
         }
       },
