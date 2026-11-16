@@ -174,16 +174,29 @@ def load_local_profiles(root: Path):
     return result, failures
 
 
-def install_local_profiles(root: Path):
-    """Refresh installed models, retaining built-ins and valid local snapshots."""
-    local, failures = load_local_profiles(root)
-    PROFILES.clear()
-    PROFILES.update(BUILTIN_PROFILES)
-    MODEL_NAMES.clear()
-    MODEL_NAMES.update(BUILTIN_NAMES)
+def publish_local_profiles(local):
+    """Publish a complete validated snapshot on the HA event-loop thread.
+
+    This function has no awaits; a concurrent coroutine never sees partially
+    cleared profile mappings. Do not call it from an executor worker.
+    """
+    next_profiles = dict(BUILTIN_PROFILES)
+    next_names = dict(BUILTIN_NAMES)
     for model, (name, groups) in local.items():
-        PROFILES[model] = groups
-        MODEL_NAMES[model] = name
+        next_profiles[model] = groups
+        next_names[model] = name
+    # Imported dict references remain stable. All changes run synchronously
+    # on the same HA event loop, rather than from a background executor.
+    PROFILES.clear()
+    PROFILES.update(next_profiles)
+    MODEL_NAMES.clear()
+    MODEL_NAMES.update(next_names)
+
+
+def install_local_profiles(root: Path):
+    """Synchronous setup helper for tests/offline use, not executor threads."""
+    local, failures = load_local_profiles(root)
+    publish_local_profiles(local)
     return failures
 
 
