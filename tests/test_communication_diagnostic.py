@@ -71,9 +71,7 @@ async def test_device_modbus_id_reconfigure_is_box_selector(hass):
         result = await hass.config_entries.subentries.async_configure(
             result["flow_id"], {"next_step_id": "device"}
         )
-        fields = {
-            marker.schema: value for marker, value in result["data_schema"].schema.items()
-        }
+        fields = {marker.schema: value for marker, value in result["data_schema"].schema.items()}
         assert fields["unit_id"].config["mode"] == "box"
         assert fields["unit_id"].config["min"] == 1
         assert fields["unit_id"].config["max"] == 247
