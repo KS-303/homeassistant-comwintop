@@ -1,0 +1,93 @@
+--- a/modbus_connection/_protocol.py
++++ b/modbus_connection/_protocol.py
+@@ -14,14 +14,14 @@
+     # raw register I/O
+     async def read_holding_registers(self, address: int, count: int) -> list[int]: ...
+     async def read_input_registers(self, address: int, count: int) -> list[int]: ...
+-    async def write_register(self, address: int, value: int) -> None: ...
+-    async def write_registers(self, address: int, values: list[int]) -> None: ...
++    async def write_register(self, address: int, value: int, *, retry: bool = True) -> None: ...
++    async def write_registers(self, address: int, values: list[int], *, retry: bool = True) -> None: ...
+ 
+     # raw coil / discrete-input I/O
+     async def read_coils(self, address: int, count: int) -> list[bool]: ...
+     async def read_discrete_inputs(self, address: int, count: int) -> list[bool]: ...
+-    async def write_coil(self, address: int, value: bool) -> None: ...
+-    async def write_coils(self, address: int, values: list[bool]) -> None: ...
++    async def write_coil(self, address: int, value: bool, *, retry: bool = True) -> None: ...
++    async def write_coils(self, address: int, values: list[bool], *, retry: bool = True) -> None: ...
+ 
+     async def read_exception_status(self) -> int: ...  # 0x07
+     async def report_server_id(self) -> bytes: ...  # 0x11
+--- a/modbus_connection/tmodbus/__init__.py
++++ b/modbus_connection/tmodbus/__init__.py
+@@ -380,12 +380,12 @@
+         return await self._client.read_input_registers(address, count)
+ 
+     @_map_errors
+-    async def write_register(self, address: int, value: int) -> None:
+-        await self._client.write_single_register(address, value)
+-
+-    @_map_errors
+-    async def write_registers(self, address: int, values: list[int]) -> None:
+-        await self._client.write_multiple_registers(address, values)
++    async def write_register(self, address: int, value: int, *, retry: bool = True) -> None:
++        await self._client.write_single_register(address, value, retry=retry)
++
++    @_map_errors
++    async def write_registers(self, address: int, values: list[int], *, retry: bool = True) -> None:
++        await self._client.write_multiple_registers(address, values, retry=retry)
+ 
+     # -- raw coil / discrete-input I/O ----------------------------------------
+ 
+@@ -398,12 +398,12 @@
+         return await self._client.read_discrete_inputs(address, count)
+ 
+     @_map_errors
+-    async def write_coil(self, address: int, value: bool) -> None:
+-        await self._client.write_single_coil(address, value)
+-
+-    @_map_errors
+-    async def write_coils(self, address: int, values: list[bool]) -> None:
+-        await self._client.write_multiple_coils(address, values)
++    async def write_coil(self, address: int, value: bool, *, retry: bool = True) -> None:
++        await self._client.write_single_coil(address, value, retry=retry)
++
++    @_map_errors
++    async def write_coils(self, address: int, values: list[bool], *, retry: bool = True) -> None:
++        await self._client.write_multiple_coils(address, values, retry=retry)
+ 
+     # -- full function-code surface -------------------------------------------
+ 
+--- a/modbus_connection/pymodbus/__init__.py
++++ b/modbus_connection/pymodbus/__init__.py
+@@ -291,13 +291,13 @@
+         return list(response.registers)
+ 
+     @_map_errors
+-    async def write_register(self, address: int, value: int) -> None:
++    async def write_register(self, address: int, value: int, *, retry: bool = True) -> None:
+         _check(
+             await self._client.write_register(address, value, device_id=self._unit_id)
+         )
+ 
+     @_map_errors
+-    async def write_registers(self, address: int, values: list[int]) -> None:
++    async def write_registers(self, address: int, values: list[int], *, retry: bool = True) -> None:
+         _check(
+             await self._client.write_registers(address, values, device_id=self._unit_id)
+         )
+@@ -321,11 +321,11 @@
+         return list(response.bits[:count])
+ 
+     @_map_errors
+-    async def write_coil(self, address: int, value: bool) -> None:
++    async def write_coil(self, address: int, value: bool, *, retry: bool = True) -> None:
+         _check(await self._client.write_coil(address, value, device_id=self._unit_id))
+ 
+     @_map_errors
+-    async def write_coils(self, address: int, values: list[bool]) -> None:
++    async def write_coils(self, address: int, values: list[bool], *, retry: bool = True) -> None:
+         _check(await self._client.write_coils(address, values, device_id=self._unit_id))
+ 
+     # -- full function-code surface -------------------------------------------
