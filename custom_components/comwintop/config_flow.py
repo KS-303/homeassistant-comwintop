@@ -13,8 +13,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.selector import selector
 from modbus_connection.exceptions import ModbusError
 
-from .communication import PROFILES as COMMUNICATION_PROFILES
-from .communication import inspect_tm32ds, plan_tm32ds_address
+from .communication import plan_tm32ds_address
 from .const import DEFAULT_INTERVALS, DOMAIN, MIN_INTERVALS
 from .model import revise_device, validate_device
 from .profiles import (
