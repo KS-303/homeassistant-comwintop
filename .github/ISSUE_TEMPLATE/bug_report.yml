@@ -1,6 +1,7 @@
 name: Fehlerbericht
 description: Lesende Integration oder Konfiguration funktioniert nicht wie erwartet
 title: 'Bug: '
+labels: ['bug']
 body:
   - type: markdown
     attributes:

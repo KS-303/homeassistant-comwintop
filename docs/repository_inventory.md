@@ -22,10 +22,11 @@ angelegt. Der Aufbereitungs-Draft ist [#5](https://github.com/KS-303/homeassista
 Einziger Release und Tag: `v0.1.0b1`, beide auf `ce208393`, zwei Release-Dateien.
 Die letzte PR-#4-Actions-Ausführung (`43865376760`) war erfolgreich. Diese
 Ausführung deckt die Upstream-PTY-Skripte noch nicht als eigenen CI-Job ab.
-`main` wird in der Branch-API als `protected: false` gemeldet. Der Zugriff
-auf die detaillierten Protection-Regeln scheitert mit 403; die Rulesets-API
-meldet für dieses private Repository eine Tarifbeschränkung. Das ist kein
-Nachweis, dass jede Repository-Einstellung einzeln deaktiviert ist.
+Zum Zeitpunkt dieser ersten Bestandsaufnahme war `main` ungeschützt. Nach der
+öffentlichen Freigabe wurde eine klassische Branch-Schutzregel eingerichtet;
+GitHub meldet jetzt `protected: true`. Details und weitere Sicherheitseinstellungen
+stehen in [Repository-Sicherheit](repository_security.md). Es gibt weiterhin
+keinen zusätzlichen Ruleset-Eintrag.
 
 ## Sichere spätere Integrationsfolge
 

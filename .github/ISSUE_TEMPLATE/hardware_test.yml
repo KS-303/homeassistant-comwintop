@@ -1,6 +1,7 @@
 name: Hardwaretest
 description: Reproduzierbarer Messbericht mit offenem oder erreichtem Status
 title: 'Hardware: '
+labels: ['hardware-test']
 body:
   - type: input
     id: setup

@@ -8,12 +8,12 @@ Das lokale HA-Icon in `brand/` ist **kein** Nachweis eines Eintrags im
 separaten Home-Assistant-Brands-Projekt; HACS verlangt diesen Eintrag für
 eine offizielle Aufnahme. Releases sind bei HACS optional, aber ein
 öffentlicher Release muss den tatsächlichen freigegebenen Code enthalten.
-Ein privates Entwicklungs-Repository ist noch keine offizielle HACS-Quelle.
+Das Repository ist öffentlich, aber noch keine offizielle HACS-Quelle.
 
 Vor einem Vorschlag an den [HACS-Katalog](https://hacs.dev/docs/publish/include/):
 Lizenz bewusst festlegen, Marken-/Icon-Rechte prüfen, Herstellerabgrenzung
 beibehalten, History/Tags/Assets auf private Daten prüfen, stabile
 Installations- und Rückbauanleitung prüfen, HA-Kompatibilität und die
-Testmatrix aktualisieren, Brands-Anforderung erfüllen und erst danach
-sichtbar veröffentlichen. Derzeit **kein** HACS-Aufnahmeantrag und keine
-Änderung der privaten Sichtbarkeit.
+Testmatrix aktualisieren und Brands-Anforderung erfüllen. Derzeit **kein**
+HACS-Aufnahmeantrag, keine Lizenzentscheidung und keine weitere Freigabe
+von Code oder Schreibfunktionen.

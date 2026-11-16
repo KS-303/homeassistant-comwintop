@@ -5,11 +5,12 @@ individuellen Installationsangaben. GitHub-Projektadresse und Maintainer-Handle
 bleiben als technische Projektzuordnung erhalten; das ist keine anonyme
 Veröffentlichung des Repository-Inhabers.
 
-Das Repository wurde mit bereinigtem Quellstand und neuer Historie angelegt.
-Vor einer Änderung der Sichtbarkeit sind dennoch alle Commits, Tags,
-Release-Quellarchive und Gesamtpakete erneut zu prüfen. Außerhalb des
-Repositorys gespeicherte Kopien oder Caches werden durch eine Neuanlage
-nicht rückwirkend gelöscht.
+Das Repository wurde am 16.11.2026 öffentlich gestellt. Zuvor wurden die
+13 erreichbaren Commits, 163 unterschiedliche Datei-Versionen und die
+PR-/Issue-Texte auf typische private Angaben gesichtet. Die SHA-256-Werte
+beider Release-Dateien stimmen exakt mit dem aus dem b1-Commit reproduzierten
+Paket überein. Dieses Screening ersetzt keine Prüfung künftiger Beiträge
+und kann externe Kopien oder Caches nicht rückwirkend bereinigen.
 
 Die Lizenzentscheidung ist weiterhin offen. Eine öffentliche Bereitstellung
 allein erteilt keine Open-Source-Lizenz. Hardwarevalidierung und Schreibfreigabe

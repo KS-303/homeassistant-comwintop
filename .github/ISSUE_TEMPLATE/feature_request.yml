@@ -1,6 +1,7 @@
 name: Funktionswunsch
 description: Vorschlag für eine klar abgegrenzte Erweiterung
 title: 'Feature: '
+labels: ['enhancement']
 body:
   - type: textarea
     id: use_case
