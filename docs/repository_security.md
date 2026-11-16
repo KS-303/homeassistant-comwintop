@@ -22,9 +22,10 @@ erstellen oder genehmigen. SHA-Pinning ist als Repository-Regel eingeschaltet.
 Workflows aus externen Fork-PRs benötigen vor der Ausführung eine Freigabe.
 
 `scripts/check_package.py` prüft die leere Schreibfreigabe über AST und
-Produktdateien. `scripts/build_package.py` nimmt nur Python, JSON und
-Brand-PNG aus `custom_components/comwintop/` in das ZIP und verifiziert
-alle Bytes. Keine Logs, Profile, Testquellen oder Patches ins Paket.
+Produktdateien. `scripts/build_package.py` verwendet eine feste Dateiliste,
+prüft Symlinks und verifiziert alle archivierten Bytes. Der ungenutzte
+`write_manager.py` bleibt ebenso wie lokale Extras, Logs, Profile, Testquellen
+und Patches außerhalb des Installationspakets.
 Vor jedem neuen Release Commits, Tags, Assets und Diagnose-Dateien nochmals
 auf Tokens, private IPs und identifizierende Metadaten prüfen. Vor der
 Sichtbarkeitsänderung wurden alle 13 erreichbaren Commits und 163 einzigartige

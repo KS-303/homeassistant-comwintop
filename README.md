@@ -1,26 +1,26 @@
 # ComWinTop for Home Assistant
 
-> **Entwicklungsstand b13 (Sicherheitsprüfung, noch kein Release):**
-> Basis ist b12. Diese Version behebt Syntaxfehler, benennt die Version
-> eindeutig und sperrt die experimentelle Slave-ID-Schreibfunktion (FC06)
-> vollständig – auch für alte Flow-URLs. DO und AO bleiben ausschließlich
-> lesbar. Die angezeigte Slave-ID und die Diagnose sind weiterhin verfügbar.
+> **Entwicklungsstand 0.1.0b14 (Installationsprüfung, noch kein Release):**
+> Basis ist b13. Das Installationspaket enthält nur fest freigegebene
+> Integrationsdateien; der ungenutzte Schreibmanager bleibt außerhalb des ZIP.
+> Die experimentelle Slave-ID-Schreibfunktion (FC06) sowie DO/AO-Schreiben
+> bleiben vollständig gesperrt. Die Slave-ID und Diagnose sind lesbar.
 > Unterstützter und getesteter HA-Zielstand: **Home Assistant Core 2026.11.x,
 > Python 3.14**. Python-3.13-Syntax wird geprüft, aber ältere HA-Modbus-APIs
 > sind **nicht** als kompatibel zugesichert.
 >
 > Negative Temperaturen und der mehrdeutige 85,0-°C-Rohwert bleiben bis zu
 > einem hardwarevalidierten TM-32DS-Registertest bewusst `unavailable`.
-> Bitte b13 nicht als vollständige Anlagen- oder Personenschutzsteuerung
-> verwenden. Das ältere b8-Installationspaket im zuvor erzeugten privaten
-> Backup war falsch beschriftet und ist **kein** Rückfallstand.
+> Bitte dieses Testpaket nicht als Anlagen- oder Personenschutzsteuerung
+> verwenden. Ein früheres als b8 beschriftetes Paket enthielt tatsächlich
+> neuere Dateien und ist kein verlässlicher Rückfallstand.
 > [Befundliste und Korrekturstatus](docs/b13_security_audit.md).
 
 
 ComWinTop verbindet CWT-I/O-Geräte lokal über Modbus mit Home Assistant.
 Der veröffentlichte Stand ist **v0.1.0b1 (lesende Beta)**. Das
-**0.1.0b8-Labortestpaket** baut auf b7 auf und erweitert die Kommunikationsdiagnose;
-es ist noch kein GitHub-Release. Die Integration ist
+**0.1.0b14-Testpaket** baut auf b13 auf und ist kein GitHub-Release.
+Die Integration ist
 herstellerunabhängig beim Gateway,
 aber für die mitgelieferten Registerprofile gerätespezifisch. Sie ist kein
 Produkt des Geräteherstellers und enthält keine Anlagenregelung.
@@ -29,17 +29,14 @@ Produkt des Geräteherstellers und enthält keine Anlagenregelung.
 [Einschränkungen](docs/known_limits.md),
 [schrittweiser HA-Test](docs/ha_test_plan.md).
 
-**L-51a – isolierter HA-Hardwaretest (0.1.0b8-Laborbranch):** Unter
-„Gerät konfigurieren → Slave-ID ändern (isolierter Hardwaretest)“ kann ein
-einziger, ausdrücklich bestätigter TM-32DS-Testaufbau erstmals FC06/Register
-16 über HA ausprobieren. **Nicht an produktiven RS485-Bussen einsetzen.**
-Der HA-Unterbau kann einen FC06-Schreibaufruf bei Busy mehrfach übertragen;
-die Funktion bietet ausdrücklich **keine No-Retry-Garantie**. Bei unbestätigtem
-Ergebnis keine erneute Schreibübertragung auslösen. Alle DO-/AO-Ausgänge,
-andere Gerätemodelle und L-51b (Baudrate/Parität) bleiben schreibend gesperrt.
-[Labortestanleitung, Sicherheit und Wiederherstellung](docs/l51a_isolated_ha_lab.md).
+**L-51a:** Das frühere FC06-Labormenü aus b6–b12 wurde in b13 entfernt.
+Auch alte Formular-URLs brechen ab. Der HA-Unterbau kann bei Busy einen
+Schreibaufruf wiederholen; deshalb sind Slave-ID-Änderungen, DO/AO und L-51b
+(Baudrate/Parität) in diesem Paket gesperrt. Die alte
+[Laboranleitung](docs/l51a_isolated_ha_lab.md) gilt nur für den historischen
+isolierten Laborzweig und darf nicht als Anleitung für b14 verwendet werden.
 
-**HA-Anzeige b8:** Die Kommunikationsübersicht zeigt Register 16 und alle
+**HA-Anzeige b14:** Die Kommunikationsübersicht zeigt Register 16 und alle
 Kommunikationsparameter als einzeln beschriftete schreibgeschützte Felder.
 Die Modbus-Adresse wird auch beim normalen Gerät-Anlegen und -Bearbeiten als
 Zahlenfeld statt als Schieberegler angezeigt. Eine eigene Diagnose-Entität
@@ -50,7 +47,7 @@ starten und die Browseransicht neu laden.
 Die getrennte, ausschließlich lesende Kommunikationsinspektion bleibt erhalten.
 Dies ist **kein stabiler Release** und kein produktiv freigegebenes Modul.
 
-**L-50 – in der 0.1.0b8-Laborversion weiter ausschließlich lesend.**
+**L-50 – in 0.1.0b14 weiter ausschließlich lesend.**
 Dies ist noch kein Installationsrelease. Die veröffentlichte Version 0.1.0b1
 bleibt davon unberührt.
 
@@ -120,15 +117,24 @@ behalten ihre eigenen Namen. Home Assistant 2026.11 kann das Icon direkt aus
 `custom_components/comwintop/brand/` laden. Nach einem Update ist ein
 vollständiger Neustart erforderlich.
 
-Die Beta wird manuell per ZIP installiert. Eine Aufnahme in den HACS-Katalog
-ist noch nicht erfolgt.
+Die Beta wird manuell per ZIP installiert. Der Default-Branch `main` und der
+einzige veröffentlichte Release enthalten noch b1. Eine HACS-Adresse für
+dieses Repository würde daher **nicht** das b14-Testpaket installieren.
+Eine Aufnahme in den HACS-Katalog ist noch nicht erfolgt.
 [Schrittweiser HA-Test](docs/ha_test_plan.md).
 
 ### Update und vollständige Entfernung
 
 Vor einem Update HA-Backup erstellen, Integrationsversion und Paket-SHA-256
 prüfen, nur `/config/custom_components/comwintop` aus dem gewünschten
-**freigegebenen** Installationspaket ersetzen und Home Assistant neu starten.
+**geprüften** Installationspaket ersetzen und Home Assistant neu starten.
+Wenn das ZIP unter `/config` liegt, lautet der Update-Befehl im HA-Terminal:
+
+```bash
+cd /config && unzip -o comwintop-0.1.0b14-install.zip
+```
+
+Das Archiv legt ausschließlich `/config/custom_components/comwintop/` an.
 Keine Entwicklungszweig-Dateien und keine Upstream-Patches direkt in die
 produktive Installation kopieren. Danach Verbindung, Entitätskennungen,
 Kanalnamen und ausschließlich lesende Daten prüfen; bei Problemen Backup
@@ -198,8 +204,8 @@ geprüft. [Bestandsaufnahme und Merge-Reihenfolge](docs/repository_inventory.md)
 ## English
 
 Local, manufacturer-neutral Modbus connections with model-specific CWT profiles.
-Published v0.1.0b1 is a read-only beta; this unreleased 0.1.0b8 lab test package
-builds on the 0.1.0b4 development base. TM-32DS offers 32 temperature
+Published v0.1.0b1 is a read-only beta; this unreleased 0.1.0b14 read-only test
+package builds on b13. TM-32DS offers 32 temperature
 channels; MB308N offers
 8 analog inputs, 8 digital inputs and read-only output register values.
 Connect through Modbus TCP, TCP-to-RTU gateway, transparent RTU over TCP, or

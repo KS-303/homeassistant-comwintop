@@ -10,7 +10,7 @@ keine Gesamtabnahme. „Gesperrt“ bedeutet keine produktive Schreib-API.
 | HA-Kommunikation und Wiederverbindung | Ja | Ja | Ja | Lesender Wiederanlauf beobachtet | 72-h- und Störfallnachweis offen |
 | L-50 Standard/Override, Block und Stale | Ja | Ja | TCP/RTU und Buslastmessung | **Nein**, gemischte Realintervalle offen | Kein Hardware-Abschluss |
 | MB308N AI/DI/AO-/DO-Readback | Ja (lesend) | Ja | Ja | Nein | Geräteabnahme offen |
-| L-51a Register 16, Slave 1→2 | HA-Beta b5 nur lesend/Berechnung; b6 mit separatem isolierten FC06-Labortest | Ja | FC06-Retry- und No-Retry-Prototyp; b6-Labortest simuliert | Registerwerk: `0x0104`→`0x0204`, FC03 an 2, nach Neustart gespeichert | **Nur isolierter TM-32DS-Testmodus; produktive HA-FC06 weiterhin gesperrt**, mehrfaches Senden bei Busy möglich |
+| L-51a Register 16, Slave 1→2 | b14 nur lesend; früherer b6–b12-FC06-Labortest seit b13 gesperrt | Ja | FC06-Retry- und No-Retry-Prototyp; historischer Labortest simuliert | Registerwerk: `0x0104`→`0x0204`, FC03 an 2, nach Neustart gespeichert | **Im aktuellen Paket vollständig gesperrt**; mehrfaches Senden bei Busy möglich |
 | L-51b Baudrate/Parität | Nein | Nein | Nein | Nein | **Gesperrt**; Originalgrafik und Gateway-Test offen |
 | DO/AO-Befehl | Nur isolierte WriteManager-Engine | Engine und Schreibsperre | Upstream-Wire-Prototyp | Nein | **Gesperrt**; 2-s-Sendeguard, Readback, Grenzen, Lasttest offen |
 | Upstream FC05/06/15/16, `retry=False` | Getrennte Patchentwürfe | Skripte, nun isolierte CI | 30 Netzwerk- und 34 PTY-Szenarien | Nein | Maintainer-Review, Veröffentlichung, HA-Abhängigkeit offen |
@@ -28,6 +28,7 @@ Entwicklungsvorstufen, `0.1.0b4` die Entwicklungsbasis. Das noch nicht
 veröffentlichte `0.1.0b5`-Testpaket enthält L-50 und die lesende L-51-
 Vorbereitung. `0.1.0b6` ergänzt für **physisch isolierte Einzelgeräte** einen
 experimentellen, ausdrücklich bestätigten TM-32DS-FC06-Schreibversuch.
+Seit b13 ist auch der FC06-Laborfluss entfernt. b14 bleibt vollständig lesend.
 Die normale L-51-/DO/AO-Schreibfreigabe bleibt gesperrt. Das Manifest
 und `pyproject.toml` müssen
 für ein **konkretes** zukünftiges Paket übereinstimmen. Dokumentations-PRs

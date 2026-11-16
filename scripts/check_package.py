@@ -41,7 +41,7 @@ def check():
         image = (COMPONENT / "brand" / name).read_bytes()
         assert image.startswith(b"\x89PNG\r\n\x1a\n")
         assert struct.unpack(">II", image[16:24]) == (size, size)
-    # b13 releases no Modbus write entry points, including old FC06 lab flows.
+    # The current beta exposes no Modbus write entry points, including old FC06 lab flows.
     write_sites = []
     for path in COMPONENT.glob("*.py"):
         tree = ast.parse(path.read_text(), filename=str(path))
