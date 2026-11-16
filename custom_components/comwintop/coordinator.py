@@ -71,6 +71,9 @@ class UnitCoordinator(DataUpdateCoordinator):
             return
         self.status = "OFFLINE"
         self.counters["transport_errors"] += 1
+        self.communication_values = None
+        self.communication_received = None
+        self.communication_error = "transport_lost"
         self._pending.clear()
         recovery_at = time.monotonic() + min(30, 2 ** min(max(self.failures, 1), 5))
         for key in self._next:
