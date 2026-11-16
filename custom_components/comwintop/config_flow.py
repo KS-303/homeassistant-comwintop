@@ -195,7 +195,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 key = await self.hass.async_add_executor_job(endpoint_key, data)
                 await self.async_set_unique_id(key)
                 self._abort_if_unique_id_configured()
-            except ValueError, KeyError:
+            except (ValueError, KeyError):
                 errors["base"] = "invalid_connection"
             else:
                 data["connection_uid"] = str(uuid4())
@@ -219,9 +219,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 # Check each configured unit at the destination BEFORE changing it.
                 for sub in entry.subentries.values():
                     await probe(self.hass, data, sub.data)
-            except ModbusError, TimeoutError, HomeAssistantError:
+            except (ModbusError, TimeoutError, HomeAssistantError):
                 errors["base"] = "cannot_connect"
-            except ValueError, KeyError:
+            except (ValueError, KeyError):
                 errors["base"] = "invalid_connection"
             else:
                 for sub in entry.subentries.values():
@@ -268,9 +268,9 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                 }
                 try:
                     return await self._create_device(data)
-                except ModbusError, TimeoutError, HomeAssistantError:
+                except (ModbusError, TimeoutError, HomeAssistantError):
                     errors["base"] = "cannot_connect"
-                except ValueError, KeyError:
+                except (ValueError, KeyError):
                     errors["base"] = "invalid_device"
         return self.async_show_form(
             step_id="user",
@@ -297,9 +297,9 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
             else:
                 try:
                     return await self._create_device(data)
-                except ModbusError, TimeoutError, HomeAssistantError:
+                except (ModbusError, TimeoutError, HomeAssistantError):
                     errors["base"] = "cannot_connect"
-                except ValueError, KeyError:
+                except (ValueError, KeyError):
                     errors["base"] = "invalid_device"
         return self.async_show_form(
             step_id="profile_preview",
@@ -466,7 +466,7 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                                 async with asyncio.timeout(1.5):
                                     test = await target_unit.read_holding_registers(16, 1)
                                 target_responded = len(test) > 0
-                            except ModbusError, TimeoutError, OSError:
+                            except (ModbusError, TimeoutError, OSError):
                                 pass
                         if target_responded:
                             raise ValueError("address_in_use")
@@ -479,7 +479,7 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                     }
                 except ValueError:
                     errors["base"] = "address_test_invalid"
-                except ModbusError, TimeoutError, OSError, HomeAssistantError:
+                except (ModbusError, TimeoutError, OSError, HomeAssistantError):
                     errors["base"] = "cannot_connect"
                 else:
                     return await self.async_step_address_test_confirm()
@@ -537,7 +537,7 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                     try:
                         async with asyncio.timeout(4):
                             await old_unit.write_register(16, plan["new"])
-                    except ModbusError, TimeoutError, OSError:
+                    except (ModbusError, TimeoutError, OSError):
                         pass  # The device may have changed ID despite lost reply.
                     async with async_get_temporary_unit(self.hass, params, target) as target_unit:
                         async with asyncio.timeout(3):
@@ -549,7 +549,7 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                 # Preserve stable subentry/device identifiers and channel options.
                 new_data = dict(sub.data) | {"unit_id": target}
                 return self.async_update_and_abort(entry, sub, title=sub.title, data=new_data)
-            except ModbusError, TimeoutError, OSError, HomeAssistantError, ValueError:
+            except (ModbusError, TimeoutError, OSError, HomeAssistantError, ValueError):
                 return self.async_abort(reason="address_test_unconfirmed")
 
         preview = (
@@ -590,7 +590,7 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                 data = revise_device(dict(sub.data), dict(sub.data) | user_input)
                 try:
                     await probe(self.hass, entry.data, data)
-                except ModbusError, TimeoutError, HomeAssistantError, ValueError:
+                except (ModbusError, TimeoutError, HomeAssistantError, ValueError):
                     errors["base"] = "cannot_connect"
                 else:
                     return self.async_update_and_abort(entry, sub, title=data["name"], data=data)
@@ -670,7 +670,7 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
             data.setdefault("channels", {})[key] = channel_options
             try:
                 data = revise_device(dict(sub.data), data)
-            except ValueError, KeyError:
+            except (ValueError, KeyError):
                 errors["base"] = (
                     "invalid_interval" if "poll_interval" in selected else "invalid_channel"
                 )
