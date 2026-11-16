@@ -1,5 +1,10 @@
 # Implementierungsstatus – L-50 auf Entwicklungsbasis 0.1.0b4
 
+L-51 ist als **lesender Vorbereitungsstand** implementiert. Das TM-32DS-
+Konfigurationsregister kann angezeigt werden; Änderungen sind bis zum
+Nachweis einmaliger Schreibübertragung und der vollständigen Modellkodierung
+gesperrt. Siehe [L-51-Status](l51_status.md).
+
 Dies ist die erste **lesende Testversion**, kein vollständiger stabiler P0-Release.
 
 | Funktion | Implementierung / Nachweis |

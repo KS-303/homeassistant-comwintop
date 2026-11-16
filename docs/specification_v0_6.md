@@ -271,6 +271,23 @@ Spätere Kandidaten aus älterer Recherche: MB307D, MB307F, MB318C, CWT-BK-Serie
 
 ## B6. Modbus-Request- und Polling-Architektur
 
+### L-51 – Gerätekommunikation parametrieren (noch nicht freigegeben)
+
+L-51a umfasst nur die Slave-ID im High-Byte von Register 16; alle Low-Byte-
+Bits werden erhalten. L-51b betrifft Baudrate/Parität und bleibt separat.
+Ein Simulatornachweis für mehrere FC06-Sendungen nach Busy durch den
+vorhandenen Backendpfad sperrt L-51a bis zu einem öffentlich unterstützten,
+buskoordinierten No-Retry-Schreibpfad. Details: [Status](l51_status.md).
+
+Die Geräteadresse und seriellen Parameter gehören zum Gerät; die Verbindung
+und das Gateway sind getrennt. Vor einem einzelnen FC06 muss der Rohwert
+vollständig gelesen, adress- und busseitig geprüft und die Änderung ausdrücklich
+bestätigt sein. Danach sind neues Register und ein Messwert unter den neuen
+Parametern frisch zu verifizieren, erst dann darf die HA-Gerätekonfiguration
+übernommen werden. Unklare Ergebnisse dürfen weder erneut geschrieben noch
+automatisch zurückgeschrieben werden. Die Implementierung bleibt bis zum
+Nachweis dieser Invarianten vollständig lesend. [Status](l51_status.md).
+
 ### L-50 – kanalbezogene Abfrageintervalle (Ergänzung zum Entwicklungsbranch 0.1.0b4)
 
 Jeder aktivierte Kanal übernimmt ohne Override das vorhandene Gruppenintervall.

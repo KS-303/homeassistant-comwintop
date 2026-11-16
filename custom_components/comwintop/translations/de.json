@@ -65,7 +65,8 @@
           "menu_options": {
             "device": "Name / Modbus-Adresse",
             "channel": "Kanal konfigurieren",
-            "intervals": "Abfrageintervalle"
+            "intervals": "Abfrageintervalle",
+            "communication": "Modbus-Kommunikation konfigurieren"
           }
         },
         "device": {
@@ -113,6 +114,10 @@
           "data": {
             "confirm": "Profil prüfen und Gerät hinzufügen"
           }
+        },
+        "communication": {
+          "title": "Modbus-Kommunikation (nur Lesen)",
+          "description": "Geräteadresse: {address} (in Home Assistant: {configured_address}); Baudrate: {baudrate}; Parität: {parity}; Datenbits: {databits}; Stoppbits: {stopbits}; Register 16: {raw}; Status: {status}. Die Parametrierung ist gesperrt, solange Registercodierung und einmalige Schreibübertragung nicht für dieses Modell und den Bus nachgewiesen sind. Erneut öffnen, um frisch zu lesen."
         }
       },
       "error": {

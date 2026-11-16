@@ -1,5 +1,14 @@
 # ComWinTop for Home Assistant
 
+**L-51-Entwicklungsstand:** Unter „Gerät konfigurieren → Modbus-Kommunikation
+konfigurieren“ lässt sich beim TM-32DS Register 16 lesend prüfen. Änderungen
+von Adresse oder seriellen Parametern sind noch gesperrt. Der bisherige
+lesende Betrieb einschließlich L-50 bleibt erhalten. Hintergründe und offene
+Freigabekriterien: [L-51-Status](docs/l51_status.md).
+L-51a betrifft ausschließlich die Slave-ID; L-51b (Baudrate/Parität) bleibt
+separat. Simulatorversuche haben wiederholte FC06-Telegramme auf eine
+Busy-Antwort nachgewiesen. Eine Hardwareänderung über HA ist nicht freigegeben.
+
 **L-50 – Entwicklungsbranch auf Basis 0.1.0b4, ausschließlich lesend.**
 Dies ist kein Installationsrelease. Die veröffentlichte Version 0.1.0b1
 bleibt davon unberührt.

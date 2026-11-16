@@ -1,5 +1,22 @@
 # Hardwareabnahme – lesende Beta und L-50-Entwicklungsbranch
 
+## L-51 vor jeder Schreibfreigabe
+
+L-51a ist bislang ausschließlich ein Simulator- und Codebefund: Bei Busy
+wiederholt der vorhandene Backendpfad FC06. Ein realer HA-Schreibtest ist
+gesperrt. Nach einem öffentlichen No-Retry-Pfad zuerst TCP und RTU physisch
+auf exakt ein Telegramm je Fehlerfall prüfen; das CWT an einem isolierten Bus
+mit eindeutiger Adresse testen. L-51b (Baudrate/Parität) bleibt ein eigener
+Testblock, einschließlich Gateway- und Multidrop-Verhalten.
+
+Register 16 am TM-32DS zunächst lesend mit Registerwerk vergleichen.
+Originaldokumentation für sämtliche Codes und Bits verifizieren. Für jeden
+Transport und Fehlerpfad eine einzige physische FC06-Übertragung nachweisen,
+einschließlich Busy, Timeout, Abbruch und HA-Neustart. Adresse 1→2,
+Persistenz, Rücklesen und Messwert an neuer Adresse am isolierten Gerät
+prüfen. Danach Multidrop-Bus mit zweitem Slave und Wiederherstellungsplan
+testen. MB308N erst nach eigenem Register- und Hardwarebeleg freigeben.
+
 Stand: vollständige Abnahme **noch nicht durchgeführt**. Softwaretests sind kein Hardwaretest.
 Der separate L-50-Abfragetest steht noch aus. Der TM-32DS wurde zwischenzeitlich
 mit zwei DS18B20 am Waveshare-Gateway lesend geprüft (FC03, Adressen 32/33,

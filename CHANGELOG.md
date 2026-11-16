@@ -1,5 +1,21 @@
 # Änderungen
 
+## L-51a-Untersuchung (Draft, Writes weiterhin gesperrt)
+
+- Adresse im High-Byte unter Erhalt sämtlicher Low-Byte-Bits rein rechnerisch
+  vorbereitet; Bereichs- und bekannte Konfliktprüfung ergänzt.
+- Ein FC06-Aufruf des vorhandenen Backends führte bei Busy im TCP- und
+  RTU-over-TCP-Simulator zu mehreren Telegrammen. Timeout, Abbruch und
+  Wiederanlauf separat geprüft. Deshalb keine Schreibfreigabe.
+- Baudrate/Parität als L-51b abgegrenzt; keine Änderung am Gateway.
+
+## L-51 (Draft; Konfigurationsschreiben gesperrt)
+
+- Lesende Anzeige des TM-32DS-Kommunikationsregisters 16 unter gemeinsamer
+  Bussperre; nur real bestätigte 9600/N/8/1-Kodierung `0x04` dargestellt.
+- MB308N und unbekannte Codes bleiben ohne Schreibfunktion; keine
+  Kommunikationseinstellungen, Ausgänge oder Entity-IDs geändert.
+
 ## L-50 (Entwicklungsbranch auf Basis 0.1.0b4; kein Release)
 
 - Kanalbezogene Abfrageintervalle mit optionalem Override; vorhandene

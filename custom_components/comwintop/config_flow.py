@@ -13,6 +13,8 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.selector import selector
 from modbus_connection.exceptions import ModbusError
 
+from .communication import PROFILES as COMMUNICATION_PROFILES
+from .communication import inspect_tm32ds
 from .const import DEFAULT_INTERVALS, DOMAIN, MIN_INTERVALS
 from .model import revise_device, validate_device
 from .profiles import (
@@ -316,7 +318,42 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
     async def async_step_reconfigure(self, user_input=None):
         self._sub = self._get_reconfigure_subentry()
         return self.async_show_menu(
-            step_id="reconfigure", menu_options=["device", "channel", "intervals"]
+            step_id="reconfigure", menu_options=["device", "channel", "intervals", "communication"]
+        )
+
+    async def async_step_communication(self, user_input=None):
+        """Show a fresh bus-serialized read; never expose a write action."""
+        sub = self._get_reconfigure_subentry()
+        entry = self._get_entry()
+        profile = COMMUNICATION_PROFILES.get(sub.data["model"])
+        values = {
+            "address": "?",
+            "configured_address": str(sub.data["unit_id"]),
+            "baudrate": "?",
+            "parity": "?",
+            "databits": "?",
+            "stopbits": "?",
+            "raw": "?",
+            "status": "unsupported",
+        }
+        if profile is not None and profile.register is not None:
+            runtime = getattr(entry, "runtime_data", None)
+            coordinator = runtime.units.get(sub.subentry_id) if runtime else None
+            if coordinator is not None:
+                try:
+                    async with runtime.bus_lock, asyncio.timeout(3):
+                        words = await getattr(coordinator.unit, profile.read_method)(
+                            profile.register, 1
+                        )
+                    if len(words) != 1:
+                        raise ValueError("invalid_length")
+                    values = inspect_tm32ds(words[0], sub.data["unit_id"])
+                except ModbusError, TimeoutError, ValueError, OSError:
+                    values["status"] = "read_failed"
+        return self.async_show_form(
+            step_id="communication",
+            data_schema=vol.Schema({}),
+            description_placeholders=values,
         )
 
     async def async_step_device(self, user_input=None):

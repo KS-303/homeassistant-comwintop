@@ -65,7 +65,8 @@
           "menu_options": {
             "device": "Name / unit address",
             "channel": "Configure channel",
-            "intervals": "Polling intervals"
+            "intervals": "Polling intervals",
+            "communication": "Configure Modbus communication"
           }
         },
         "device": {
@@ -113,6 +114,10 @@
           "data": {
             "confirm": "Check profile and add device"
           }
+        },
+        "communication": {
+          "title": "Modbus communication (read only)",
+          "description": "Device address: {address} (configured in Home Assistant: {configured_address}); baud rate: {baudrate}; parity: {parity}; data bits: {databits}; stop bits: {stopbits}; register 16: {raw}; status: {status}. Configuration writes are locked until register encoding and single transmission are verified for this model and bus. Reopen for a fresh read."
         }
       },
       "error": {
