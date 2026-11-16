@@ -118,9 +118,16 @@
         },
         "communication": {
           "title": "Modbus-Kommunikation (nur Lesen)",
-          "description": "Register 16 wird frisch gelesen. Die nachstehenden Werte werden ausschließlich angezeigt und nicht gespeichert. Ein experimenteller Slave-ID-Schreibtest ist über den separaten Labor-Menüpunkt möglich; Baudrate/Parität und produktive Ausgangssteuerung bleiben gesperrt.",
+          "description": "Alle Werte werden beim Öffnen frisch vom TM-32DS gelesen und einzeln schreibgeschützt angezeigt. Die Diagnoseentität »Kommunikationsregister 16« zeigt den letzten Lesevorgang samt Attributen. Eine Änderung der Slave-ID erfolgt nur über den gesonderten Labor-Testdialog.",
           "data": {
-            "inspection": "Ausgelesene Kommunikationsparameter (nur Anzeige)"
+            "address": "Slave-ID (Gerät)",
+            "configured_address": "Slave-ID (Home Assistant)",
+            "raw": "Register 16 (Rohwert)",
+            "baudrate": "Baudrate",
+            "parity": "Parität",
+            "databits": "Datenbits",
+            "stopbits": "Stoppbits",
+            "status": "Lesestatus"
           }
         },
         "address_test": {
@@ -201,6 +208,9 @@
       },
       "do_raw": {
         "name": "Digitaler Ausgang {channel} – Rückmeldung – Rohwert"
+      },
+      "communication_register": {
+        "name": "Kommunikationsregister 16"
       }
     },
     "binary_sensor": {
