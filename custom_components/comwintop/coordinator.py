@@ -19,6 +19,13 @@ from .model import Sample, effective_interval
 from .profiles import PROFILES, InvalidValue, channel_key, channels, decode_channel
 
 
+def failed_poll_delay(interval: float, failures: int) -> float:
+    """Back off transient read failures without accelerating slow channels."""
+    if failures <= 0:
+        return interval
+    return min(max(30, interval), interval * 2 ** min(failures, 5))
+
+
 class UnitCoordinator(DataUpdateCoordinator):
     def __init__(self, hass, entry, subentry, unit, bus_lock, logger):
         super().__init__(hass, logger, config_entry=entry, name=f"comwintop_{subentry.subentry_id}")
@@ -289,12 +296,7 @@ class UnitCoordinator(DataUpdateCoordinator):
             for key in keys:
                 # Never retry more frequently than the configured channel
                 # interval. The 30-second cap only applies to short intervals.
-                interval = self.interval(key)
-                retry_delay = (
-                    min(max(30, interval), interval * 2 ** min(self.failures, 5))
-                    if self.failures
-                    else interval
-                )
+                retry_delay = failed_poll_delay(self.interval(key), self.failures)
                 self._next[key] = completed + retry_delay
         self.async_set_updated_data(self.samples)
 
