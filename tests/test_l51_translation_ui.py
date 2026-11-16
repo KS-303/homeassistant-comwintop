@@ -10,9 +10,7 @@ async def test_subentry_translation_keys_resolve_for_de_and_en(hass):
         ("de", "Slave-ID ändern"),
         ("en", "Change slave ID"),
     ):
-        labels = await async_get_translations(
-            hass, language, "config_subentries", {DOMAIN}
-        )
+        labels = await async_get_translations(hass, language, "config_subentries", {DOMAIN})
         prefix = f"component.{DOMAIN}.config_subentries.device."
         required = {
             "step.reconfigure.menu_options.communication",
