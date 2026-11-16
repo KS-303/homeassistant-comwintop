@@ -390,7 +390,9 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
 
         errors = {}
         if user_input is not None:
-            target = user_input["target_id"]
+            # Number selectors may return integral floats (e.g. 3.0).
+            # The register planner deliberately accepts only genuine ints.
+            target = int(user_input["target_id"])
             if not user_input["isolated"] or not user_input["understand_retry"]:
                 errors["base"] = "test_acknowledgement_required"
             else:
@@ -440,10 +442,16 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                     errors["base"] = "cannot_connect"
                 else:
                     return await self.async_step_address_test_confirm()
+        notice = (
+            "ACHTUNG: Ausschließlich EIN physisch isolierter TM-32DS am RS485-Bus! "
+            "Der HA-Modbus-Unterbau kann FC06 bei Busy mehrfach senden. "
+            "Ohne zwei Bestätigungen wird nicht geschrieben."
+        )
         return self.async_show_form(
             step_id="address_test",
             data_schema=vol.Schema(
                 {
+                    vol.Optional("lab_notice", default=notice): str,
                     vol.Required("target_id"): unit_id_box(),
                     vol.Required("isolated", default=False): bool,
                     vol.Required("understand_retry", default=False): bool,
