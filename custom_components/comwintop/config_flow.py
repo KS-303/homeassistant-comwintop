@@ -357,9 +357,7 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                 except ValueError:
                     errors["base"] = "invalid_channel_range"
                 else:
-                    return self.async_update_and_abort(
-                        self._get_entry(), sub, data=updated
-                    )
+                    return self.async_update_and_abort(self._get_entry(), sub, data=updated)
         return self.async_show_form(
             step_id="disable_temperature_range",
             data_schema=vol.Schema(
@@ -637,10 +635,7 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
         # A labeled membership validator serializes to a native HA dropdown.
         # Values remain stable internal IDs (e.g. temperature_3), not labels.
         channel_selector = vol.In(
-            {
-                key: f"{labels[group.kind]} {index + 1}"
-                for key, group, index in channels(model)
-            }
+            {key: f"{labels[group.kind]} {index + 1}" for key, group, index in channels(model)}
         )
         return self.async_show_form(
             step_id="channel",
