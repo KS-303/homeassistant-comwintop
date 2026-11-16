@@ -517,10 +517,15 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                 data = revise_device(dict(sub.data), data)
             except (ValueError, KeyError) as err:
                 code = str(err)
-                errors["base"] = (
-                    code if code in ("invalid_interval", "invalid_scale")
-                    else "invalid_channel"
-                )
+                if code == "invalid_interval":
+                    errors["base"] = code
+                elif code == "invalid_scale" or (
+                    channel_options.get("display") == "scaled"
+                    and code in ("invalid_number", "non_finite")
+                ):
+                    errors["base"] = "invalid_scale"
+                else:
+                    errors["base"] = "invalid_channel"
             else:
                 if not errors:
                     return self.async_update_and_abort(self._get_entry(), sub, data=data)
