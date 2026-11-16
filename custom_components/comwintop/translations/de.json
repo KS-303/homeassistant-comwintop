@@ -118,7 +118,7 @@
         },
         "communication": {
           "title": "Modbus-Kommunikation (nur Lesen)",
-          "description": "Alle Werte werden beim Öffnen frisch vom TM-32DS gelesen und einzeln schreibgeschützt angezeigt. Die Diagnoseentität »Kommunikationsregister 16« zeigt den letzten Lesevorgang samt Attributen. Eine Änderung der Slave-ID erfolgt nur über den gesonderten Labor-Testdialog.",
+          "description": "Alle Werte werden beim Öffnen frisch vom TM-32DS gelesen und einzeln schreibgeschützt angezeigt. Die Diagnoseentität »Modbus-Adresse (Gerät)« zeigt den letzten Lesevorgang samt Attributen. Eine Änderung der Slave-ID erfolgt nur über den gesonderten Labor-Testdialog.",
           "data": {
             "address": "Slave-ID (Gerät)",
             "configured_address": "Slave-ID (Home Assistant)",
@@ -210,7 +210,7 @@
         "name": "Digitaler Ausgang {channel} – Rückmeldung – Rohwert"
       },
       "communication_register": {
-        "name": "Kommunikationsregister 16"
+        "name": "Modbus-Adresse (Gerät)"
       }
     },
     "binary_sensor": {
