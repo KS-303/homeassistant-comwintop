@@ -516,8 +516,10 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
             try:
                 data = revise_device(dict(sub.data), data)
             except (ValueError, KeyError) as err:
+                code = str(err)
                 errors["base"] = (
-                    "invalid_interval" if str(err) == "invalid_interval" else "invalid_channel"
+                    code if code in ("invalid_interval", "invalid_scale")
+                    else "invalid_channel"
                 )
             else:
                 if not errors:
