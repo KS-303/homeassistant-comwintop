@@ -616,7 +616,10 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
         if user_input is not None:
             data = deepcopy(dict(sub.data))
             selected = dict(user_input)
-            mode = selected.pop("poll_interval_mode")
+            mode = selected.pop(
+                "poll_interval_mode",
+                "individual" if "poll_interval" in selected else "standard",
+            )
             if mode == "standard":
                 selected.pop("poll_interval", None)
             elif mode != "individual" or selected.get("poll_interval") is None:
