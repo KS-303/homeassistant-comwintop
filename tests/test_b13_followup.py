@@ -49,8 +49,7 @@ async def test_invalid_configuration_is_not_retried(hass):
     sim = await Simulator().start()
     try:
         entry = make_entry(sim)
-        sub = next(iter(entry.subentries.values()))
-        # ConfigSubentry data may be immutable; fail validation explicitly.
+        # Fail validation explicitly without mutating immutable subentry data.
         from custom_components.comwintop.profiles import InvalidValue
 
         original = module.validate_device
