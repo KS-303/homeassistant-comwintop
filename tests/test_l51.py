@@ -127,12 +127,24 @@ async def test_ha_inspection_reads_once_and_never_writes(hass):
             flow["flow_id"], {"next_step_id": "communication"}
         )
         assert flow["step_id"] == "communication"
-        assert flow["description_placeholders"]["raw"] == "0x0104"
-        assert flow["description_placeholders"]["status"] == "read_only"
-        fields = {marker.schema: marker for marker in flow["data_schema"].schema}
-        assert "inspection" in fields
-        assert "Register 16: 0x0104" in fields["inspection"].default()
-        assert "Modbus-ID (Gerät / HA): 1 / 1" in fields["inspection"].default()
+        markers = {marker.schema: marker for marker in flow["data_schema"].schema}
+        selectors = {marker.schema: value for marker, value in flow["data_schema"].schema.items()}
+        assert set(markers) == {
+            "address", "configured_address", "raw", "baudrate", "parity",
+            "databits", "stopbits", "status"
+        }
+        expected = {
+            "address": "1",
+            "configured_address": "1",
+            "raw": "0x0104",
+            "baudrate": "9600",
+            "parity": "N",
+            "databits": "8",
+            "stopbits": "1",
+            "status": "read_only",
+        }
+        assert {key: marker.default() for key, marker in markers.items()} == expected
+        assert all(selector.config["read_only"] is True for selector in selectors.values())
         assert (1, 3, 16, 1) in sim.trace
         assert all(call[1] in (1, 2, 3, 4) for call in sim.trace)
         assert sub.data["unit_id"] == 1
@@ -161,10 +173,12 @@ async def test_inspection_fault_and_recovery_never_emit_fc06(hass, fault):
 
         sim.fault = fault
         result = await inspect()
-        assert result["description_placeholders"]["status"] == "read_failed"
+        fields = {marker.schema: marker.default() for marker in result["data_schema"].schema}
+        assert fields["status"] == "read_failed"
         sim.fault = None
         result = await inspect()
-        assert result["description_placeholders"]["raw"] == "0x0104"
+        fields = {marker.schema: marker.default() for marker in result["data_schema"].schema}
+        assert fields["raw"] == "0x0104"
         assert sub.data["unit_id"] == 1
         assert not [call for call in sim.trace if call[1] == 6]
     finally:
