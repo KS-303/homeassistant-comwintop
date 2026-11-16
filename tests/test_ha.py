@@ -609,3 +609,46 @@ async def test_reconfigure_bulk_menu_has_visible_label_and_numeric_boxes(hass, s
     assert fields["first"].config["max"] == fields["last"].config["max"] == 32
     to_field_list(form["data_schema"], custom_serializer=cv.custom_serializer)
     assert not [frame for frame in sim.trace if frame[1] not in (1, 2, 3, 4)]
+
+
+async def test_tm32ds_bulk_activation_preserves_settings_and_never_writes(hass, sim):
+    from custom_components.comwintop.model import set_temperature_range_enabled
+
+    entry = make_entry(sim)
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+    sub = next(iter(entry.subentries.values()))
+    old = dict(sub.data) | {
+        "channels": {"temperature_3": {"name": "Puffer", "poll_interval": 30, "enabled": False}}
+    }
+    changed = set_temperature_range_enabled(old, 3, 4, True)
+    assert changed["device_uid"] == old["device_uid"]
+    assert changed["channels"]["temperature_3"]["name"] == "Puffer"
+    assert changed["channels"]["temperature_3"]["poll_interval"] == 30
+    assert changed["channels"]["temperature_3"]["enabled"] is True
+    assert changed["channels"]["temperature_4"]["enabled"] is True
+    after_disable = set_temperature_range_enabled(changed, 4, 4, False)
+    assert after_disable["channels"]["temperature_3"]["enabled"]
+    with pytest.raises(ValueError):
+        set_temperature_range_enabled(old, 4, 3, True)
+    manager = hass.config_entries.subentries
+    flow = await manager.async_init(
+        (entry.entry_id, "device"),
+        context={"source": "reconfigure", "subentry_id": sub.subentry_id},
+    )
+    assert "enable_temperature_range" in flow["menu_options"]
+    form = await manager.async_configure(
+        flow["flow_id"], {"next_step_id": "enable_temperature_range"}
+    )
+    assert form["type"] == "form"
+    rejected = await manager.async_configure(
+        form["flow_id"], {"first": 3, "last": 4, "confirm": False}
+    )
+    assert rejected["errors"]["base"] == "bulk_confirmation_required"
+    result = await manager.async_configure(
+        rejected["flow_id"], {"first": 3, "last": 4, "confirm": True}
+    )
+    assert result["type"] == "abort", result
+    await hass.async_block_till_done()
+    assert entry.subentries[sub.subentry_id].data["channels"]["temperature_3"]["enabled"]
+    assert not [frame for frame in sim.trace if frame[1] not in (1, 2, 3, 4)]
