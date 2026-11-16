@@ -21,7 +21,8 @@ from .profiles import (
     MODES,
     PROFILES,
     channels,
-    install_local_profiles,
+    load_local_profiles,
+    publish_local_profiles,
 )
 from .transport import MODES as TRANSPORTS
 from .transport import endpoint_key, params_from
@@ -238,9 +239,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 class DeviceFlow(config_entries.ConfigSubentryFlow):
     async def async_step_user(self, user_input=None):
-        await self.hass.async_add_executor_job(
-            install_local_profiles, self.hass.config.path("comwintop")
+        local, _failures = await self.hass.async_add_executor_job(
+            load_local_profiles, self.hass.config.path("comwintop")
         )
+        publish_local_profiles(local)
         errors = {}
         if user_input is not None:
             user_input = dict(user_input)
