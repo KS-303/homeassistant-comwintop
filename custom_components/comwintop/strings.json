@@ -129,7 +129,8 @@
           "data": {
             "target_id": "New slave ID (1–247)",
             "isolated": "I confirm this is a physically isolated bus with one TM-32DS only",
-            "understand_retry": "I accept the risk of duplicate FC06 frames on Busy."
+            "understand_retry": "I accept the risk of duplicate FC06 frames on Busy.",
+            "lab_notice": "Important notice (display only, editing this text has no effect)"
           }
         },
         "address_test_confirm": {
