@@ -86,7 +86,7 @@ class RawSensor(ChannelEntity, SensorEntity):
 
 
 class CommunicationRegister(CoordinatorEntity, SensorEntity):
-    """One diagnostic entity exposes all fields of the last read register 16."""
+    """Expose the device Modbus address; keep raw register 16 as a diagnostic."""
 
     _attr_has_entity_name = True
     _attr_entity_category = EntityCategory.DIAGNOSTIC
@@ -110,7 +110,7 @@ class CommunicationRegister(CoordinatorEntity, SensorEntity):
     @property
     def native_value(self):
         details = self.coordinator.communication_values
-        return details["raw"] if details is not None else None
+        return int(details["address"]) if details is not None else None
 
     @property
     def extra_state_attributes(self):
@@ -119,6 +119,8 @@ class CommunicationRegister(CoordinatorEntity, SensorEntity):
             return {"read_error": self.coordinator.communication_error}
         return {
             "device_slave_id": details["address"],
+            "register_16_raw": details["raw"],
+            "address_matches_configuration": details["address"] == details["configured_address"],
             "configured_slave_id": details["configured_address"],
             "baudrate": details["baudrate"],
             "parity": details["parity"],

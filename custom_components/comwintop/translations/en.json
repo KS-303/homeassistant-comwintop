@@ -118,7 +118,7 @@
         },
         "communication": {
           "title": "Modbus communication (read only)",
-          "description": "All fields are freshly read from the TM-32DS when opened and displayed read-only. The diagnostic entity 'Communication register 16' shows the cached register and attributes. Slave ID changes are only possible via the separate lab dialog.",
+          "description": "All fields are freshly read from the TM-32DS when opened and displayed read-only. The diagnostic entity 'Modbus address (device)' shows the cached register and attributes. Slave ID changes are only possible via the separate lab dialog.",
           "data": {
             "address": "Slave ID (device)",
             "configured_address": "Slave ID (Home Assistant)",
@@ -210,7 +210,7 @@
         "name": "Digital output {channel} – readback – raw value"
       },
       "communication_register": {
-        "name": "Communication register 16"
+        "name": "Modbus address (device)"
       }
     },
     "binary_sensor": {
