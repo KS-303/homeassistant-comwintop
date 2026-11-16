@@ -30,8 +30,10 @@ async def test_register_16_single_diagnostic_entity_no_per_entity_reads(hass):
         )
         assert entity_id is not None
         state = hass.states.get(entity_id)
-        assert state.state == "0x0104"
+        assert state.state == "1"
         assert state.attributes["device_slave_id"] == "1"
+        assert state.attributes["register_16_raw"] == "0x0104"
+        assert state.attributes["address_matches_configuration"] is True
         assert state.attributes["configured_slave_id"] == "1"
         assert state.attributes["baudrate"] == "9600"
         assert state.attributes["parity"] == "N"
@@ -40,7 +42,7 @@ async def test_register_16_single_diagnostic_entity_no_per_entity_reads(hass):
         assert state.attributes["read_status"] == "read_only"
         before = len([item for item in sim.trace if item[2] == 16])
         for _ in range(8):
-            assert hass.states.get(entity_id).state == "0x0104"
+            assert hass.states.get(entity_id).state == "1"
         assert len([item for item in sim.trace if item[2] == 16]) == before
 
         sim.fault = "exception"
@@ -50,7 +52,7 @@ async def test_register_16_single_diagnostic_entity_no_per_entity_reads(hass):
         sim.fault = None
         assert await c.read_communication() is not None
         await hass.async_block_till_done()
-        assert hass.states.get(entity_id).state == "0x0104"
+        assert hass.states.get(entity_id).state == "1"
         c.connection_lost()
         await hass.async_block_till_done()
         assert hass.states.get(entity_id).state == "unavailable"
