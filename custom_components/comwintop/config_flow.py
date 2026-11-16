@@ -14,7 +14,7 @@ from homeassistant.helpers.selector import selector
 from modbus_connection.exceptions import ModbusError
 
 from .const import DEFAULT_INTERVALS, DOMAIN, MIN_INTERVALS
-from .model import disable_temperature_range, revise_device, validate_device
+from .model import revise_device, set_temperature_range_enabled, validate_device
 from .profiles import (
     BUILTIN_PROFILES,
     MODEL_NAMES,
@@ -91,6 +91,7 @@ DEVICE_MENU_LABELS = {
         "channel": "Kanal konfigurieren",
         "intervals": "Abfrageintervalle",
         "disable_temperature_range": "Temperaturkanäle gesammelt deaktivieren",
+        "enable_temperature_range": "Temperaturkanäle gesammelt aktivieren",
         "communication": "Modbus-Kommunikation anzeigen",
     },
     "en": {
@@ -98,6 +99,7 @@ DEVICE_MENU_LABELS = {
         "channel": "Configure channel",
         "intervals": "Polling intervals",
         "disable_temperature_range": "Disable temperature channels in bulk",
+        "enable_temperature_range": "Enable temperature channels in bulk",
         "communication": "Show Modbus communication",
     },
 }
@@ -389,7 +391,7 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
         self._sub = self._get_reconfigure_subentry()
         options = ["device", "channel", "intervals"]
         if self._sub.data["model"] == "tm_32ds":
-            options.append("disable_temperature_range")
+            options.extend(("disable_temperature_range", "enable_temperature_range"))
         options.append("communication")
         labels = DEVICE_MENU_LABELS[ui_language(self.hass)]
         return self.async_show_menu(
@@ -397,8 +399,8 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
             menu_options={option: labels[option] for option in options},
         )
 
-    async def async_step_disable_temperature_range(self, user_input=None):
-        """Explicitly disable selected TM-32DS channels; never infer unused sensors."""
+    async def _temperature_range_form(self, step_id, enabled, user_input):
+        """Explicit user selection only; never turn on a channel based on a guess."""
         sub = self._get_reconfigure_subentry()
         if sub.data["model"] != "tm_32ds":
             return self.async_abort(reason="bulk_disable_unavailable")
@@ -410,13 +412,15 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                 try:
                     first = integral_seconds(user_input["first"])
                     last = integral_seconds(user_input["last"])
-                    updated = disable_temperature_range(dict(sub.data), first, last)
+                    updated = set_temperature_range_enabled(
+                        dict(sub.data), first, last, enabled
+                    )
                 except (ValueError, vol.Invalid):
                     errors["base"] = "invalid_channel_range"
                 else:
                     return self.async_update_and_abort(self._get_entry(), sub, data=updated)
         return self.async_show_form(
-            step_id="disable_temperature_range",
+            step_id=step_id,
             data_schema=vol.Schema(
                 {
                     vol.Required("first", default=3): temperature_channel_box(),
@@ -425,6 +429,16 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                 }
             ),
             errors=errors,
+        )
+
+    async def async_step_disable_temperature_range(self, user_input=None):
+        return await self._temperature_range_form(
+            "disable_temperature_range", False, user_input
+        )
+
+    async def async_step_enable_temperature_range(self, user_input=None):
+        return await self._temperature_range_form(
+            "enable_temperature_range", True, user_input
         )
 
     async def async_step_communication(self, user_input=None):
