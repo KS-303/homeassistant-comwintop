@@ -13,7 +13,6 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.selector import selector
 from modbus_connection.exceptions import ModbusError
 
-from .communication import plan_tm32ds_address
 from .const import DEFAULT_INTERVALS, DOMAIN, MIN_INTERVALS
 from .model import disable_temperature_range, revise_device, validate_device
 from .profiles import (
@@ -112,11 +111,6 @@ def select(options):
 def unit_id_box():
     """Display a numeric input instead of a slider with 247 positions."""
     return selector({"number": {"min": 1, "max": 247, "step": 1, "mode": "box"}})
-
-
-def informational_text():
-    """Use a multi-line text field for readable, non-persisted flow previews."""
-    return selector({"text": {"multiline": True}})
 
 
 def read_only_text():
@@ -334,7 +328,7 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
         options = ["device", "channel", "intervals"]
         if self._sub.data["model"] == "tm_32ds":
             options.append("disable_temperature_range")
-        options.extend(("communication", "address_test"))
+        options.append("communication")
         return self.async_show_menu(
             step_id="reconfigure",
             menu_options=options,
@@ -416,163 +410,12 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
         )
 
     async def async_step_address_test(self, user_input=None):
-        """Experimental FC06 on a physically isolated TM-32DS only.
-
-        The pinned HA backend may retransmit on Busy. This is an explicit
-        laboratory exception, NOT a no-retry or production write API.
-        """
-        sub = self._get_reconfigure_subentry()
-        entry = self._get_entry()
-        if sub.data["model"] != "tm_32ds" or len(entry.subentries) != 1:
-            return self.async_abort(reason="address_test_unavailable")
-        runtime = getattr(entry, "runtime_data", None)
-        if runtime is None or sub.subentry_id not in runtime.units:
-            return self.async_abort(reason="address_test_unavailable")
-
-        errors = {}
-        if user_input is not None:
-            # Number selectors may return integral floats (e.g. 3.0).
-            # The register planner deliberately accepts only genuine ints.
-            target = int(user_input["target_id"])
-            if not user_input["isolated"] or not user_input["understand_retry"]:
-                errors["base"] = "test_acknowledgement_required"
-            else:
-                try:
-                    async with runtime.bus_lock:
-                        async with asyncio.timeout(3):
-                            raw_values = await runtime.units[
-                                sub.subentry_id
-                            ].unit.read_holding_registers(16, 1)
-                        if len(raw_values) != 1:
-                            raise ValueError("invalid_length")
-                        raw = raw_values[0]
-                        proposed = plan_tm32ds_address(
-                            raw,
-                            sub.data["unit_id"],
-                            target,
-                            configured_ids=tuple(
-                                other.data["unit_id"] for other in entry.subentries.values()
-                            ),
-                        )
-                        # A responding target ID cannot be considered free.
-                        params = await self.hass.async_add_executor_job(
-                            params_from, dict(entry.data)
-                        )
-                        target_responded = False
-                        async with async_get_temporary_unit(
-                            self.hass, params, target
-                        ) as target_unit:
-                            try:
-                                async with asyncio.timeout(1.5):
-                                    test = await target_unit.read_holding_registers(16, 1)
-                                target_responded = len(test) > 0
-                            except (ModbusError, TimeoutError, OSError):
-                                pass
-                        if target_responded:
-                            raise ValueError("address_in_use")
-                    self._address_test_plan = {
-                        "raw": raw,
-                        "new": proposed,
-                        "old_id": sub.data["unit_id"],
-                        "target_id": target,
-                        "sub_id": sub.subentry_id,
-                    }
-                except ValueError:
-                    errors["base"] = "address_test_invalid"
-                except (ModbusError, TimeoutError, OSError, HomeAssistantError):
-                    errors["base"] = "cannot_connect"
-                else:
-                    return await self.async_step_address_test_confirm()
-        notice = (
-            "ACHTUNG: Ausschließlich EIN physisch isolierter TM-32DS am RS485-Bus! "
-            "Der HA-Modbus-Unterbau kann FC06 bei Busy mehrfach senden. "
-            "Ohne zwei Bestätigungen wird nicht geschrieben."
-        )
-        return self.async_show_form(
-            step_id="address_test",
-            data_schema=vol.Schema(
-                {
-                    vol.Optional("lab_notice", default=notice): informational_text(),
-                    vol.Required("target_id"): unit_id_box(),
-                    vol.Required("isolated", default=False): bool,
-                    vol.Required("understand_retry", default=False): bool,
-                }
-            ),
-            errors=errors,
-        )
+        """Legacy deep links fail closed; FC06 is not available in this beta."""
+        return self.async_abort(reason="address_test_unavailable")
 
     async def async_step_address_test_confirm(self, user_input=None):
-        """Exactly one application write call, then read-only verification."""
-        sub = self._get_reconfigure_subentry()
-        entry = self._get_entry()
-        plan = getattr(self, "_address_test_plan", None)
-        runtime = getattr(entry, "runtime_data", None)
-        if (
-            plan is None
-            or runtime is None
-            or len(entry.subentries) != 1
-            or sub.subentry_id != plan["sub_id"]
-            or sub.data["model"] != "tm_32ds"
-            or sub.data["unit_id"] != plan["old_id"]
-        ):
-            return self.async_abort(reason="address_test_unavailable")
-
-        if user_input is not None:
-            if not user_input["confirm"]:
-                return self.async_abort(reason="address_test_cancelled")
-            # Invalidate the confirmation immediately: even an ambiguous
-            # response must never permit a second write in the same flow.
-            self._address_test_plan = None
-            target = plan["target_id"]
-            try:
-                async with runtime.bus_lock:
-                    old_unit = runtime.units[sub.subentry_id].unit
-                    async with asyncio.timeout(3):
-                        fresh = await old_unit.read_holding_registers(16, 1)
-                    if len(fresh) != 1 or fresh[0] != plan["raw"]:
-                        return self.async_abort(reason="address_test_changed")
-                    params = await self.hass.async_add_executor_job(params_from, dict(entry.data))
-                    # The installed upstream API MAY retry internally on Busy.
-                    # Never use this path on a populated/multidrop bus.
-                    try:
-                        async with asyncio.timeout(4):
-                            await old_unit.write_register(16, plan["new"])
-                    except (ModbusError, TimeoutError, OSError):
-                        pass  # The device may have changed ID despite lost reply.
-                    async with async_get_temporary_unit(self.hass, params, target) as target_unit:
-                        async with asyncio.timeout(3):
-                            new_raw = await target_unit.read_holding_registers(16, 1)
-                        async with asyncio.timeout(3):
-                            temperature = await target_unit.read_holding_registers(32, 1)
-                    if new_raw != [plan["new"]] or len(temperature) != 1:
-                        return self.async_abort(reason="address_test_unconfirmed")
-                # Preserve stable subentry/device identifiers and channel options.
-                new_data = dict(sub.data) | {"unit_id": target}
-                return self.async_update_and_abort(entry, sub, title=sub.title, data=new_data)
-            except (ModbusError, TimeoutError, OSError, HomeAssistantError, ValueError):
-                return self.async_abort(reason="address_test_unconfirmed")
-
-        preview = (
-            f"ACHTUNG: Nur isolierter TM-32DS! HA kann FC06 bei Busy mehrfach senden. "
-            f"Adresse {plan['old_id']} -> {plan['target_id']}; "
-            f"Register 16: 0x{plan['raw']:04X} -> 0x{plan['new']:04X}. "
-            "Ein fehlender Reply bedeutet keinen bestätigten Schreibfehler."
-        )
-        return self.async_show_form(
-            step_id="address_test_confirm",
-            data_schema=vol.Schema(
-                {
-                    vol.Optional("write_preview", default=preview): informational_text(),
-                    vol.Required("confirm", default=False): bool,
-                }
-            ),
-            description_placeholders={
-                "old_id": str(plan["old_id"]),
-                "target_id": str(plan["target_id"]),
-                "old_raw": f"0x{plan['raw']:04X}",
-                "new_raw": f"0x{plan['new']:04X}",
-            },
-        )
+        """Previously opened lab confirmations cannot transmit after an update."""
+        return self.async_abort(reason="address_test_unavailable")
 
     async def async_step_device(self, user_input=None):
         sub = self._get_reconfigure_subentry()
