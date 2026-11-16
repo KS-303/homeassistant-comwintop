@@ -120,7 +120,7 @@ class Simulator:
                 else:
                     writer.write(packet)
                     await writer.drain()
-        except asyncio.IncompleteReadError, ConnectionError, asyncio.CancelledError:
+        except (asyncio.IncompleteReadError, ConnectionError, asyncio.CancelledError):
             pass
         finally:
             self.tasks.discard(task)
