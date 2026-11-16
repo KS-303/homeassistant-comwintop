@@ -1,4 +1,4 @@
-# Implementierungsstatus – L-50 auf Entwicklungsbasis 0.1.0b4
+# Implementierungsstatus – 0.1.0b5-HA-Testpaket auf Entwicklungsbasis 0.1.0b4
 
 L-51 ist als **lesender Vorbereitungsstand** implementiert. Das TM-32DS-
 Konfigurationsregister kann angezeigt werden; Änderungen sind bis zum

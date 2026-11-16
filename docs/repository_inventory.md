@@ -49,8 +49,10 @@ Parameter) und DO/AO (Ausgangsschreiben) erhalten getrennte spätere PRs.
 
 ## Konsistenz und offene Arbeiten
 
-- `manifest.json` und `pyproject.toml` nennen 0.1.0b4 auf dem Entwicklungsstand,
-  während `main` und Release b1 bleiben. Entwicklung ≠ Veröffentlichung.
+- Auf dem nachfolgenden b5-HA-Testbranch nennen `manifest.json`, `const.py` und
+  `pyproject.toml` 0.1.0b5; `main` und der einzige Release bleiben b1.
+  Der Vorgängerstand 0.1.0b4 war die Entwicklungsbasis.
+  Entwicklung und Testpaket sind keine Veröffentlichung eines Releases.
 - Die alten Testausgaben in `docs/evidence/` sind datierte Momentaufnahmen,
   keine Aussage über den aktuellen HEAD. Neue JUnit/XML-Ausgaben gehen in
   kurzlebige CI-Artefakte; alte Nachweise bleiben ohne Löschung erhalten.

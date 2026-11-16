@@ -1,6 +1,6 @@
 # Lokale ComWinTop-Geräteprofile
 
-Stand: Entwicklungszweig 0.1.0b4. Die Integration bleibt ausschließlich lesend.
+Stand: 0.1.0b5-HA-Testpaket auf b4-Basis. Die Integration bleibt ausschließlich lesend.
 Die beiden mitgelieferten Modelle sind unveränderlich. Ein neues Profil wird nur
 für ein anhand von Herstellerunterlagen und Messungen geprüftes Modell angelegt.
 Ein erfolgreicher Modbus-Lesezugriff bestätigt **nicht** den Gerätetyp, die

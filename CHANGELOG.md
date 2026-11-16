@@ -1,5 +1,15 @@
 # Änderungen
 
+## 0.1.0b5 (HA-Testpaket, Draft; kein Release)
+
+- L-50 mit individuellen Kanalintervallen und blockoptimiertem Polling sowie
+  die lesende L-51-Registeranzeige auf der b4-Basis als Testpaket gebündelt.
+- Repository-Dokumentation, Vorlagen und isolierte Upstream-Test-CI liegen
+  im Entwicklungszweig. Keine Upstream-Patches im Installationsarchiv.
+- Versionsangaben in Manifest, Konstanten und Projektmetadaten angeglichen.
+- Produktive Modbus-Schreibfunktionen bleiben technisch gesperrt. Gemischte
+  L-50-Intervalle und MB308N sind weiterhin nicht real abgenommen.
+
 ## L-51a-Untersuchung (Draft, Writes weiterhin gesperrt)
 
 - Adresse im High-Byte unter Erhalt sämtlicher Low-Byte-Bits rein rechnerisch
