@@ -51,6 +51,9 @@ async def test_register_16_single_diagnostic_entity_no_per_entity_reads(hass):
         assert await c.read_communication() is not None
         await hass.async_block_till_done()
         assert hass.states.get(entity_id).state == "0x0104"
+        c.connection_lost()
+        await hass.async_block_till_done()
+        assert hass.states.get(entity_id).state == "unavailable"
         assert not any(frame[1] in (5, 6, 15, 16) for frame in sim.trace)
         assert sub.data["unit_id"] == 1
     finally:
