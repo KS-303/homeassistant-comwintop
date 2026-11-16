@@ -2,8 +2,8 @@
 
 import asyncio
 import logging
-from dataclasses import dataclass
 from contextlib import suppress
+from dataclasses import dataclass
 
 from homeassistant.components.modbus import async_get_unit
 from homeassistant.config_entries import ConfigEntry
