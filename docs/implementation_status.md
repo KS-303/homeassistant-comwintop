@@ -1,9 +1,6 @@
-# Implementierungsstatus – 0.1.0b5-HA-Testpaket auf Entwicklungsbasis 0.1.0b4
+# Implementierungsstatus – 0.1.0b6-Laborstand auf b5-Basis
 
-L-51 ist als **lesender Vorbereitungsstand** implementiert. Das TM-32DS-
-Konfigurationsregister kann angezeigt werden; Änderungen sind bis zum
-Nachweis einmaliger Schreibübertragung und der vollständigen Modellkodierung
-gesperrt. Siehe [L-51-Status](l51_status.md).
+L-51 ist für den TM-32DS lesend implementiert. Die **separate b6-Laborversion** bietet unter doppelter ausdrücklicher Bestätigung einen experimentellen FC06-Versuch zur Slave-ID-Änderung bei physisch isoliertem Einzelgerät. Die verwendete HA-Modbus-Version kann bei Busy mehrmals senden. Diese Funktion ist kein No-Retry- oder Produktivnachweis. [Laboranleitung](l51a_isolated_ha_lab.md); [L-51-Status der regulären Beta](l51_status.md).
 
 Dies ist die erste **lesende Testversion**, kein vollständiger stabiler P0-Release.
 
@@ -26,7 +23,7 @@ Dies ist die erste **lesende Testversion**, kein vollständiger stabiler P0-Rele
 | Gerät zwischen zwei bestehenden Verbindungseinträgen umziehen | noch nicht in Beta-UI; darf bis Implementierung nicht durch Löschen/Neuanlage simuliert werden |
 | Transportart eines bestehenden Eintrags wechseln | noch nicht in Beta-UI; neue Verbindung erforderlich |
 | Schreibwarteschlange / 2-s-Frist / Latest-wins / Sperren | isolierte Engine implementiert und getestet; noch kein produktiver Hardware-Executor |
-| Schreibrechte als UI-Freigabe | absichtlich nicht angeboten, solange Hardware-/Transport-Gate fehlt |
+| Schreibrechte als UI-Freigabe | ausschließlich TM-32DS-Labortest für Slave-ID mit zwei Bestätigungen; keine DO/AO-Freigabe |
 | Switch / Number für reale Ausgänge | technisch nicht angelegt; kein Schreib-Service |
 | Automatische Wiederherstellung von Sollwerten | ausgeschlossen; keine Writes bei Setup/Reload/Reconnect |
 | Deutsche/englische Einrichtung und Diagnose | implementiert |
@@ -40,5 +37,4 @@ Telegramme steht im [L-50-Prüfbericht](l50_test_report.md).
 Einzelversuche und offene Gesamtabnahmen stehen in der zentralen
 [Test- und Freigabematrix](test_release_matrix.md).
 
-Kein UI-Schalter und keine Option umgeht die Beta-Schreibsperre. Den separaten
-WriteManager nicht als Nachweis einer getesteten Hardware-Schreibfunktion lesen.
+Die b6-Laborausnahme erlaubt einen ausdrücklich bestätigten FC06-Versuch an Register 16, nur am isolierten TM-32DS. Alle DO/AO-Ausgänge, L-51b und die allgemeine Beta-Schreibfreigabe bleiben gesperrt. Den separaten WriteManager nicht als Nachweis einer getesteten Hardware-Schreibfunktion lesen.

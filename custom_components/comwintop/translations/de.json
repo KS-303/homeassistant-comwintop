@@ -56,9 +56,9 @@
             "name": "Name",
             "model": "Gerätemodell",
             "unit_id": "Modbus-Adresse (1–247)",
-            "acknowledge_beta": "Experimentelle, nur lesende Version verstanden"
+            "acknowledge_beta": "Experimentelle Beta: nur TM-32DS-Adressänderung am isolierten Testbus"
           },
-          "description": "Schreibzugriffe sind in dieser Beta technisch gesperrt. Ein erfolgreicher Lesetest erkennt nicht das Modell. Analogmodi müssen anschließend je Kanal eingestellt werden."
+          "description": "Produktive DO-/AO-Schreibfunktionen bleiben gesperrt. Die TM-32DS-Slave-ID kann ausschließlich nach ausdrücklicher Bestätigung auf einem physisch isolierten Testbus versuchsweise geändert werden. Modbus-Busy kann FC06-Wiederholungen verursachen. Lesetests erkennen das Modell nicht zuverlässig. Analogmodi je Kanal konfigurieren."
         },
         "reconfigure": {
           "title": "Gerät konfigurieren",
@@ -66,7 +66,8 @@
             "device": "Name / Modbus-Adresse",
             "channel": "Kanal konfigurieren",
             "intervals": "Abfrageintervalle",
-            "communication": "Modbus-Kommunikation konfigurieren"
+            "communication": "Modbus-Kommunikation konfigurieren",
+            "address_test": "Slave-ID ändern (isolierter Hardwaretest)"
           }
         },
         "device": {
@@ -118,6 +119,22 @@
         "communication": {
           "title": "Modbus-Kommunikation (nur Lesen)",
           "description": "Geräteadresse: {address} (in Home Assistant: {configured_address}); Baudrate: {baudrate}; Parität: {parity}; Datenbits: {databits}; Stoppbits: {stopbits}; Register 16: {raw}; Status: {status}. Die Parametrierung ist gesperrt, solange Registercodierung und einmalige Schreibübertragung nicht für dieses Modell und den Bus nachgewiesen sind. Erneut öffnen, um frisch zu lesen."
+        },
+        "address_test": {
+          "title": "TM-32DS: Slave-ID im Labor ändern",
+          "description": "AUSSCHLIESSLICH ISOLIERTER TESTBUS mit genau einem TM-32DS! Das derzeitige HA-Modbus-Backend kann FC06 bei Busy MEHRFACH übertragen. Keine anderen RS485-Teilnehmer, keine angeschlossenen Ausgänge. Die Zieladresse muss frei sein; ein ausbleibender Lesereply beweist dies nicht. Bei Verbindungsverlust kann der Ausgang des Schreibversuchs unklar bleiben.",
+          "data": {
+            "target_id": "Neue Slave-ID (1–247)",
+            "isolated": "Ich bestätige: physisch isolierter Bus mit einem einzigen TM-32DS",
+            "understand_retry": "Ich akzeptiere das Risiko mehrfacher FC06-Telegramme bei Busy."
+          }
+        },
+        "address_test_confirm": {
+          "title": "TM-32DS: letzte Bestätigung",
+          "description": "GEFAHR: Ein einzelner HA-Schreibaufruf kann mehrere FC06-Frames erzeugen. Geplante Änderung: Adresse {old_id} → {target_id}, Register 16 {old_raw} → {new_raw}. Die Integration versucht anschließend, die neue Adresse lesend zu prüfen. Bei unklarer Antwort bleibt die HA-Adresse unverändert. Jetzt genau einen Testauftrag auslösen?",
+          "data": {
+            "confirm": "Einmaligen Testauftrag bewusst auslösen"
+          }
         }
       },
       "error": {
@@ -127,10 +144,16 @@
         "acknowledge_required": "Bitte den Status der Testversion bestätigen.",
         "invalid_device": "Ungültige Geräteeinstellungen.",
         "invalid_channel": "Ungültiger Signalbereich oder ungültige Skalierung.",
-        "invalid_interval": "Ungültiges Abfrageintervall. Individuellen Wert innerhalb der Kanalgrenzen eingeben."
+        "invalid_interval": "Ungültiges Abfrageintervall. Individuellen Wert innerhalb der Kanalgrenzen eingeben.",
+        "test_acknowledgement_required": "Beide Bestätigungen für den isolierten Testbus sind erforderlich.",
+        "address_test_invalid": "Ungültige Zieladresse, Registerwert abweichend oder eine mögliche Adresskollision."
       },
       "abort": {
-        "reconfigure_successful": "Einstellungen aktualisiert."
+        "reconfigure_successful": "Einstellungen aktualisiert.",
+        "address_test_unavailable": "Der Test ist ausschließlich für genau einen TM-32DS pro ComWinTop-Verbindung verfügbar.",
+        "address_test_cancelled": "Adressänderung abgebrochen.",
+        "address_test_changed": "Register 16 hat sich seit der Bestätigung verändert – kein Schreibversuch.",
+        "address_test_unconfirmed": "Ergebnis unbestätigt. Prüfe die alte und neue Slave-ID nur lesend. Keine automatische Wiederholung."
       },
       "entry_type": "ComWinTop-Gerät",
       "initiate_flow": {

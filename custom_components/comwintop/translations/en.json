@@ -56,9 +56,9 @@
             "name": "Name",
             "model": "Device model",
             "unit_id": "Modbus unit address (1–247)",
-            "acknowledge_beta": "I understand this experimental read-only version"
+            "acknowledge_beta": "Experimental beta: TM-32DS ID changes only on isolated test bus"
           },
-          "description": "Writes are technically locked in this beta. A successful read does not identify the model. Set the actual analog mode for each channel afterwards."
+          "description": "Production DO/AO writes remain locked. TM-32DS slave ID changes are experimental and require explicit acknowledgement on a physically isolated test bus. Modbus Busy may cause FC06 retransmission. Successful reads do not identify the model. Set analog modes per channel."
         },
         "reconfigure": {
           "title": "Configure device",
@@ -66,7 +66,8 @@
             "device": "Name / unit address",
             "channel": "Configure channel",
             "intervals": "Polling intervals",
-            "communication": "Configure Modbus communication"
+            "communication": "Configure Modbus communication",
+            "address_test": "Change slave ID (isolated hardware test)"
           }
         },
         "device": {
@@ -118,6 +119,22 @@
         "communication": {
           "title": "Modbus communication (read only)",
           "description": "Device address: {address} (configured in Home Assistant: {configured_address}); baud rate: {baudrate}; parity: {parity}; data bits: {databits}; stop bits: {stopbits}; register 16: {raw}; status: {status}. Configuration writes are locked until register encoding and single transmission are verified for this model and bus. Reopen for a fresh read."
+        },
+        "address_test": {
+          "title": "TM-32DS: change slave ID on isolated test bench",
+          "description": "ISOLATED TEST BUS ONLY, with a single TM-32DS. The current HA Modbus backend may resend FC06 on Busy. No additional RS485 participants and no connected outputs. Target address must be unused; lack of a read response is not proof. Connection loss may leave the outcome unknown.",
+          "data": {
+            "target_id": "New slave ID (1–247)",
+            "isolated": "I confirm this is a physically isolated bus with one TM-32DS only",
+            "understand_retry": "I accept the risk of duplicate FC06 frames on Busy."
+          }
+        },
+        "address_test_confirm": {
+          "title": "TM-32DS: final confirmation",
+          "description": "WARNING: A single HA write call may emit multiple FC06 frames. Proposed change: address {old_id} → {target_id}, register 16 {old_raw} → {new_raw}. The integration will read back the new address. If ambiguous, the HA address stays unchanged. Submit one experimental write request?",
+          "data": {
+            "confirm": "Explicitly start this experimental write request"
+          }
         }
       },
       "error": {
@@ -127,10 +144,16 @@
         "acknowledge_required": "Acknowledge the beta limitations.",
         "invalid_device": "Invalid device settings.",
         "invalid_channel": "Invalid electrical range or scaling.",
-        "invalid_interval": "Invalid polling interval. Enter a value within the channel limits."
+        "invalid_interval": "Invalid polling interval. Enter a value within the channel limits.",
+        "test_acknowledgement_required": "Both isolated-test acknowledgements are required.",
+        "address_test_invalid": "Invalid target address, inconsistent register value or possible address collision."
       },
       "abort": {
-        "reconfigure_successful": "Settings updated."
+        "reconfigure_successful": "Settings updated.",
+        "address_test_unavailable": "This test is only available for a single TM-32DS per ComWinTop connection.",
+        "address_test_cancelled": "Address change cancelled.",
+        "address_test_changed": "Register 16 changed since confirmation; no write attempted.",
+        "address_test_unconfirmed": "Outcome unconfirmed. Check both old and new slave IDs read-only. No automatic retry."
       },
       "entry_type": "ComWinTop device",
       "initiate_flow": {

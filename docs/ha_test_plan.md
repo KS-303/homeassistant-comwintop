@@ -1,10 +1,10 @@
-# Hardwareabnahme – lesende Beta und 0.1.0b5-HA-Testpaket
+# Hardwareabnahme – lesende Beta und isolierte 0.1.0b6-Laborausnahme
 
 ## L-51 vor jeder Schreibfreigabe
 
 L-51a ist bislang ausschließlich ein Simulator- und Codebefund: Bei Busy
-wiederholt der vorhandene Backendpfad FC06. Ein realer HA-Schreibtest ist
-gesperrt. Nach einem öffentlichen No-Retry-Pfad zuerst TCP und RTU physisch
+wiederholt der vorhandene Backendpfad FC06. Die reguläre HA-Schreibfunktion bleibt gesperrt; ein isolierter experimenteller
+HA-TM-32DS-FC06-Versuch ist ausschließlich in b6 mit ausdrücklichem Risiko-Hinweis möglich. Siehe [Laboranleitung](l51a_isolated_ha_lab.md). Nach einem öffentlichen No-Retry-Pfad zuerst TCP und RTU physisch
 auf exakt ein Telegramm je Fehlerfall prüfen; das CWT an einem isolierten Bus
 mit eindeutiger Adresse testen. L-51b (Baudrate/Parität) bleibt ein eigener
 Testblock, einschließlich Gateway- und Multidrop-Verhalten.
@@ -87,7 +87,7 @@ aus einem einzelnen plausiblen Wert ableiten.
 
 ## Getrennte spätere Schreibabnahme
 
-Noch nicht mit dieser Beta möglich. Voraussetzungen: Busy-Retry nachweislich
+Noch nicht für DO/AO mit dieser Beta möglich. Voraussetzungen: Busy-Retry nachweislich
 ausgeschlossen, 2-s-Frist am tatsächlichen Sendezeitpunkt gewährleistet,
 geeignete Hardwarevalidierung und begrenztes Readback-Verfahren implementiert.
 Anschließend ausschließlich unbelastete Testausgänge, Wertebereichsgrenzen,
