@@ -391,7 +391,6 @@ async def test_channel_form_serializes_and_accepts_all_32_ids(hass, sim):
         )
         flow = await manager.async_configure(flow["flow_id"], {"next_step_id": "channel"})
         to_field_list(flow["data_schema"], custom_serializer=cv.custom_serializer)
-        field = next(schema for marker, schema in flow["data_schema"].schema.items() if marker.schema == "channel")
         result = await manager.async_configure(
             flow["flow_id"], {"channel": f"temperature_{channel_no}"}
         )
