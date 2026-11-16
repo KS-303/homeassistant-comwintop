@@ -438,7 +438,10 @@ def test_bulk_disable_temperature_range_retains_options_and_identity():
     assert result["channels"]["temperature_1"] == original["channels"]["temperature_1"]
     assert result["channels"]["temperature_2"] == original["channels"]["temperature_2"]
     assert result["channels"]["temperature_3"] == {
-        "name": "Reserved", "poll_interval": 120, "enabled": False, "write_enabled": False
+        "name": "Reserved",
+        "poll_interval": 120,
+        "enabled": False,
+        "write_enabled": False,
     }
     assert all(not result["channels"][f"temperature_{i}"]["enabled"] for i in range(3, 33))
     assert "temperature_4" not in original["channels"]
@@ -470,23 +473,17 @@ async def test_bulk_disable_ha_flow_requires_confirmation_and_never_writes(hass,
         context={"source": "reconfigure", "subentry_id": sub.subentry_id},
     )
     assert "disable_temperature_range" in flow["menu_options"]
-    form = await mgr.async_configure(
-        flow["flow_id"], {"next_step_id": "disable_temperature_range"}
-    )
+    form = await mgr.async_configure(flow["flow_id"], {"next_step_id": "disable_temperature_range"})
     to_field_list(form["data_schema"], custom_serializer=cv.custom_serializer)
     rejected = await mgr.async_configure(
         flow["flow_id"], {"first": 3, "last": 32, "confirm": False}
     )
     assert rejected["type"] == "form"
     assert rejected["errors"]["base"] == "bulk_confirmation_required"
-    rejected = await mgr.async_configure(
-        flow["flow_id"], {"first": 32, "last": 3, "confirm": True}
-    )
+    rejected = await mgr.async_configure(flow["flow_id"], {"first": 32, "last": 3, "confirm": True})
     assert rejected["type"] == "form"
     assert rejected["errors"]["base"] == "invalid_channel_range"
-    saved = await mgr.async_configure(
-        flow["flow_id"], {"first": 3, "last": 32, "confirm": True}
-    )
+    saved = await mgr.async_configure(flow["flow_id"], {"first": 3, "last": 32, "confirm": True})
     assert saved["type"] == "abort", saved
     await hass.async_block_till_done()
     current = entry.subentries[sub.subentry_id].data
