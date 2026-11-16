@@ -1,5 +1,14 @@
 # Änderungen
 
+## 0.1.0b6 (TM-32DS-FC06-Labortest, nicht freigegeben)
+
+- Über HA ist eine **experimentelle Änderung der TM-32DS-Slave-ID** auf einem ausdrücklich bestätigten, physisch isolierten Ein-Geräte-Bus testbar.
+- Zwei Bestätigungsstufen; FC03/Register 16 vor und unmittelbar vor dem Schreiben lesen; Ziel-ID vorab lesen; High-Byte berechnen, Low-Byte unverändert erhalten; anschließend neue ID und Kanal 1 lesend prüfen; bestehende HA-Subentry nur bei konsistenter Verifikation übernehmen.
+- **Keine No-Retry-Garantie:** Der eingesetzte HA-Modbus-Transport kann bei Busy denselben FC06-Schreibbefehl mehrfach übertragen. Der Testdialog benennt dieses Risiko; er darf nur mit physisch isoliertem TM-32DS verwendet werden.
+- Keine Baudraten-/Paritätsänderung und **keine produktiven DO-/AO-Schreibbefehle**.
+- HA-Simulator-Regressionen für fehlende Bestätigung, Abbruch, veralteten Rohwert und erfolgreiche Adressänderung; echte Hardwareabnahme ausstehend.
+- `0.1.0b6` ist ein Labor-Installationspaket, keine automatische GitHub-Veröffentlichung; der letzte formelle Release bleibt `v0.1.0b1`.
+
 ## 0.1.0b5 (HA-Testpaket, Draft; kein Release)
 
 - L-50 mit individuellen Kanalintervallen und blockoptimiertem Polling sowie
