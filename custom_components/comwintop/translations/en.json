@@ -56,9 +56,9 @@
             "name": "Name",
             "model": "Device model",
             "unit_id": "Modbus unit address (1–247)",
-            "acknowledge_beta": "I understand this experimental read-only version"
+            "acknowledge_beta": "Experimental beta: TM-32DS ID changes only on isolated test bus"
           },
-          "description": "Writes are technically locked in this beta. A successful read does not identify the model. Set the actual analog mode for each channel afterwards."
+          "description": "Production DO/AO writes remain locked. TM-32DS slave ID changes are experimental and require explicit acknowledgement on a physically isolated test bus. Modbus Busy may cause FC06 retransmission. Successful reads do not identify the model. Set analog modes per channel."
         },
         "reconfigure": {
           "title": "Configure device",
