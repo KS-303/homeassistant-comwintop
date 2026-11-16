@@ -34,3 +34,14 @@ Die normalen Schreibkanäle DO/AO bleiben deaktiviert. Das Entfernen des FC06-La
 6. Backup-Dateinamen ausschließlich anhand echter Commits/Builds; keine b8-Rückfallbehauptung für b12-Artefakte.
 
 Offen bleibt, ob sämtliche eingebauten Funktionen auf Hardware-Registern korrekt reagieren; eine erfolgreiche CI kann das nicht beweisen.
+
+## Review-Nachtrag A–F (16.11.2026)
+
+- **A – Setup:** Temporäre `HomeAssistantError`-/Modbus-/Timeout-/OS-Fehler werden als `ConfigEntryNotReady` gemeldet. Ungültige Einstellungen bleiben `ConfigEntryError`. `CancelledError` löst denselben lokalen Cleanup-Pfad aus und wird unverändert weitergeworfen. Der Cleanup darf die gemeinsam verwaltete Modbus-Verbindung anderer Geräte nicht schließen.
+- **B – Scheduler:** Auf Kanälen mit >30 s Intervall wird bei transientem Fehler nicht schneller als der Normaltakt abgefragt. Die 30-s-Obergrenze gilt nur für kürzere Intervalle. Gesonderte `connection_lost`-/Offline-Recovery behandelt weiterhin die Fehlerqualität pro Gerät.
+- **C – Skalierung:** `invalid_scale` ist in strings.json/de.json/en.json ergänzt; skalierte Werte mit NaN/Inf werden ebenfalls diesem Fehler zugeordnet.
+- **D – Teilinitialisierung:** `UnitCoordinator` registriert seinen Connection-Lost-Listener zuletzt; beim Konstruktionsfehler werden lokale Unit-Anforderungen zurückgesetzt, aber keine geteilte Modbus-Verbindung zerstört. Das Unit-Handle selbst besitzt in dieser HA-API keine eigenständige Close-Verantwortung.
+- **E – Unload:** Die b13-Reihenfolge (Plattformen zuerst, dann Tasks) bleibt. Reload und fehlgeschlagene Platform-Unloads sind vor Release auf Hardware zu testen.
+- **F – Schreibpfad:** Veraltete Formular-Texte entfernt, die alten Step-URLs brechen ausdrücklich ab. Der reine Berechnungshelfer `plan_tm32ds_address` bleibt vorerst für dokumentierte spätere L-51a-Arbeit erhalten; er sendet keine Telegramme. Die vorhandenen No-Write-/Wire-Tests bleiben maßgeblich.
+
+Diese Änderungen sind noch keine Hardware-Freigabe. CI- und Hardware-Ergebnisse dürfen erst nach tatsächlichem Test als erfolgreich bezeichnet werden.
