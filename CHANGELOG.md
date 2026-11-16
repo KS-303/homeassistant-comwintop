@@ -1,5 +1,12 @@
 # Änderungen
 
+## L-51 (Draft; Konfigurationsschreiben gesperrt)
+
+- Lesende Anzeige des TM-32DS-Kommunikationsregisters 16 unter gemeinsamer
+  Bussperre; nur real bestätigte 9600/N/8/1-Kodierung `0x04` dargestellt.
+- MB308N und unbekannte Codes bleiben ohne Schreibfunktion; keine
+  Kommunikationseinstellungen, Ausgänge oder Entity-IDs geändert.
+
 ## L-50 (Entwicklungsbranch auf Basis 0.1.0b4; kein Release)
 
 - Kanalbezogene Abfrageintervalle mit optionalem Override; vorhandene

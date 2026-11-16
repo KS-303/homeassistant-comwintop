@@ -271,6 +271,17 @@ Spätere Kandidaten aus älterer Recherche: MB307D, MB307F, MB318C, CWT-BK-Serie
 
 ## B6. Modbus-Request- und Polling-Architektur
 
+### L-51 – Gerätekommunikation parametrieren (noch nicht freigegeben)
+
+Die Geräteadresse und seriellen Parameter gehören zum Gerät; die Verbindung
+und das Gateway sind getrennt. Vor einem einzelnen FC06 muss der Rohwert
+vollständig gelesen, adress- und busseitig geprüft und die Änderung ausdrücklich
+bestätigt sein. Danach sind neues Register und ein Messwert unter den neuen
+Parametern frisch zu verifizieren, erst dann darf die HA-Gerätekonfiguration
+übernommen werden. Unklare Ergebnisse dürfen weder erneut geschrieben noch
+automatisch zurückgeschrieben werden. Die Implementierung bleibt bis zum
+Nachweis dieser Invarianten vollständig lesend. [Status](l51_status.md).
+
 ### L-50 – kanalbezogene Abfrageintervalle (Ergänzung zum Entwicklungsbranch 0.1.0b4)
 
 Jeder aktivierte Kanal übernimmt ohne Override das vorhandene Gruppenintervall.

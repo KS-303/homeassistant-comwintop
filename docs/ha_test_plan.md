@@ -1,5 +1,15 @@
 # Hardwareabnahme – lesende Beta und L-50-Entwicklungsbranch
 
+## L-51 vor jeder Schreibfreigabe
+
+Register 16 am TM-32DS zunächst lesend mit Registerwerk vergleichen.
+Originaldokumentation für sämtliche Codes und Bits verifizieren. Für jeden
+Transport und Fehlerpfad eine einzige physische FC06-Übertragung nachweisen,
+einschließlich Busy, Timeout, Abbruch und HA-Neustart. Adresse 1→2,
+Persistenz, Rücklesen und Messwert an neuer Adresse am isolierten Gerät
+prüfen. Danach Multidrop-Bus mit zweitem Slave und Wiederherstellungsplan
+testen. MB308N erst nach eigenem Register- und Hardwarebeleg freigeben.
+
 Stand: vollständige Abnahme **noch nicht durchgeführt**. Softwaretests sind kein Hardwaretest.
 Der separate L-50-Abfragetest steht noch aus. Der TM-32DS wurde zwischenzeitlich
 mit zwei DS18B20 am Waveshare-Gateway lesend geprüft (FC03, Adressen 32/33,
