@@ -91,7 +91,9 @@
             "display": "Anzeigeart des Messwerts",
             "scale_min": "Messgröße am unteren Signalwert",
             "scale_max": "Messgröße am oberen Signalwert",
-            "unit": "Einheit der Messgröße"
+            "unit": "Einheit der Messgröße",
+            "poll_interval_mode": "Abfrageintervall",
+            "poll_interval": "Individueller Wert (Sekunden; bei Standard ignoriert)"
           },
           "description": "Das Deaktivieren eines Kanals schaltet keinen Ausgang aus. Jumper und Verdrahtung müssen zum gewählten Signalbereich passen. Schreiben bleibt gesperrt."
         },
@@ -119,7 +121,8 @@
         "duplicate_unit": "Diese Modbus-Adresse ist auf dieser Verbindung bereits eingerichtet.",
         "acknowledge_required": "Bitte den Status der Testversion bestätigen.",
         "invalid_device": "Ungültige Geräteeinstellungen.",
-        "invalid_channel": "Ungültiger Signalbereich oder ungültige Skalierung."
+        "invalid_channel": "Ungültiger Signalbereich oder ungültige Skalierung.",
+        "invalid_interval": "Ungültiges Abfrageintervall. Individuellen Wert innerhalb der Kanalgrenzen eingeben."
       },
       "abort": {
         "reconfigure_successful": "Einstellungen aktualisiert."

@@ -74,7 +74,7 @@ class RawSensor(ChannelEntity, SensorEntity):
         return (
             self.coordinator.enabled(self.key)
             and timestamp is not None
-            and time.monotonic() - timestamp < 3 * self.coordinator.intervals[self.group.kind]
+            and time.monotonic() - timestamp < 3 * self.coordinator.interval(self.key)
         )
 
     @property

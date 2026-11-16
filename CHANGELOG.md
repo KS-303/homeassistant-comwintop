@@ -1,5 +1,15 @@
 # Änderungen
 
+## L-50 (Entwicklungsbranch auf Basis 0.1.0b4; kein Release)
+
+- Kanalbezogene Abfrageintervalle mit optionalem Override; vorhandene
+  Gruppenintervalle und gespeicherte Geräteidentitäten bleiben erhalten.
+- Fällige, benachbarte Register werden zusammen gelesen. Registerausnahmen
+  werden begrenzt aufgeteilt, damit ein fehlerhafter Kanal die anderen nicht sperrt.
+- Kanalbezogene Stale-Fristen, kontrollierte Neueinlesung nach Verbindungsabbruch
+  und erweiterte anonymisierte Diagnose; keine neuen Schreibpfade.
+- TCP- und RTU-Simulatortests sowie reproduzierbarer Buslastvergleich ergänzt.
+
 ## 0.1.0b4 (HA-Oberfläche)
 
 - Verbindungsart, Parität, Kanäle, Signalbereich und Anzeigeformat erhalten

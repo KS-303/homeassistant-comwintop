@@ -1,4 +1,4 @@
-# Implementierungsstatus 0.1.0b1
+# Implementierungsstatus – L-50 auf Entwicklungsbasis 0.1.0b4
 
 Dies ist die erste **lesende Testversion**, kein vollständiger stabiler P0-Release.
 
@@ -15,7 +15,7 @@ Dies ist die erste **lesende Testversion**, kein vollständiger stabiler P0-Rele
 | Individuelles DI-NO/NC | implementiert und getestet |
 | AI physisch / Prozent / Zwei-Punkt-Skalierung | implementiert; tatsächlichen Signalmodus je Kanal manuell setzen |
 | AO-Skalierung und Eingabevalidierung | Rechenfunktionen/testbare Regeln vorhanden; keine produktive number-Entität |
-| Pollintervalle pro Gruppe, Stale-Timer, Backoff | implementiert; Grenz-/Fehlerfalltests |
+| Pollintervalle pro Gruppe und Kanal, Stale-Timer, Backoff | L-50 implementiert; TCP-/RTU-Simulator, Konfigurations- und Fehlertests; Hardwaretest der gemischten Intervalle offen |
 | Kanaldeaktivierung, stabile UUID, Unit-Adressänderung | implementiert; keine Hardwareadressänderung |
 | Verbindungshost/-port ändern | implementiert mit Lesetest und stabilen IDs |
 | Gerät zwischen zwei bestehenden Verbindungseinträgen umziehen | noch nicht in Beta-UI; darf bis Implementierung nicht durch Löschen/Neuanlage simuliert werden |
@@ -28,6 +28,10 @@ Dies ist die erste **lesende Testversion**, kein vollständiger stabiler P0-Rele
 | Physischer Kontaktnachweis | nicht vorhanden und nicht behauptet |
 | 72-h-Hardwaredauertest | offen; kein verkürzter Softwarelauf ersetzt ihn |
 | Vollständige P0-/HACS-Katalogfreigabe | offen; experimenteller Entwicklungsstand |
+
+L-50 bleibt auf einem Entwicklungsbranch; die Aussagen zum produktiven Release
+0.1.0b1 bleiben weiterhin separat gültig. Der Vergleich der realen Simulator-
+Telegramme steht im [L-50-Prüfbericht](l50_test_report.md).
 
 Kein UI-Schalter und keine Option umgeht die Beta-Schreibsperre. Den separaten
 WriteManager nicht als Nachweis einer getesteten Hardware-Schreibfunktion lesen.

@@ -7,6 +7,17 @@ from .const import DEFAULT_INTERVALS, MIN_INTERVALS, STALE_FACTOR
 from .profiles import MODES, InvalidValue, channels, finite
 
 
+def effective_interval(data, key):
+    """Legacy entries without a channel override inherit their group interval."""
+    kind = key.rsplit("_", 1)[0]
+    override = data.get("channels", {}).get(key, {}).get("poll_interval")
+    return (
+        override
+        if override is not None
+        else data.get("intervals", {}).get(kind, DEFAULT_INTERVALS[kind])
+    )
+
+
 @dataclass
 class Sample:
     value: float | bool | None = None
@@ -46,6 +57,12 @@ def validate_device(data):
     for key, options in data.get("channels", {}).items():
         if key not in valid:
             raise InvalidValue("invalid_channel")
+        override = options.get("poll_interval")
+        if override is not None and (
+            type(override) is not int
+            or not MIN_INTERVALS[key.rsplit("_", 1)[0]] <= override <= 3600
+        ):
+            raise InvalidValue("invalid_interval")
         if options.get("mode") not in (None, *MODES):
             raise InvalidValue("invalid_mode")
         if options.get("display", "physical") not in ("physical", "percent", "scaled"):

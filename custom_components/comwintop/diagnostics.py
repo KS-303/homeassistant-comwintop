@@ -21,6 +21,7 @@ async def async_get_config_entry_diagnostics(hass, entry):
                 "channels": {
                     key: {
                         "enabled": unit.enabled(key),
+                        "effective_interval": unit.interval(key),
                         "available": unit.available(key),
                         "error": sample.error,
                         "age_seconds": round(time.monotonic() - sample.received, 1)

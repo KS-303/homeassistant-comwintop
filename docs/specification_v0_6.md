@@ -271,6 +271,35 @@ Spätere Kandidaten aus älterer Recherche: MB307D, MB307F, MB318C, CWT-BK-Serie
 
 ## B6. Modbus-Request- und Polling-Architektur
 
+### L-50 – kanalbezogene Abfrageintervalle (Ergänzung zum Entwicklungsbranch 0.1.0b4)
+
+Jeder aktivierte Kanal übernimmt ohne Override das vorhandene Gruppenintervall.
+In der Kanal-Konfiguration kann stattdessen ein ganzzahliger Wert in Sekunden
+gespeichert werden (Temperatur 5–3600 s; DI/DO 1–3600 s; AI/AO 2–3600 s).
+Das Zurückstellen auf „Standard“ entfernt nur diesen Override. Kanalname,
+Gerätekennung, Entitätskennung und sämtliche bisherigen Einstellungen bleiben.
+
+Der Scheduler führt pro Kanal einen Fälligkeitszeitpunkt. Gleichzeitig fällige
+und zusammenhängende Register derselben Gruppe werden mit derselben dokumentierten
+Modbus-Lesemethode als Block abgerufen. Nicht fällige Nachbarkanäle werden nicht
+vorgezogen; deaktivierte Kanäle werden nicht abgefragt. TM-32DS: FC03,
+Startadresse 32, höchstens 32 Temperaturregister pro Block. Bei einer
+Registerausnahme wird ausschließlich der betroffene Block endlich halbiert,
+bis fehlerhafte Einzelregister isoliert sind. Pro physischem Bus bleiben alle
+Zugriffe über die bestehende gemeinsame Sperre serialisiert. Die bestehende
+Timeout-/Backoff-Begrenzung und die Wiederaufnahme nach Verbindungsabbruch
+bleiben erhalten.
+
+Jeder Kanal hält Zeitstempel des letzten gültigen Messwerts und der letzten
+Rohantwort getrennt; seine Stale-Frist beträgt drei effektive Intervalle.
+Ungültige Kodierungen, darunter das am TM-32DS gemessene `0xFC18` bei abgezogenem
+DS18B20, sind `unavailable`, ohne Nachbarkanäle zu entwerten. Ein tatsächlicher
+Verbindungsabbruch invalidiert die betroffenen Geräte und erzwingt danach frische
+Lesezugriffe. Die produktive Beta bietet weiterhin keinerlei Schreibentitäten.
+
+Nachweise und offene Hardwaretests: [L-50-Prüfbericht](l50_test_report.md) und
+[Hardwaretestplan](ha_test_plan.md).
+
 1. **Shared Connection First:** Für eine identische physische Verbindung den HA-Modbus-Verbindungsmanager nutzen; keine zwei aktiven Master auf derselben RS485-Leitung. HA-Anwendungen können auf der geteilten Verbindung mehrere Units verwalten. [Q4]
 2. **Ein Request pro Bus:** RTU-Frames zeitlich serialisieren. Ein TCP/RTU-Gateway darf nicht durch parallele Requests an verschiedene Unit-IDs überfahren werden. Gateway- und Unit-Polling sind voneinander logisch getrennt.
 3. **Blocklesen:** Zusammenhängende Register nach FC/Datenart und verträglicher Blocklänge bündeln; bei bekannten Geräte-/Firmwaregrenzen begrenzen. Keine sinnlosen Einzelabfragen von 32 Temperaturregistern.

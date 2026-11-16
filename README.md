@@ -1,7 +1,8 @@
 # ComWinTop for Home Assistant
 
-**0.1.0b4 – ausschließlich lesende Entwicklungsversion.** Die veröffentlichte
-Version 0.1.0b1 bleibt für den laufenden Hardwaretest verfügbar.
+**L-50 – Entwicklungsbranch auf Basis 0.1.0b4, ausschließlich lesend.**
+Dies ist kein Installationsrelease. Die veröffentlichte Version 0.1.0b1
+bleibt davon unberührt.
 
 Lokale Modbus-I/O-Integration für CWT-TM-32DS und CWT-MB308N. Gateways und
 USB-RS485-Adapter sind herstellerunabhängig. Für die beiden mitgelieferten
@@ -13,7 +14,8 @@ Keine Cloud, keine Anlagenregelung, keine Sicherheitssteuerung.
 - Mehrere Verbindungen, mehrere CWT-Geräte als einzeln verwaltete Subentries.
 - Modbus TCP, TCP→RTU-Gateway, transparentes RTU-over-TCP, Serial/USB-RS485.
 - 32 Temperaturkanäle; MB308N 8 AI / 4 AO-Readbacks / 8 DI / 8 DO-Readbacks.
-- NO/NC pro DI; Skalierung/Signalbereich pro AI; Gruppen-Pollintervalle.
+- NO/NC pro DI; Skalierung/Signalbereich pro AI; Gruppen- und optionale
+  individuelle Kanal-Abfrageintervalle.
 - Stabile Geräte-UUIDs, Kanalqualität, Ablauf veralteter Daten, anonymisierte Diagnose.
 - Ausgeschriebene Kanalnamen in Deutsch und Englisch; eigenes Integrationsicon
   mit dem Projekthandle KS-303.
@@ -43,6 +45,23 @@ Vollständige Abgrenzung: [Implementierungsstatus](docs/implementation_status.md
    tatsächlichem Jumper/Signalbereich einrichten. Ohne Modus sind diese Werte unavailable.
 9. Für Rohtelegrammvergleiche die standardmäßig deaktivierte jeweilige
    `... Rohwert`-Diagnoseentität in HA aktivieren. Ein Rohwert ist keine validierte Temperatur.
+
+Unter **Gerät konfigurieren → Abfrageintervalle** bleiben die Standardwerte
+je Kanalgruppe einstellbar. Unter **Gerät konfigurieren → Kanal konfigurieren →
+Abfrageintervall** wählt man „Standard (Gruppenintervall übernehmen)“ oder
+„Individuell“ samt Sekundenwert. Das Zahlenfeld wird bei „Standard“ ignoriert.
+Temperatur: 5–3600 s; DI/DO: 1–3600 s; AI/AO: 2–3600 s. Lokal definierte
+Profile übernehmen die Mindestintervalle ihrer Kanalarten. Vorhandene
+Konfigurationen ohne Override nutzen unverändert ihre Gruppenintervalle.
+
+Nur fällige zusammenhängende Kanäle werden zu Modbus-Blöcken gebündelt.
+Beim TM-32DS liegt der vollständige Temperaturblock auf FC03, Adressen 32–63
+(0-basiert). Ein schneller Kanal zieht langsamere Nachbarn nicht mit;
+ausgelassene oder deaktivierte Kanäle können zusätzliche Blöcke erforderlich
+machen. Jeder Kanal wird nach drei effektiven Intervallen ohne gültigen Wert
+`unavailable`. Ein abgezogener DS18B20 lieferte am geprüften TM-32DS
+`0xFC18` (−100,0 °C); die Integration verwirft diesen Wert als ungültig.
+Ein Register-Readback belegt keine physische Ausgangsstellung.
 
 Bei einem Update bleiben Gerätekennungen und die bestehenden Entitäts-IDs
 erhalten. Anzeigenamen werden ausgeschrieben; manuell umbenannte Entitäten
@@ -89,6 +108,8 @@ Die Tests kombinieren Grenzwerte/Properties, Zustands- und Konkurrenzfälle,
 einen unabhängigen Modbus-Wire-Simulator, einen seriellen Linux-PTY und den echten
 HA-Kern. Sie ersetzen keine echte Hardwareabnahme. Die erste Version garantiert
 weder Relaiskontakte noch physischen Stromfluss.
+Der [L-50-Prüfbericht](docs/l50_test_report.md) enthält gemessene Intervalle,
+die Buslast vor/nach der Änderung und offene Hardwareprüfungen.
 
 ## English
 
