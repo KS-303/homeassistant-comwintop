@@ -428,3 +428,75 @@ async def test_channel_interval_fractional_rejected_without_write(hass, sim):
     assert result["errors"]["base"] == "invalid_interval"
     to_field_list(result["data_schema"], custom_serializer=cv.custom_serializer)
     assert not [call for call in sim.trace if call[1] not in (1, 2, 3, 4)]
+
+
+async def test_mb308n_all_channel_forms_serialize_and_preserve_settings(hass, sim):
+    """All 28 MB308N channel forms render in HA and keep read-only I/O gates."""
+    from homeassistant.helpers import config_validation as cv
+    from probatio.codecs.fields import to_field_list
+
+    hass.config.language = "de"
+    entry = make_entry(sim)
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+    manager = hass.config_entries.subentries
+    result = await manager.async_init((entry.entry_id, "device"), context={"source": "user"})
+    result = await manager.async_configure(
+        result["flow_id"],
+        {"name": "MB308N", "model": "mb_308n", "unit_id": 2, "acknowledge_beta": True},
+    )
+    assert result["type"] == "create_entry", result
+    await hass.async_block_till_done()
+    sub = next(s for s in entry.subentries.values() if s.data["unit_id"] == 2)
+
+    expected_channels = (
+        [f"di_{i}" for i in range(1, 9)]
+        + [f"do_{i}" for i in range(1, 9)]
+        + [f"ai_{i}" for i in range(1, 9)]
+        + [f"ao_{i}" for i in range(1, 5)]
+    )
+    for key in expected_channels:
+        flow = await manager.async_init(
+            (entry.entry_id, "device"),
+            context={"source": "reconfigure", "subentry_id": sub.subentry_id},
+        )
+        flow = await manager.async_configure(flow["flow_id"], {"next_step_id": "channel"})
+        to_field_list(flow["data_schema"], custom_serializer=cv.custom_serializer)
+        form = await manager.async_configure(flow["flow_id"], {"channel": key})
+        assert form["step_id"] == "channel_settings", (key, form)
+        to_field_list(form["data_schema"], custom_serializer=cv.custom_serializer)
+        fields = {marker.schema for marker in form["data_schema"].schema}
+        assert {"name", "enabled", "poll_interval_mode", "poll_interval"} <= fields
+        assert ("nc" in fields) == key.startswith("di_")
+        assert ("mode" in fields) == key.startswith(("ai_", "ao_"))
+        assert "write_enabled" not in fields
+
+    cases = (
+        ("di_1", {"nc": True}),
+        ("di_2", {"nc": False}),
+        ("do_1", {}),
+        ("ai_1", {"mode": "0_10v", "display": "physical"}),
+        ("ai_2", {"mode": "4_20ma", "display": "percent"}),
+        ("ao_1", {"mode": "4_20ma", "display": "physical"}),
+        ("ao_2", {"mode": "0_10v", "display": "percent"}),
+    )
+    for key, settings in cases:
+        flow = await manager.async_init(
+            (entry.entry_id, "device"),
+            context={"source": "reconfigure", "subentry_id": sub.subentry_id},
+        )
+        flow = await manager.async_configure(flow["flow_id"], {"next_step_id": "channel"})
+        flow = await manager.async_configure(flow["flow_id"], {"channel": key})
+        form = {"name": key, "enabled": True, "poll_interval_mode": "standard"} | settings
+        saved = await manager.async_configure(flow["flow_id"], form)
+        assert saved["type"] == "abort", (key, saved)
+        await hass.async_block_till_done()
+        updated = entry.subentries[sub.subentry_id].data["channels"][key]
+        assert all(updated[field] == value for field, value in settings.items())
+
+    # UI configuration must never enable or emit unvalidated output writes.
+    assert not any(
+        setting.get("write_enabled")
+        for setting in entry.subentries[sub.subentry_id].data["channels"].values()
+    )
+    assert not [call for call in sim.trace if call[1] not in (1, 2, 3, 4)]
