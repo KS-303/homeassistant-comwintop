@@ -95,9 +95,7 @@ class UnitCoordinator(DataUpdateCoordinator):
     async def stop(self):
         self._stopping = True
         self._unsubscribe()
-        tasks = [
-            t for t in (self._poll_task, self._age_task, self._communication_task) if t
-        ]
+        tasks = [t for t in (self._poll_task, self._age_task, self._communication_task) if t]
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
