@@ -56,9 +56,9 @@
             "name": "Name",
             "model": "Gerätemodell",
             "unit_id": "Modbus-Adresse (1–247)",
-            "acknowledge_beta": "Experimentelle, nur lesende Version verstanden"
+            "acknowledge_beta": "Experimentelle Beta: nur TM-32DS-Adressänderung am isolierten Testbus"
           },
-          "description": "Schreibzugriffe sind in dieser Beta technisch gesperrt. Ein erfolgreicher Lesetest erkennt nicht das Modell. Analogmodi müssen anschließend je Kanal eingestellt werden."
+          "description": "Produktive DO-/AO-Schreibfunktionen bleiben gesperrt. Die TM-32DS-Slave-ID kann ausschließlich nach ausdrücklicher Bestätigung auf einem physisch isolierten Testbus versuchsweise geändert werden. Modbus-Busy kann FC06-Wiederholungen verursachen. Lesetests erkennen das Modell nicht zuverlässig. Analogmodi je Kanal konfigurieren."
         },
         "reconfigure": {
           "title": "Gerät konfigurieren",
