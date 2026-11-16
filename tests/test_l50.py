@@ -491,3 +491,37 @@ async def test_bulk_disable_ha_flow_requires_confirmation_and_never_writes(hass,
     assert current["channels"]["temperature_2"]["poll_interval"] == 30
     assert all(not current["channels"][f"temperature_{i}"]["enabled"] for i in range(3, 33))
     assert not [call for call in sim.trace if call[1] not in (1, 2, 3, 4)]
+
+
+async def test_actual_wire_cadence_for_three_temperature_intervals(hass, sim):
+    """Measure requests and accepted samples on the TCP wire, not only deadlines."""
+    entry = configured_entry(
+        {
+            "temperature_1": {"poll_interval": 5},
+            "temperature_2": {"poll_interval": 10},
+            "temperature_3": {"poll_interval": 30},
+        },
+        {"temperature": 15},
+        port=sim.port,
+    )
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+    c = next(iter(entry.runtime_data.units.values()))
+    await wait_for(lambda: c.available("temperature_3"))
+    initial = {
+        key: c.samples[key].received
+        for key in ("temperature_1", "temperature_2", "temperature_3")
+    }
+    async with asyncio.timeout(12):
+        while c.samples["temperature_1"].successful_reads < 2:  # noqa: ASYNC110
+            await asyncio.sleep(0.02)
+    assert c.samples["temperature_2"].successful_reads == 1
+    assert c.samples["temperature_3"].successful_reads == 1
+    assert c.samples["temperature_1"].received - initial["temperature_1"] >= 4.7
+    async with asyncio.timeout(8):
+        while c.samples["temperature_2"].successful_reads < 2:  # noqa: ASYNC110
+            await asyncio.sleep(0.02)
+    assert c.samples["temperature_2"].received - initial["temperature_2"] >= 9.7
+    assert c.samples["temperature_3"].successful_reads == 1
+    assert c.samples["temperature_1"].successful_reads >= 2
+    assert not [call for call in sim.trace if call[1] in (5, 6, 15, 16)]
