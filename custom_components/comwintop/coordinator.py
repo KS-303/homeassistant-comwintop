@@ -287,13 +287,13 @@ class UnitCoordinator(DataUpdateCoordinator):
         if not split and not recovery:
             completed = time.monotonic()
             for key in keys:
-                # Bound the *absolute* delay after a device exception to 30 s.
-                # A Busy reply on a slow polling channel must not schedule
-                # hundreds of seconds of unavailability.
+                # Never retry more frequently than the configured channel
+                # interval. The 30-second cap only applies to short intervals.
+                interval = self.interval(key)
                 retry_delay = (
-                    min(30, self.interval(key) * 2 ** min(self.failures, 5))
+                    min(max(30, interval), interval * 2 ** min(self.failures, 5))
                     if self.failures
-                    else self.interval(key)
+                    else interval
                 )
                 self._next[key] = completed + retry_delay
         self.async_set_updated_data(self.samples)
