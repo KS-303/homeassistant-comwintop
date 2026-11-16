@@ -78,7 +78,7 @@ async def test_tm32ds_lab_write_change_id_and_preserve_subentry(hass):
         )
         assert flow["step_id"] == "address_test_confirm"
         assert flow["description_placeholders"]["new_raw"] == "0x0204"
-        fields = {marker.schema: value for marker, value in flow["data_schema"].schema.items()}
+        fields = {marker.schema: marker for marker in flow["data_schema"].schema}
         assert "write_preview" in fields
         assert "0x0104 -> 0x0204" in fields["write_preview"].default()
         flow = await hass.config_entries.subentries.async_configure(
