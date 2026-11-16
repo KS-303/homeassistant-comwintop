@@ -2,7 +2,7 @@
 
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from .const import DEFAULT_INTERVALS, MIN_INTERVALS, STALE_FACTOR
 from .profiles import MODES, InvalidValue, channels, finite
@@ -43,7 +43,7 @@ class Sample:
             self.last_successful_read_delta_seconds = round(now - self.received, 3)
         self.value, self.raw, self.received = value, raw, now
         self.successful_reads += 1
-        self.last_successful_read_utc = datetime.now(timezone.utc).isoformat()
+        self.last_successful_read_utc = datetime.now(UTC).isoformat()
         self.raw_received = now
         self.error, self.invalid = None, False
 
@@ -80,6 +80,29 @@ def validate_device(data):
         if options.get("display") == "scaled":
             if finite(options["scale_min"]) == finite(options["scale_max"]):
                 raise InvalidValue("invalid_scale")
+
+
+
+def disable_temperature_range(old, first: int, last: int):
+    """Disable an explicitly chosen range; never infer wiring from unavailable values.
+
+    This only affects TM-32DS polling and entity availability, not hardware I/O.
+    Previously stored channel names and individual intervals are retained.
+    """
+    if old.get("model") != "tm_32ds":
+        raise InvalidValue("bulk_disable_not_supported")
+    if (
+        type(first) is not int
+        or type(last) is not int
+        or not 1 <= first <= last <= 32
+    ):
+        raise InvalidValue("invalid_channel_range")
+    updated = deepcopy(old)
+    settings = updated.setdefault("channels", {})
+    for index in range(first, last + 1):
+        key = f"temperature_{index}"
+        settings[key] = dict(settings.get(key, {})) | {"enabled": False}
+    return revise_device(old, updated)
 
 
 def revise_device(old, updated):
