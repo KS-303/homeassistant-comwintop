@@ -1,6 +1,10 @@
-# Hardwareabnahme – lesende Beta 0.1.0b1
+# Hardwareabnahme – lesende Beta und L-50-Entwicklungsbranch
 
-Stand: noch **nicht durchgeführt**. Softwaretests sind kein Hardwaretest.
+Stand: vollständige Abnahme **noch nicht durchgeführt**. Softwaretests sind kein Hardwaretest.
+Der separate L-50-Abfragetest steht noch aus. Der TM-32DS wurde zwischenzeitlich
+mit zwei DS18B20 am Waveshare-Gateway lesend geprüft (FC03, Adressen 32/33,
+9600 8N1). Ein abgezogener Fühler lieferte `0xFC18` (−100,0 °C) und erholte
+sich nach Wiederanschluss. Das ersetzt keinen Test gemischter Intervalle.
 Erster Test auf einer Home-Assistant-Testinstanz, zunächst mit TM-32DS;
 MB308N separat ergänzen.
 
@@ -31,6 +35,26 @@ MB308N separat ergänzen.
 | 11 | MB308N separat: DI NO/NC, AI mit bekanntem Referenzsignal | NO/NC korrekt; Modus passt zu Jumper; AI-Endpunkte/Mitte verifizieren |
 | 12 | MB308N AO/DO ausschließlich rücklesen | Tatsächliche Readbacks sichtbar; kein Switch/Number-Schreibpfad vorhanden |
 | 13 | 72 Stunden protokollierter Hardwarebetrieb | Fehlerzahlen, Latenzen, Ausfälle und Recovery dokumentieren; keine ungeklärten Fehler |
+
+## L-50: zusätzlich am realen TM-32DS prüfen
+
+1. Zwei bis sieben Kanäle aktivieren; z. B. Gruppenintervall 15 s, Overrides
+   5 s, 10 s, 30 s und 60 s. Zeitstempel und Rohtelegramme über mindestens
+   zwei volle Perioden aufzeichnen; das Referenzgerät nicht parallel als
+   zweiter Master betreiben.
+2. Beim gleichzeitigen ersten Poll FC03/32–63 bzw. bei deaktivierten Kanälen
+   nur die tatsächlich fälligen zusammenhängenden Adressen erwarten. Nach
+   5 s darf der 60-s-Kanal keinen neuen Messzeitstempel erhalten.
+3. Fühler abziehen: `0xFC18` nur am betroffenen Kanal als `unavailable`,
+   andere Kanäle gültig. Fühler wieder anschließen; frische Werte prüfen.
+4. Gruppenintervall ändern und Override erhalten; Override entfernen und
+   Gruppenintervall übernehmen. Konfiguration neu laden und HA neu starten;
+   Namen, Entity-IDs, Unique-IDs und die Schreibsperre vergleichen.
+5. Gateway trennen/wieder verbinden; betroffene Kanäle unmittelbar unavailable,
+   kontrollierte Neueinlesung auch für langsame Kanäle. Zwei Geräte an einem
+   Gateway gleichzeitig betreiben und Antwortzeiten sowie Timeoutzähler prüfen.
+
+Buslast und Simulatordaten stehen im [L-50-Prüfbericht](l50_test_report.md).
 
 Für 4–20 mA sind 4 / 12 / 20 mA die drei Referenzpunkte. AI und AO haben
 teilweise unterschiedliche Rohwertskalierung. Elektrische Referenzsignale nur

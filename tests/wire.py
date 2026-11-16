@@ -2,6 +2,7 @@
 
 import asyncio
 import struct
+import time
 from contextlib import suppress
 
 
@@ -18,6 +19,7 @@ class Simulator:
     def __init__(self, mode="tcp"):
         self.mode = mode
         self.trace = []
+        self.trace_times = []
         self.writers = set()
         self.tasks = set()
         self.fault = None
@@ -46,6 +48,7 @@ class Simulator:
         fc = data[0]
         address, count = struct.unpack(">HH", data[1:5])
         self.trace.append((unit, fc, address, count))
+        self.trace_times.append(time.monotonic())
         if fc in (3, 4):
             values = [self.registers.get((unit, i), 0) for i in range(address, address + count)]
             return bytes([fc, count * 2]) + struct.pack(">" + "H" * count, *values)

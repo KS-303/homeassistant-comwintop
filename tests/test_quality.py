@@ -81,7 +81,7 @@ async def test_register_exception_splits_once_per_poll(quality):
     u.read_holding_registers.side_effect = IllegalDataAddressError()
     await c.poll_group(g)
     assert u.read_holding_registers.call_count == 1
-    assert c._blocks["temperature"] == [(0, 16), (16, 16)]
+    assert [(offset, len(keys)) for _, offset, keys in c._pending] == [(0, 16), (16, 16)]
     assert not c.available("temperature_1")
     # One half succeeds; the other half is still invalid. No full-device failure.
     u.read_holding_registers.side_effect = None

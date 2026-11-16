@@ -1,0 +1,371 @@
+"""L-50: deadlines, read blocks, quality and HA migration."""
+
+import asyncio
+import logging
+import time
+from types import MappingProxyType
+from unittest.mock import AsyncMock
+
+import pytest
+import voluptuous as vol
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.helpers import entity_registry as er
+from modbus_connection.exceptions import (
+    IllegalDataAddressError,
+    ModbusConnectionError,
+    ServerDeviceBusyError,
+)
+
+from custom_components.comwintop.config_flow import integral_seconds
+from custom_components.comwintop.const import DOMAIN
+from custom_components.comwintop.coordinator import UnitCoordinator
+from custom_components.comwintop.model import effective_interval, revise_device, validate_device
+from custom_components.comwintop.profiles import PROFILES, InvalidValue
+from custom_components.comwintop.sensor import RawSensor
+
+from .test_ha import make_entry, wait_for
+from .wire import Simulator
+
+
+class Unit:
+    connected = True
+
+    def __init__(self):
+        self.calls = []
+        self.faults = set()
+
+    def on_connection_lost(self, cb):
+        return lambda: None
+
+    def set_message_spacing(self, value):
+        pass
+
+    def require_timeout(self, value):
+        pass
+
+    def require_connect_delay(self, value):
+        pass
+
+    async def disconnect(self):
+        pass
+
+    async def read_holding_registers(self, start, count):
+        self.calls.append((start, count, time.monotonic()))
+        if any(address in self.faults for address in range(start, start + count)):
+            raise IllegalDataAddressError()
+        return [220] * count
+
+
+def configured_entry(channels=None, intervals=None, *, second=False, port=15020, transport="tcp"):
+    original = make_entry(type("Link", (), {"port": port})())
+    sub = next(iter(original.subentries.values()))
+    data = dict(sub.data) | {"channels": channels or {}, "intervals": intervals or {}}
+    subentries = [
+        {"subentry_type": "device", "title": "First", "unique_id": "device-id", "data": data}
+    ]
+    if second:
+        second_data = dict(data) | {
+            "unit_id": 2,
+            "device_uid": "second-device",
+            "model": "mb_308n",
+            "channels": {},
+            "intervals": {},
+        }
+        subentries.append(
+            {
+                "subentry_type": "device",
+                "title": "Second",
+                "unique_id": "second-device",
+                "data": second_data,
+            }
+        )
+    return ConfigEntry(
+        domain=DOMAIN,
+        version=1,
+        minor_version=1,
+        title="Shared bus",
+        data=dict(original.data) | {"transport": transport},
+        options={},
+        source="user",
+        unique_id=f"shared-bus-{port}",
+        discovery_keys=MappingProxyType({}),
+        subentries_data=subentries,
+    )
+
+
+def coordinator(hass, settings=None):
+    entry = configured_entry(settings)
+    unit = Unit()
+    sub = next(iter(entry.subentries.values()))
+    return UnitCoordinator(hass, entry, sub, unit, asyncio.Lock(), logging.getLogger("test")), unit
+
+
+def force_due(c, keys):
+    for key in keys:
+        c._next[key] = 0
+
+
+@pytest.mark.parametrize("bad", [0, 4, 3601, 5.5, "5", True, float("nan")])
+def test_override_validation_and_legacy_defaults(bad):
+    data = dict(next(iter(configured_entry().subentries.values())).data)
+    data["intervals"] = {"temperature": 30}
+    assert effective_interval(data, "temperature_1") == 30
+    data["channels"] = {"temperature_1": {"poll_interval": bad}}
+    with pytest.raises(InvalidValue):
+        validate_device(data)
+
+
+@pytest.mark.parametrize("bad", ["nan", "inf", "-inf", "5.5"])
+def test_ui_rejects_nonfinite_and_fractional_seconds(bad):
+    with pytest.raises(vol.Invalid):
+        integral_seconds(bad)
+
+
+def test_group_change_preserves_override_and_write_gate():
+    old = dict(
+        next(
+            iter(
+                configured_entry(
+                    {"temperature_1": {"poll_interval": 5, "name": "Supply"}}
+                ).subentries.values()
+            )
+        ).data
+    )
+    updated = revise_device(old, old | {"intervals": {"temperature": 60}})
+    assert effective_interval(updated, "temperature_1") == 5
+    assert effective_interval(updated, "temperature_2") == 60
+    assert updated["channels"]["temperature_1"]["name"] == "Supply"
+
+
+@pytest.mark.parametrize("key,minimum", [("di_1", 1), ("do_1", 1), ("ai_1", 2), ("ao_1", 2)])
+def test_non_temperature_profile_minimums(key, minimum):
+    data = dict(next(iter(configured_entry(second=True).subentries.values())).data)
+    data["model"] = "mb_308n"
+    data["channels"] = {key: {"poll_interval": minimum}}
+    validate_device(data)
+    data["channels"][key]["poll_interval"] = minimum - 1
+    with pytest.raises(InvalidValue):
+        validate_device(data)
+
+
+async def test_mixed_due_blocks_and_no_fast_neighbor_refresh(hass):
+    c, unit = coordinator(
+        hass,
+        {
+            "temperature_1": {"poll_interval": 5},
+            "temperature_2": {"poll_interval": 30},
+            "temperature_3": {"poll_interval": 30},
+        },
+    )
+    try:
+        await c._poll_one(time.monotonic())
+        assert [(a, n) for a, n, _ in unit.calls] == [(32, 32)]
+        first_slow = c.samples["temperature_2"].received
+        first_fast = c.samples["temperature_1"].received
+        force_due(c, ["temperature_1"])
+        await c._poll_one(time.monotonic())
+        assert [(a, n) for a, n, _ in unit.calls] == [(32, 32), (32, 1)]
+        assert c.samples["temperature_2"].received == first_slow
+        assert c.samples["temperature_1"].received > first_fast
+        force_due(c, ["temperature_2", "temperature_3"])
+        await c._poll_one(time.monotonic())
+        assert unit.calls[-1][:2] == (33, 2)
+    finally:
+        await c.stop()
+
+
+async def test_disabled_channel_not_polled_or_refreshed(hass):
+    c, unit = coordinator(hass, {"temperature_1": {"enabled": False}})
+    try:
+        await c._poll_one(time.monotonic())
+        assert unit.calls[0][:2] == (33, 31)
+        assert c.samples["temperature_1"].received is None
+        assert not c.available("temperature_1")
+    finally:
+        await c.stop()
+
+
+async def test_exception_isolates_one_register_and_bounded_splits(hass):
+    c, unit = coordinator(hass)
+    unit.faults.add(33)
+    try:
+        for _ in range(64):
+            if not c._pending and unit.calls:
+                break
+            await c._poll_one(time.monotonic())
+        assert len(unit.calls) <= 11  # 32 -> 16 -> 8 -> 4 -> 2 -> 1; good halves
+        assert not c._pending
+        assert c.samples["temperature_2"].error == "register_exception"
+        assert c.samples["temperature_1"].available(time.monotonic(), 15)
+        assert c.samples["temperature_32"].available(time.monotonic(), 15)
+        assert c.counters["register_exceptions"] > 0
+        initial_count = len(unit.calls)
+        force_due(c, c.samples)
+        for _ in range(3):
+            await c._poll_one(time.monotonic())
+        assert [call[:2] for call in unit.calls[initial_count:]] == [(32, 1), (33, 1), (34, 30)]
+        unit.faults.clear()
+        force_due(c, ["temperature_2"])
+        await c._poll_one(time.monotonic())
+        assert "temperature_2" not in c._known_bad
+    finally:
+        await c.stop()
+
+
+async def test_partial_response_and_recovery_refreshes_slow_channels(hass):
+    c, unit = coordinator(hass, {"temperature_32": {"poll_interval": 3600}})
+    try:
+        unit.read_holding_registers = AsyncMock(return_value=[200])
+        await c._poll_one(time.monotonic())
+        assert not any(c.available(key) for key in c.samples)
+        unit.read_holding_registers = AsyncMock(side_effect=ModbusConnectionError("lost"))
+        force_due(c, ["temperature_1"])
+        await c._poll_one(time.monotonic())
+        assert c.status == "OFFLINE" and not c.available("temperature_32")
+        assert c._next["temperature_32"] - time.monotonic() < 10
+        unit.read_holding_registers = AsyncMock(return_value=[220] * 32)
+        for key in c.samples:
+            c._next[key] = 0
+        await c._poll_one(time.monotonic())
+        assert c.available("temperature_32")
+    finally:
+        await c.stop()
+
+
+async def test_busy_exception_does_not_trigger_block_split(hass):
+    c, unit = coordinator(hass)
+    unit.read_holding_registers = AsyncMock(side_effect=ServerDeviceBusyError())
+    try:
+        await c._poll_one(time.monotonic())
+        assert unit.read_holding_registers.await_count == 1
+        assert not c._pending and not c._known_bad
+        assert c.counters["device_exceptions"] == 1
+        assert min(c._next.values()) - time.monotonic() > 20
+    finally:
+        await c.stop()
+
+
+async def test_channel_stale_is_individual_and_raw_follows_same_rule(hass):
+    c, _ = coordinator(hass, {"temperature_1": {"poll_interval": 5}})
+    try:
+        now = time.monotonic()
+        c.samples["temperature_1"].accept(22, 220, now - 16)
+        c.samples["temperature_2"].accept(22, 220, now - 16)
+        assert not c.available("temperature_1")
+        assert c.available("temperature_2")
+        assert not RawSensor(c, "temperature_1", PROFILES["tm_32ds"][0], 0).available
+        assert RawSensor(c, "temperature_2", PROFILES["tm_32ds"][0], 1).available
+    finally:
+        await c.stop()
+
+
+@pytest.fixture
+async def sim():
+    simulator = await Simulator().start()
+    yield simulator
+    await simulator.close()
+
+
+async def test_ha_flow_override_and_reset(hass, sim):
+    entry = make_entry(sim)
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+    sub = next(iter(entry.subentries.values()))
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id("sensor", DOMAIN, "device-id_temperature_1")
+    manager = hass.config_entries.subentries
+
+    async def configure(mode, value=None):
+        flow = await manager.async_init(
+            (entry.entry_id, "device"),
+            context={"source": "reconfigure", "subentry_id": sub.subentry_id},
+        )
+        flow = await manager.async_configure(flow["flow_id"], {"next_step_id": "channel"})
+        flow = await manager.async_configure(flow["flow_id"], {"channel": "temperature_1"})
+        assert flow["step_id"] == "channel_settings"
+        fields = {marker.schema: schema for marker, schema in flow["data_schema"].schema.items()}
+        assert fields["poll_interval_mode"].config["options"][0]["value"] == "standard"
+        form = {"name": "Puffer Oben", "enabled": True, "poll_interval_mode": mode}
+        if value is not None:
+            form["poll_interval"] = value
+        return await manager.async_configure(flow["flow_id"], form)
+
+    assert (await configure("individual", 5))["type"] == "abort"
+    await hass.async_block_till_done()
+    c = next(iter(entry.runtime_data.units.values()))
+    assert c.interval("temperature_1") == 5
+    assert c.interval("temperature_2") == 15
+    assert registry.async_get_entity_id("sensor", DOMAIN, "device-id_temperature_1") == entity_id
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    c = next(iter(entry.runtime_data.units.values()))
+    assert c.interval("temperature_1") == 5
+    assert c.options("temperature_1")["name"] == "Puffer Oben"
+    assert registry.async_get_entity_id("sensor", DOMAIN, "device-id_temperature_1") == entity_id
+    assert (await configure("standard"))["type"] == "abort"
+    await hass.async_block_till_done()
+    c = next(iter(entry.runtime_data.units.values()))
+    assert c.interval("temperature_1") == 15
+    assert c.options("temperature_1")["name"] == "Puffer Oben"
+    assert registry.async_get_entity_id("sensor", DOMAIN, "device-id_temperature_1") == entity_id
+    assert not [call for call in sim.trace if call[1] not in (1, 2, 3, 4)]
+
+
+async def test_real_error_sentinel_isolated(hass, sim):
+    sim.registers[1, 33] = 0xFC18
+    entry = configured_entry(port=sim.port)
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+    c = next(iter(entry.runtime_data.units.values()))
+    await wait_for(lambda: c.available("temperature_1"))
+    assert not c.available("temperature_2")
+    assert c.samples["temperature_2"].raw == 0xFC18
+    assert c.available("temperature_3")
+
+
+async def test_actual_tcp_scheduler_measured_intervals_and_shared_gateway(hass, sim):
+    entry = configured_entry(
+        {"temperature_1": {"poll_interval": 5}}, {"temperature": 15}, port=sim.port
+    )
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+    c = next(iter(entry.runtime_data.units.values()))
+    await wait_for(lambda: c.available("temperature_32"))
+    started = time.monotonic()
+    async with asyncio.timeout(8):
+        while len([r for r in sim.trace if r[1] == 3 and r[2] == 32]) < 2:  # noqa: ASYNC110
+            await asyncio.sleep(0.02)
+    assert time.monotonic() - started >= 4.5
+    assert sim.trace[0] == (1, 3, 32, 32)
+    assert (1, 3, 32, 1) in sim.trace
+    timestamps = [
+        t for call, t in zip(sim.trace, sim.trace_times, strict=True) if call == (1, 3, 32, 1)
+    ]
+    assert 4.7 <= timestamps[0] - sim.trace_times[0] <= 6.0
+    assert not [r for r in sim.trace if r[1] in (5, 6, 15, 16)]
+
+
+async def test_rtu_gateway_multiple_units_and_read_only(hass):
+    sim = await Simulator("rtu").start()
+    try:
+        entry = configured_entry(
+            {"temperature_1": {"poll_interval": 5}}, second=True, port=sim.port, transport="rtu_tcp"
+        )
+        await hass.config_entries.async_add(entry)
+        await hass.async_block_till_done()
+        units = entry.runtime_data.units.values()
+        await wait_for(
+            lambda: all(any(s.received is not None for s in c.samples.values()) for c in units)
+        )
+        assert (1, 3, 32, 32) in sim.trace
+        assert any(call[0] == 2 for call in sim.trace)
+        assert len({id(c.bus_lock) for c in units}) == 1
+        async with asyncio.timeout(7):
+            while not (  # noqa: ASYNC110 - observe actual serial transactions
+                sum(call[0] == 1 for call in sim.trace) >= 2
+                and sum(call[0] == 2 for call in sim.trace) >= 2
+            ):
+                await asyncio.sleep(0.02)
+        assert all(call[1] in (1, 2, 3, 4) for call in sim.trace)
+    finally:
+        await sim.close()

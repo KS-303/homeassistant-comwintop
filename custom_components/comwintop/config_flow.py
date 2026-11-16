@@ -1,6 +1,7 @@
 """UI connection entries, individual device subentries and channel settings."""
 
 import asyncio
+import math
 from copy import deepcopy
 from uuid import uuid4
 
@@ -93,6 +94,14 @@ def ui_language(hass):
 
 def labeled_options(values, labels):
     return [{"value": value, "label": labels[value]} for value in values]
+
+
+def integral_seconds(value):
+    """Reject fractional values instead of silently truncating them."""
+    number = vol.Coerce(float)(value)
+    if not math.isfinite(number) or not number.is_integer():
+        raise vol.Invalid("invalid_interval")
+    return int(number)
 
 
 def select(options):
@@ -387,16 +396,52 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
         errors = {}
         if user_input is not None:
             data = deepcopy(dict(sub.data))
-            data.setdefault("channels", {})[key] = dict(options) | user_input
+            selected = dict(user_input)
+            mode = selected.pop("poll_interval_mode")
+            if mode == "standard":
+                selected.pop("poll_interval", None)
+            elif mode != "individual" or selected.get("poll_interval") is None:
+                errors["base"] = "invalid_interval"
+            elif type(selected["poll_interval"]) is not int:
+                errors["base"] = "invalid_interval"
+            channel_options = dict(options) | selected
+            if mode == "standard":
+                channel_options.pop("poll_interval", None)
+            data.setdefault("channels", {})[key] = channel_options
             try:
                 data = revise_device(dict(sub.data), data)
             except ValueError, KeyError:
-                errors["base"] = "invalid_channel"
+                errors["base"] = (
+                    "invalid_interval" if "poll_interval" in selected else "invalid_channel"
+                )
             else:
-                return self.async_update_and_abort(self._get_entry(), sub, data=data)
+                if not errors:
+                    return self.async_update_and_abort(self._get_entry(), sub, data=data)
+        labels = {
+            "de": {
+                "standard": "Standard (Gruppenintervall übernehmen)",
+                "individual": "Individuell",
+            },
+            "en": {"standard": "Default (inherit group interval)", "individual": "Individual"},
+        }
         fields = {
             vol.Optional("name", default=options.get("name", "")): str,
             vol.Required("enabled", default=options.get("enabled", True)): bool,
+            vol.Required(
+                "poll_interval_mode",
+                default="individual" if options.get("poll_interval") is not None else "standard",
+            ): select(labeled_options(("standard", "individual"), labels[ui_language(self.hass)])),
+            vol.Optional(
+                "poll_interval",
+                **(
+                    {"default": options["poll_interval"]}
+                    if options.get("poll_interval") is not None
+                    else {}
+                ),
+            ): vol.All(
+                integral_seconds,
+                vol.Range(min=MIN_INTERVALS[kind], max=3600),
+            ),
         }
         if kind == "di":
             fields[vol.Required("nc", default=options.get("nc", False))] = bool

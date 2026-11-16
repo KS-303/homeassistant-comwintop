@@ -91,7 +91,9 @@
             "display": "Measurement display format",
             "scale_min": "Engineering value at minimum signal",
             "scale_max": "Engineering value at maximum signal",
-            "unit": "Engineering unit"
+            "unit": "Engineering unit",
+            "poll_interval_mode": "Polling interval",
+            "poll_interval": "Individual value (seconds; ignored for default)"
           },
           "description": "Disabling a channel does not turn off an output. Jumpers and wiring must match the selected range. Writes remain locked."
         },
@@ -119,7 +121,8 @@
         "duplicate_unit": "This unit address is already configured on this connection.",
         "acknowledge_required": "Acknowledge the beta limitations.",
         "invalid_device": "Invalid device settings.",
-        "invalid_channel": "Invalid electrical range or scaling."
+        "invalid_channel": "Invalid electrical range or scaling.",
+        "invalid_interval": "Invalid polling interval. Enter a value within the channel limits."
       },
       "abort": {
         "reconfigure_successful": "Settings updated."
