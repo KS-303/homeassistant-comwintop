@@ -67,7 +67,8 @@
             "channel": "Configure channel",
             "intervals": "Polling intervals",
             "communication": "Show Modbus communication",
-            "disable_temperature_range": "Disable temperature channels in bulk"
+            "disable_temperature_range": "Disable temperature channels in bulk",
+            "enable_temperature_range": "Enable temperature channels in bulk"
           }
         },
         "device": {
@@ -137,6 +138,15 @@
             "first": "First channel (1–32)",
             "last": "Last channel (1–32)",
             "confirm": "I confirm disabling the selected range"
+          }
+        },
+        "enable_temperature_range": {
+          "title": "Enable temperature channels in bulk",
+          "description": "TM-32DS only. Enable the selected range for reading and display, even when no sensor is connected. Channels without valid readings remain unavailable. Saved names and intervals remain. No write to the device.",
+          "data": {
+            "first": "First channel (1–32)",
+            "last": "Last channel (1–32)",
+            "confirm": "I confirm enabling the selected range"
           }
         }
       },
