@@ -24,10 +24,14 @@ berechnet, keine Paketaufzeichnung. Der Vergleich ist keine reale Buslastmessung
 ## Version und Release-Gates
 
 `v0.1.0b1` ist der einzige veröffentlichte Stand. `0.1.0b2` und b3 sind
-Entwicklungsvorstufen, `0.1.0b4` die Entwicklungsbasis; L-50 und L-51 bauen
-darauf auf, ohne eigenen Release. Das Manifest und `pyproject.toml` müssen
+Entwicklungsvorstufen, `0.1.0b4` die Entwicklungsbasis. Das noch nicht
+veröffentlichte `0.1.0b5`-Testpaket enthält L-50 und die lesende L-51-
+Vorbereitung; weder L-51-Schreiben noch DO/AO sind freigegeben. Das Manifest
+und `pyproject.toml` müssen
 für ein **konkretes** zukünftiges Paket übereinstimmen. Dokumentations-PRs
-ändern die Versionsnummer nicht. Neue Beta-Nummer und Tag erst nach
+ändern die Versionsnummer nicht. Ein Beta-Testpaket kann vor einer
+Hardwareabnahme gebaut werden, wenn es klar als Testpaket markiert ist.
+Ein neuer Release und Tag erst nach
 definiertem Umfang, überprüftem Diff, erfolgreicher CI, Hardwarestatus und
 manueller Freigabe. Changelog und Release-Notes müssen je Feature „lesend“,
 „simuliert“, „real geprüft“, „offen“ oder „gesperrt“ unterscheiden.

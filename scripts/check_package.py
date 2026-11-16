@@ -23,6 +23,15 @@ def check():
     project = tomllib.loads((ROOT / "pyproject.toml").read_text())
     assert manifest["domain"] == "comwintop"
     assert manifest["version"] == project["project"]["version"]
+    constants = ast.parse((COMPONENT / "const.py").read_text())
+    versions = [
+        node.value.value
+        for node in constants.body
+        if isinstance(node, ast.Assign)
+        and any(isinstance(target, ast.Name) and target.id == "VERSION" for target in node.targets)
+        and isinstance(node.value, ast.Constant)
+    ]
+    assert versions == [manifest["version"]]
     assert manifest["dependencies"] == ["modbus"]
     assert manifest["requirements"] == []
     expected = leaves(json.loads((COMPONENT / "strings.json").read_text()))

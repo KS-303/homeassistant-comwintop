@@ -1,9 +1,10 @@
 # ComWinTop for Home Assistant
 
 ComWinTop verbindet CWT-I/O-Geräte lokal über Modbus mit Home Assistant.
-Der veröffentlichte Stand ist **v0.1.0b1 (lesende Beta)**. Diese
-Entwicklungszweige bauen auf **0.1.0b4** auf und sind kein freigegebenes
-Installationsrelease. Die Integration ist herstellerunabhängig beim Gateway,
+Der veröffentlichte Stand ist **v0.1.0b1 (lesende Beta)**. Das
+**0.1.0b5-Testpaket** baut auf der 0.1.0b4-Entwicklungsbasis auf;
+es ist noch kein GitHub-Release. Die Integration ist
+herstellerunabhängig beim Gateway,
 aber für die mitgelieferten Registerprofile gerätespezifisch. Sie ist kein
 Produkt des Geräteherstellers und enthält keine Anlagenregelung.
 
@@ -20,8 +21,8 @@ L-51a betrifft ausschließlich die Slave-ID; L-51b (Baudrate/Parität) bleibt
 separat. Simulatorversuche haben wiederholte FC06-Telegramme auf eine
 Busy-Antwort nachgewiesen. Eine Hardwareänderung über HA ist nicht freigegeben.
 
-**L-50 – Entwicklungsbranch auf Basis 0.1.0b4, ausschließlich lesend.**
-Dies ist kein Installationsrelease. Die veröffentlichte Version 0.1.0b1
+**L-50 – im 0.1.0b5-Testpaket auf Basis 0.1.0b4, ausschließlich lesend.**
+Dies ist noch kein Installationsrelease. Die veröffentlichte Version 0.1.0b1
 bleibt davon unberührt.
 
 Lokale Modbus-I/O-Integration für CWT-TM-32DS und CWT-MB308N. Gateways und
@@ -168,8 +169,9 @@ geprüft. [Bestandsaufnahme und Merge-Reihenfolge](docs/repository_inventory.md)
 ## English
 
 Local, manufacturer-neutral Modbus connections with model-specific CWT profiles.
-Published v0.1.0b1 is a read-only beta; this branch is unreleased development
-based on 0.1.0b4. TM-32DS offers 32 temperature channels; MB308N offers
+Published v0.1.0b1 is a read-only beta; this unreleased 0.1.0b5 test package
+builds on the 0.1.0b4 development base. TM-32DS offers 32 temperature
+channels; MB308N offers
 8 analog inputs, 8 digital inputs and read-only output register values.
 Connect through Modbus TCP, TCP-to-RTU gateway, transparent RTU over TCP, or
 serial/USB RS485. Install the tested ZIP's `custom_components/comwintop`

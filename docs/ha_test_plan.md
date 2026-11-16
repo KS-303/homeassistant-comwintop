@@ -1,4 +1,4 @@
-# Hardwareabnahme – lesende Beta und L-50-Entwicklungsbranch
+# Hardwareabnahme – lesende Beta und 0.1.0b5-HA-Testpaket
 
 ## L-51 vor jeder Schreibfreigabe
 
