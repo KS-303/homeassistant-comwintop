@@ -1,0 +1,23 @@
+name: Funktionswunsch
+description: Vorschlag für eine klar abgegrenzte Erweiterung
+title: 'Feature: '
+labels: ['enhancement']
+body:
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Anwendungsfall und Gerät
+      description: Modell, Transport, Registerbeleg und gewünschtes lesendes Verhalten
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Quellen und Testmöglichkeit
+      description: Öffentliche Herstellerquelle und verfügbare Hardware; keine privaten Zugangsdaten
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Sicherheitsgrenze
+      options:
+        - label: Der Vorschlag setzt die gesperrten Schreibfunktionen nicht stillschweigend voraus.

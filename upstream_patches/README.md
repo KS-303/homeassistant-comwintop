@@ -27,6 +27,10 @@ should review it or provide an upstream accessor.
 The prototype was tested by copying the two installed packages into a
 temporary directory, applying the patches only to those copies, and running
 `PYTHONPATH=<patched-copy>:<repo> python upstream_patches/wire_check.py`.
+For the repeatable full matrix run `python scripts/test_upstream_prototype.py`:
+it checks exact installed versions, creates temporary copies, applies both
+patches and runs 30 network and 34 serial PTY scenarios. A separate GitHub
+Actions job runs the same command; the product CI uses untouched packages.
 The script uses an independent TCP/RTU-over-TCP simulator and checks actual
 request frames, not method-call counts. It must be run explicitly; the normal
 ComWinTop CI continues to test the unmodified production dependencies.

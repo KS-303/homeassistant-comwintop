@@ -1,5 +1,16 @@
 # ComWinTop for Home Assistant
 
+ComWinTop verbindet CWT-I/O-Geräte lokal über Modbus mit Home Assistant.
+Der veröffentlichte Stand ist **v0.1.0b1 (lesende Beta)**. Diese
+Entwicklungszweige bauen auf **0.1.0b4** auf und sind kein freigegebenes
+Installationsrelease. Die Integration ist herstellerunabhängig beim Gateway,
+aber für die mitgelieferten Registerprofile gerätespezifisch. Sie ist kein
+Produkt des Geräteherstellers und enthält keine Anlagenregelung.
+
+**Vor der Installation:** [Funktionen und reale Nachweise](docs/test_release_matrix.md),
+[Einschränkungen](docs/known_limits.md),
+[schrittweiser HA-Test](docs/ha_test_plan.md).
+
 **L-51-Entwicklungsstand:** Unter „Gerät konfigurieren → Modbus-Kommunikation
 konfigurieren“ lässt sich beim TM-32DS Register 16 lesend prüfen. Änderungen
 von Adresse oder seriellen Parametern sind noch gesperrt. Der bisherige
@@ -22,7 +33,8 @@ Keine Cloud, keine Anlagenregelung, keine Sicherheitssteuerung.
 
 - Mehrere Verbindungen, mehrere CWT-Geräte als einzeln verwaltete Subentries.
 - Modbus TCP, TCP→RTU-Gateway, transparentes RTU-over-TCP, Serial/USB-RS485.
-- 32 Temperaturkanäle; MB308N 8 AI / 4 AO-Readbacks / 8 DI / 8 DO-Readbacks.
+- TM-32DS: 32 Temperaturkanäle. MB308N: 8 Analogeingänge, 4 analoge
+  Ausgangs-Readbacks, 8 Digitaleingänge und 8 digitale Ausgangs-Readbacks.
 - NO/NC pro DI; Skalierung/Signalbereich pro AI; Gruppen- und optionale
   individuelle Kanal-Abfrageintervalle.
 - Stabile Geräte-UUIDs, Kanalqualität, Ablauf veralteter Daten, anonymisierte Diagnose.
@@ -82,6 +94,35 @@ Die Beta wird manuell per ZIP installiert. Eine Aufnahme in den HACS-Katalog
 ist noch nicht erfolgt.
 [Schrittweiser HA-Test](docs/ha_test_plan.md).
 
+### Update und vollständige Entfernung
+
+Vor einem Update HA-Backup erstellen, Integrationsversion und Paket-SHA-256
+prüfen, nur `/config/custom_components/comwintop` aus dem gewünschten
+**freigegebenen** Installationspaket ersetzen und Home Assistant neu starten.
+Keine Entwicklungszweig-Dateien und keine Upstream-Patches direkt in die
+produktive Installation kopieren. Danach Verbindung, Entitätskennungen,
+Kanalnamen und ausschließlich lesende Daten prüfen; bei Problemen Backup
+wiederherstellen. Bereits angelegte Geräte- und Kanaloptionen liegen in HA,
+nicht im Integrationsordner.
+
+Zur Entfernung in **Einstellungen → Geräte & Dienste** die ComWinTop-
+Verbindungseinträge entfernen, Home Assistant stoppen, nur
+`/config/custom_components/comwintop` löschen und HA erneut starten.
+Bei Bedarf lokale Profile unter `/config/comwintop/profiles` und deren
+Sicherungen unter `/config/comwintop/last_valid` nach eigener Prüfung separat
+entfernen. Den gesamten Ordner `custom_components` nicht löschen.
+
+### Diagnose und Fehlerberichte
+
+In der Integration die Diagnose herunterladen und den betroffenen Kanal,
+Core-Version, Transportart, Modell, Zeitpunkt und erwarteten Rohwert mit
+einem [Bugbericht](https://github.com/KS-303/homeassistant-comwintop/issues/new/choose)
+melden. Vor dem Teilen Diagnose, Hostnamen, Netzwerkadressen, Unit-IDs und
+eigene Kanalnamen nochmals selbst prüfen. Keine Passwörter, Tokens oder
+vollständigen privaten Logs einstellen. Für Hardwaretests gibt es eine
+eigene Vorlage. Die [Testmatrix](docs/test_release_matrix.md) trennt
+Simulation von realer Prüfung.
+
 ## Weitere Geräteprofile lokal pflegen
 
 Ein eigenes Modellprofil liegt als `/config/comwintop/profiles/<modellkennung>.yaml`
@@ -113,20 +154,37 @@ python -m venv .venv
 .venv/bin/python scripts/build_package.py
 ```
 
-Die Tests kombinieren Grenzwerte/Properties, Zustands- und Konkurrenzfälle,
+Die regulären Tests kombinieren Grenzwerte/Properties, Zustands- und Konkurrenzfälle,
 einen unabhängigen Modbus-Wire-Simulator, einen seriellen Linux-PTY und den echten
 HA-Kern. Sie ersetzen keine echte Hardwareabnahme. Die erste Version garantiert
 weder Relaiskontakte noch physischen Stromfluss.
 Der [L-50-Prüfbericht](docs/l50_test_report.md) enthält gemessene Intervalle,
 die Buslast vor/nach der Änderung und offene Hardwareprüfungen.
+Die getrennten Upstream-Patches werden nur auf temporären Paketkopien mit
+`python scripts/test_upstream_prototype.py` und in einem eigenen Workflow
+geprüft. [Bestandsaufnahme und Merge-Reihenfolge](docs/repository_inventory.md),
+[Roadmap](docs/roadmap.md), [Repository-Sicherheit](docs/repository_security.md).
 
 ## English
 
 Local, manufacturer-neutral Modbus connections with model-specific CWT profiles.
-This initial beta is read-only. Hardware writes are locked, not merely disabled
-by a default setting. Setup UI is translated into English and German. See the
-implementation matrix and known limitations before testing. No cloud dependency,
-no automatic output restoration, no plant safety logic.
+Published v0.1.0b1 is a read-only beta; this branch is unreleased development
+based on 0.1.0b4. TM-32DS offers 32 temperature channels; MB308N offers
+8 analog inputs, 8 digital inputs and read-only output register values.
+Connect through Modbus TCP, TCP-to-RTU gateway, transparent RTU over TCP, or
+serial/USB RS485. Install the tested ZIP's `custom_components/comwintop`
+directory into HA's `/config/custom_components/`, restart HA, add the
+ComWinTop integration, then add a device with its known unit address. In
+device options, set channel names, modes and group polling intervals; optional
+per-channel intervals inherit the group default unless overridden. Temperature
+intervals range from 5 to 3600 seconds. Download diagnostics after checking
+them for private data. For updates, replace only this integration directory
+and restart. To remove it, delete its HA connection entries, stop HA, remove
+only `/config/custom_components/comwintop`, and start HA. Setup UI is
+translated into English and German. **All production FC05/FC06/FC15/FC16
+writes remain locked.** Readbacks do not prove physical output state.
+See the [test/release matrix](docs/test_release_matrix.md) and
+[known limitations](docs/known_limits.md) before hardware use.
 
 ## Lizenz / Herstellerbezug
 

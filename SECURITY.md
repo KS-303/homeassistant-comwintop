@@ -1,13 +1,12 @@
-# Betriebsgrenzen
+# Sicherheitsmeldungen
 
-Experimentelle Integration, kein Herstellerprodukt und keine Sicherheitssteuerung.
-Keine Authentisierung oder Verschlüsselung für normales Modbus TCP/RTU.
-Nur im vorgesehenen lokalen Netz betreiben, keine Modbus-Ports ins Internet öffnen.
+Produktive Modbus-Schreibfunktionen sind gesperrt. Bitte keine Zugangsdaten,
+private Netzwerkadressen oder unveränderten HA-Diagnoseexporte in Issues
+oder Pull Requests posten. Für eine vertrauliche Schwachstelle zunächst den
+[Sicherheitsbereich des Repositorys](https://github.com/KS-303/homeassistant-comwintop/security)
+prüfen. GitHubs private Schwachstellenmeldung ist für dieses Repository
+aktiviert. Ein öffentliches Issue erst nach Abstimmung ohne vertrauliche
+Details anlegen.
 
-Keine Zugangsdaten im Repository speichern. Diagnoseexport enthält keine
-Verbindungsadressen oder Gerätebezeichnungen. Vor dem Weitergeben zusätzlicher
-HA-Protokolle deren Inhalt selbst prüfen.
-
-Funktionsfehler ohne persönliche Daten oder Zugangsdaten im Issue-Tracker melden.
-Sicherheitslücken und vertrauliche Diagnosen nicht öffentlich einstellen. Diese Datei
-behauptet weder eine externe Sicherheitsprüfung noch eine Hardwarezertifizierung.
+Unterstützter veröffentlichter Stand: `v0.1.0b1`, lesende Beta. Andere Branches
+sind Entwicklung und keine für den Betrieb freigegebenen Releases.
