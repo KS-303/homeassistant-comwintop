@@ -515,9 +515,9 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
             data.setdefault("channels", {})[key] = channel_options
             try:
                 data = revise_device(dict(sub.data), data)
-            except (ValueError, KeyError):
+            except (ValueError, KeyError) as err:
                 errors["base"] = (
-                    "invalid_interval" if "poll_interval" in selected else "invalid_channel"
+                    "invalid_interval" if str(err) == "invalid_interval" else "invalid_channel"
                 )
             else:
                 if not errors:
