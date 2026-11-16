@@ -15,6 +15,8 @@ from .profiles import MODEL_NAMES, MODES, channels
 async def async_setup_entry(hass, entry, async_add_entities):
     for sub_id, coordinator in entry.runtime_data.units.items():
         entities = [UnitStatus(coordinator)]
+        if coordinator.model == "tm_32ds":
+            entities.append(CommunicationRegister(coordinator))
         for key, group, index in channels(coordinator.model):
             if group.kind not in ("di", "do"):
                 entities.append(ValueSensor(coordinator, key, group, index))
@@ -81,6 +83,52 @@ class RawSensor(ChannelEntity, SensorEntity):
     def native_value(self):
         value = self.coordinator.samples[self.key].raw
         return int(value) if isinstance(value, bool) else value
+
+
+class CommunicationRegister(CoordinatorEntity, SensorEntity):
+    """One diagnostic entity exposes all fields of the last read register 16."""
+
+    _attr_has_entity_name = True
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_translation_key = "communication_register"
+    _attr_should_poll = False
+
+    def __init__(self, coordinator):
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.uid}_communication_register"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, coordinator.uid)},
+            name=coordinator.subentry.title,
+            manufacturer="ComWinTop",
+            model=MODEL_NAMES[coordinator.model],
+        )
+
+    @property
+    def available(self):
+        return self.coordinator.communication_values is not None
+
+    @property
+    def native_value(self):
+        details = self.coordinator.communication_values
+        return details["raw"] if details is not None else None
+
+    @property
+    def extra_state_attributes(self):
+        details = self.coordinator.communication_values
+        if details is None:
+            return {"read_error": self.coordinator.communication_error}
+        return {
+            "device_slave_id": details["address"],
+            "configured_slave_id": details["configured_address"],
+            "baudrate": details["baudrate"],
+            "parity": details["parity"],
+            "data_bits": details["databits"],
+            "stop_bits": details["stopbits"],
+            "read_status": details["status"],
+            "age_seconds": round(time.monotonic() - self.coordinator.communication_received)
+            if self.coordinator.communication_received is not None
+            else None,
+        }
 
 
 class UnitStatus(CoordinatorEntity, SensorEntity):
