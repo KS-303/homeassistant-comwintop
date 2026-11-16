@@ -29,6 +29,7 @@ class Sample:
     invalid: bool = False
     successful_reads: int = 0
     last_successful_read_utc: str | None = None
+    last_successful_read_delta_seconds: float | None = None
 
     def available(self, now, interval):
         return (
@@ -39,6 +40,8 @@ class Sample:
 
     def accept(self, value, raw, now):
         self.value, self.raw, self.received = value, raw, now
+        if self.received is not None:
+            self.last_successful_read_delta_seconds = round(now - self.received, 3)
         self.successful_reads += 1
         self.last_successful_read_utc = datetime.now(timezone.utc).isoformat()
         self.raw_received = now
