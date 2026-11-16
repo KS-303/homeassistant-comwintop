@@ -134,10 +134,11 @@ class UnitCoordinator(DataUpdateCoordinator):
         return result
 
     async def _communication_poll(self):
-        """Low-frequency FC03 diagnostics, never a per-entity Modbus poll."""
+        """Initial delayed read, then one shared FC03 diagnostic read every 5 min."""
+        await asyncio.sleep(5)
         while True:
-            await asyncio.sleep(300)
             await self.read_communication()
+            await asyncio.sleep(300)
 
     async def _age(self):
         while True:
