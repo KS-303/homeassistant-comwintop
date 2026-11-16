@@ -369,3 +369,62 @@ async def test_mb308_channel_ui_and_entities(hass, sim):
     assert hass.states.get(di).state == "on"
     assert hass.states.get(di).attributes["friendly_name"].endswith("Digital input 1")
     assert not [r for r in sim.trace if r[1] > 4]
+
+
+async def test_channel_form_serializes_and_accepts_all_32_ids(hass, sim):
+    """Real HA flow forms must serialize and accept internal channel IDs."""
+    from homeassistant.helpers import config_validation as cv
+    from probatio.codecs.fields import to_field_list
+
+    hass.config.language = "de"
+    entry = make_entry(sim)
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+    sub = next(iter(entry.subentries.values()))
+    manager = hass.config_entries.subentries
+
+    # Recreate the actual HTTP serialization path that raised on integral_seconds.
+    for channel_no in (1, 3, 16, 32):
+        flow = await manager.async_init(
+            (entry.entry_id, "device"),
+            context={"source": "reconfigure", "subentry_id": sub.subentry_id},
+        )
+        flow = await manager.async_configure(flow["flow_id"], {"next_step_id": "channel"})
+        to_field_list(flow["data_schema"], custom_serializer=cv.custom_serializer)
+        result = await manager.async_configure(
+            flow["flow_id"], {"channel": f"temperature_{channel_no}"}
+        )
+        assert result["step_id"] == "channel_settings", result
+        to_field_list(result["data_schema"], custom_serializer=cv.custom_serializer)
+        result = await manager.async_configure(
+            flow["flow_id"],
+            {"name": f"Channel {channel_no}", "enabled": True, "poll_interval_mode": "standard"},
+        )
+        assert result["type"] == "abort", result
+        await hass.async_block_till_done()
+
+
+async def test_channel_interval_fractional_rejected_without_write(hass, sim):
+    from homeassistant.helpers import config_validation as cv
+    from probatio.codecs.fields import to_field_list
+
+    entry = make_entry(sim)
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+    sub = next(iter(entry.subentries.values()))
+    manager = hass.config_entries.subentries
+    flow = await manager.async_init(
+        (entry.entry_id, "device"),
+        context={"source": "reconfigure", "subentry_id": sub.subentry_id},
+    )
+    flow = await manager.async_configure(flow["flow_id"], {"next_step_id": "channel"})
+    flow = await manager.async_configure(flow["flow_id"], {"channel": "temperature_3"})
+    to_field_list(flow["data_schema"], custom_serializer=cv.custom_serializer)
+    result = await manager.async_configure(
+        flow["flow_id"],
+        {"name": "Test", "enabled": True, "poll_interval_mode": "individual", "poll_interval": 5.5},
+    )
+    assert result["type"] == "form", result
+    assert result["errors"]["base"] == "invalid_interval"
+    to_field_list(result["data_schema"], custom_serializer=cv.custom_serializer)
+    assert not [call for call in sim.trace if call[1] not in (1, 2, 3, 4)]
