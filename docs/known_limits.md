@@ -1,4 +1,4 @@
-# Bekannte Grenzen und Releaseblocker
+# Bekannte Grenzen und Releaseblocker (einschließlich 0.1.0b6-Labortest)
 
 ## Nachgewiesenes Busy-Retry im HA-Unterbau
 
@@ -14,9 +14,7 @@ HA-Adapter nicht abgeschaltet. Die Integration verändert weder diese privaten
 Objekte noch globalen HA-Code. Der kurze Regressionstest bestätigt den Fehler
 und die bestehende produktive Schreibsperre; er wird nicht als Write-Freigabe gewertet.
 
-Vor einer schreibenden Beta: passende vorgelagerte Korrektur oder geprüfte,
-öffentliche Steuerungsmöglichkeit erforderlich; sämtliche tatsächlichen
-Sendetraces für Timeout, Busy und Disconnect erneut prüfen.
+Vor einer **produktiven** schreibenden Beta: passende vorgelagerte Korrektur oder geprüfte, öffentliche Steuerungsmöglichkeit erforderlich; sämtliche tatsächlichen Sendetraces für Timeout, Busy und Disconnect erneut prüfen. Die b6-Laborausnahme ruft FC06 nur an einem ausdrücklich isolierten TM-32DS auf und kann bei Busy intern mehrfach senden; sie hebt diese Produktiv-Sperre nicht auf. [Laboranleitung](l51a_isolated_ha_lab.md).
 
 ## Harte 2-Sekunden-Frist für spätere DO/AO-Schaltbefehle
 
