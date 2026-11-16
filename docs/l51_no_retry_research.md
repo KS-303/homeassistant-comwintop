@@ -56,10 +56,10 @@ belegt nur, dass die weiterhin lesende ComWinTop-Integration keinen
 aufgeschobenen Write startet; ein echter HA-Neustart während eines FC06
 ist **nicht** nachgewiesen.
 
-Zusätzlich liefen **32 serielle PTY-Szenarien**: FC05/06/15/16 mit tmodbus
+Zusätzlich liefen **34 serielle PTY-Szenarien**: FC05/06/15/16 mit tmodbus
 und pymodbus bei Normalantwort, Busy 06, Timeout und geschlossenem PTY.
 Der unabhängige Parser prüfte CRC und die wirklich empfangenen Frames.
-Jeder Write wurde einmal übertragen. Zwei weitere TCP-Versuche brachen
+Jeder Write wurde einmal übertragen. Je zwei TCP- und PTY-Versuche brachen
 einen bereits gesendeten FC06 per asyncio-Cancellation ab. Nach Schließen
 und Neuöffnen der Verbindung kam kein alter Write nach. pymodbus meldete
 Cancellation teilweise als `ModbusTimeoutError`; der Wire-Trace blieb

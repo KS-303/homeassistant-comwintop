@@ -97,12 +97,43 @@ async def scenario(backend, fc, fault):
         wire.close()
 
 
+async def cancelled_serial_write(backend):
+    wire = PtyWire("silent")
+    cls = TmodbusConnection if backend == "tmodbus" else PymodbusConnection
+    params = ModbusSerialParams(device=wire.path, baudrate=9600)
+    conn = cls(params, timeout=1)
+    try:
+        task = asyncio.create_task(conn.for_unit(1).write_register(16, 0x0204, retry=False))
+        async with asyncio.timeout(1):
+            while not [r for r in wire.trace if r[1] == 6]:  # noqa: ASYNC110
+                await asyncio.sleep(0.01)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError, ModbusError:
+            pass
+        else:
+            raise AssertionError("write was not cancelled")
+        await conn.close()
+        wire.fault = None
+        fresh = cls(params, timeout=0.3)
+        try:
+            assert await fresh.for_unit(1).read_holding_registers(32, 1) == [42]
+        finally:
+            await fresh.close()
+        assert len([r for r in wire.trace if r[1] == 6]) == 1
+    finally:
+        await conn.close()
+        wire.close()
+
+
 async def main():
     for backend in ("tmodbus", "pymodbus"):
         for fc in (5, 6, 15, 16):
             for fault in (None, "busy", "silent", "disconnect"):
                 await scenario(backend, fc, fault)
-    print("32 PTY write wire scenarios passed")
+        await cancelled_serial_write(backend)
+    print("34 PTY write wire scenarios passed")
 
 
 if __name__ == "__main__":
