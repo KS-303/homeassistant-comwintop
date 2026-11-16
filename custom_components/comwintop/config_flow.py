@@ -318,7 +318,8 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
     async def async_step_reconfigure(self, user_input=None):
         self._sub = self._get_reconfigure_subentry()
         return self.async_show_menu(
-            step_id="reconfigure", menu_options=["device", "channel", "intervals", "communication", "address_test"]
+            step_id="reconfigure",
+            menu_options=["device", "channel", "intervals", "communication", "address_test"],
         )
 
     async def async_step_communication(self, user_input=None):
@@ -379,23 +380,33 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                 try:
                     async with runtime.bus_lock:
                         async with asyncio.timeout(3):
-                            raw_values = await runtime.units[sub.subentry_id].unit.read_holding_registers(16, 1)
+                            raw_values = await runtime.units[
+                                sub.subentry_id
+                            ].unit.read_holding_registers(16, 1)
                         if len(raw_values) != 1:
                             raise ValueError("invalid_length")
                         raw = raw_values[0]
                         proposed = plan_tm32ds_address(
-                            raw, sub.data["unit_id"], target,
-                            configured_ids=tuple(other.data["unit_id"] for other in entry.subentries.values()),
+                            raw,
+                            sub.data["unit_id"],
+                            target,
+                            configured_ids=tuple(
+                                other.data["unit_id"] for other in entry.subentries.values()
+                            ),
                         )
                         # A responding target ID cannot be considered free.
-                        params = await self.hass.async_add_executor_job(params_from, dict(entry.data))
+                        params = await self.hass.async_add_executor_job(
+                            params_from, dict(entry.data)
+                        )
                         target_responded = False
-                        async with async_get_temporary_unit(self.hass, params, target) as target_unit:
+                        async with async_get_temporary_unit(
+                            self.hass, params, target
+                        ) as target_unit:
                             try:
                                 async with asyncio.timeout(1.5):
                                     test = await target_unit.read_holding_registers(16, 1)
                                 target_responded = len(test) > 0
-                            except (ModbusError, TimeoutError, OSError):
+                            except ModbusError, TimeoutError, OSError:
                                 pass
                         if target_responded:
                             raise ValueError("address_in_use")
@@ -408,17 +419,19 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                     }
                 except ValueError:
                     errors["base"] = "address_test_invalid"
-                except (ModbusError, TimeoutError, OSError, HomeAssistantError):
+                except ModbusError, TimeoutError, OSError, HomeAssistantError:
                     errors["base"] = "cannot_connect"
                 else:
                     return await self.async_step_address_test_confirm()
         return self.async_show_form(
             step_id="address_test",
-            data_schema=vol.Schema({
-                vol.Required("target_id"): vol.All(vol.Coerce(int), vol.Range(min=1, max=247)),
-                vol.Required("isolated", default=False): bool,
-                vol.Required("understand_retry", default=False): bool,
-            }),
+            data_schema=vol.Schema(
+                {
+                    vol.Required("target_id"): vol.All(vol.Coerce(int), vol.Range(min=1, max=247)),
+                    vol.Required("isolated", default=False): bool,
+                    vol.Required("understand_retry", default=False): bool,
+                }
+            ),
             errors=errors,
         )
 
@@ -429,7 +442,9 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
         plan = getattr(self, "_address_test_plan", None)
         runtime = getattr(entry, "runtime_data", None)
         if (
-            plan is None or runtime is None or len(entry.subentries) != 1
+            plan is None
+            or runtime is None
+            or len(entry.subentries) != 1
             or sub.subentry_id != plan["sub_id"]
             or sub.data["model"] != "tm_32ds"
             or sub.data["unit_id"] != plan["old_id"]
@@ -456,7 +471,7 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                     try:
                         async with asyncio.timeout(4):
                             await old_unit.write_register(16, plan["new"])
-                    except (ModbusError, TimeoutError, OSError):
+                    except ModbusError, TimeoutError, OSError:
                         pass  # The device may have changed ID despite lost reply.
                     async with async_get_temporary_unit(self.hass, params, target) as target_unit:
                         async with asyncio.timeout(3):
@@ -468,7 +483,7 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                 # Preserve stable subentry/device identifiers and channel options.
                 new_data = dict(sub.data) | {"unit_id": target}
                 return self.async_update_and_abort(entry, sub, title=sub.title, data=new_data)
-            except (ModbusError, TimeoutError, OSError, HomeAssistantError, ValueError):
+            except ModbusError, TimeoutError, OSError, HomeAssistantError, ValueError:
                 return self.async_abort(reason="address_test_unconfirmed")
 
         return self.async_show_form(
