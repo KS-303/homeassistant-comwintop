@@ -88,7 +88,7 @@
           "data": {
             "name": "Name",
             "enabled": "Kanal auswerten",
-            "nc": "Eingang umkehren (Öffnerkontakt)",
+            "nc": "Kontaktart: NC / Öffner (aktiv = EIN, Eingang invertiert; aus = NO / Schließer)",
             "mode": "Tatsächlicher elektrischer Signalbereich",
             "display": "Anzeigeart des Messwerts",
             "scale_min": "Messgröße am unteren Signalwert",
@@ -97,7 +97,7 @@
             "poll_interval_mode": "Abfrageintervall",
             "poll_interval": "Individueller Wert (Sekunden; bei Standard ignoriert)"
           },
-          "description": "Das Deaktivieren eines Kanals schaltet keinen Ausgang aus. Jumper und Verdrahtung müssen zum gewählten Signalbereich passen. Schreiben bleibt gesperrt."
+          "description": "DI: NC invertiert ausschließlich die logische Anzeige; NO bleibt unverändert. AI/AO: Signalbereich im Formular ist eine Dekodier-Einstellung und ändert keine Jumper oder Geräteparameter. DO und AO sind in dieser Beta nur lesbar. Kanal deaktivieren schaltet keine Last ab."
         },
         "intervals": {
           "title": "Abfrageintervalle",
