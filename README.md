@@ -2,7 +2,7 @@
 
 ComWinTop verbindet CWT-I/O-Geräte lokal über Modbus mit Home Assistant.
 Der veröffentlichte Stand ist **v0.1.0b1 (lesende Beta)**. Das
-**0.1.0b6-Labortestpaket** baut auf der 0.1.0b5-Entwicklungsbasis auf;
+**0.1.0b7-Labortestpaket** baut auf 0.1.0b6 auf und behebt Darstellungsfehler in HA;
 es ist noch kein GitHub-Release. Die Integration ist
 herstellerunabhängig beim Gateway,
 aber für die mitgelieferten Registerprofile gerätespezifisch. Sie ist kein
@@ -12,7 +12,7 @@ Produkt des Geräteherstellers und enthält keine Anlagenregelung.
 [Einschränkungen](docs/known_limits.md),
 [schrittweiser HA-Test](docs/ha_test_plan.md).
 
-**L-51a – isolierter HA-Hardwaretest (nur 0.1.0b6-Laborbranch):** Unter
+**L-51a – isolierter HA-Hardwaretest (0.1.0b7-Laborbranch):** Unter
 „Gerät konfigurieren → Slave-ID ändern (isolierter Hardwaretest)“ kann ein
 einziger, ausdrücklich bestätigter TM-32DS-Testaufbau erstmals FC06/Register
 16 über HA ausprobieren. **Nicht an produktiven RS485-Bussen einsetzen.**
@@ -21,10 +21,16 @@ die Funktion bietet ausdrücklich **keine No-Retry-Garantie**. Bei unbestätigte
 Ergebnis keine erneute Schreibübertragung auslösen. Alle DO-/AO-Ausgänge,
 andere Gerätemodelle und L-51b (Baudrate/Parität) bleiben schreibend gesperrt.
 [Labortestanleitung, Sicherheit und Wiederherstellung](docs/l51a_isolated_ha_lab.md).
+
+**HA-Anzeige b7:** Die Kommunikationsübersicht zeigt Register 16 und Modbus-Parameter
+zusätzlich als lesbare Feldwerte, damit keine leere Seite erscheint, wenn
+HA veraltete Übersetzungen zwischenspeichert. Der Slave-ID-Dialog nutzt
+nun ein Zahlenfeld statt eines Schiebereglers. Nach HACS-Installation
+HA vollständig neu starten und die Browseransicht neu laden.
 Die getrennte, ausschließlich lesende Kommunikationsinspektion bleibt erhalten.
 Dies ist **kein stabiler Release** und kein produktiv freigegebenes Modul.
 
-**L-50 – in der 0.1.0b6-Laborversion weiter ausschließlich lesend.**
+**L-50 – in der 0.1.0b7-Laborversion weiter ausschließlich lesend.**
 Dies ist noch kein Installationsrelease. Die veröffentlichte Version 0.1.0b1
 bleibt davon unberührt.
 
@@ -172,7 +178,7 @@ geprüft. [Bestandsaufnahme und Merge-Reihenfolge](docs/repository_inventory.md)
 ## English
 
 Local, manufacturer-neutral Modbus connections with model-specific CWT profiles.
-Published v0.1.0b1 is a read-only beta; this unreleased 0.1.0b6 lab test package
+Published v0.1.0b1 is a read-only beta; this unreleased 0.1.0b7 lab test package
 builds on the 0.1.0b4 development base. TM-32DS offers 32 temperature
 channels; MB308N offers
 8 analog inputs, 8 digital inputs and read-only output register values.
