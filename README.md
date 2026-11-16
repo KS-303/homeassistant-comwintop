@@ -1,5 +1,22 @@
 # ComWinTop for Home Assistant
 
+> **Entwicklungsstand b13 (Sicherheitsprüfung, noch kein Release):**
+> Basis ist b12. Diese Version behebt Syntaxfehler, benennt die Version
+> eindeutig und sperrt die experimentelle Slave-ID-Schreibfunktion (FC06)
+> vollständig – auch für alte Flow-URLs. DO und AO bleiben ausschließlich
+> lesbar. Die angezeigte Slave-ID und die Diagnose sind weiterhin verfügbar.
+> Unterstützter und getesteter HA-Zielstand: **Home Assistant Core 2026.11.x,
+> Python 3.14**. Python-3.13-Syntax wird geprüft, aber ältere HA-Modbus-APIs
+> sind **nicht** als kompatibel zugesichert.
+>
+> Negative Temperaturen und der mehrdeutige 85,0-°C-Rohwert bleiben bis zu
+> einem hardwarevalidierten TM-32DS-Registertest bewusst `unavailable`.
+> Bitte b13 nicht als vollständige Anlagen- oder Personenschutzsteuerung
+> verwenden. Das ältere b8-Installationspaket im zuvor erzeugten privaten
+> Backup war falsch beschriftet und ist **kein** Rückfallstand.
+> [Befundliste und Korrekturstatus](docs/b13_security_audit.md).
+
+
 ComWinTop verbindet CWT-I/O-Geräte lokal über Modbus mit Home Assistant.
 Der veröffentlichte Stand ist **v0.1.0b1 (lesende Beta)**. Das
 **0.1.0b8-Labortestpaket** baut auf b7 auf und erweitert die Kommunikationsdiagnose;
