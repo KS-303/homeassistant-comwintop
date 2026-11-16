@@ -13,7 +13,7 @@ response/Busy/reconnect retry strategy. The ordinary path and default
 `retry=True` retain their current behavior. Unsupported custom transports
 raise `NotImplementedError` for the opt-in instead of silently retrying.
 The pymodbus adapter accepts the flag; it already constructs all clients
-with `retries=0`. This backend still needs independent wire verification.
+with `retries=0`. The isolated PTY tests verify this backend independently.
 
 The prototype was tested by copying the two installed packages into a
 temporary directory, applying the patches only to those copies, and running
@@ -21,7 +21,19 @@ temporary directory, applying the patches only to those copies, and running
 The script uses an independent TCP/RTU-over-TCP simulator and checks actual
 request frames, not method-call counts. It must be run explicitly; the normal
 ComWinTop CI continues to test the unmodified production dependencies.
+Run `upstream_patches/pty_check.py` with the same patched-copy environment
+for Linux serial PTY tests on both backends. The patch paths are rooted at
+each upstream repository's `src/` directory and pass `git apply --check`
+against the pinned source snapshots.
 
-Before upstream adoption, add these cases to each project's own CI, run
-serial-PTY and pymodbus transport tests, and review all custom transport
-implementations. The files here are a proposal, not a release artifact.
+The public write API accepts keyword-only `retry: bool = True`. The default
+preserves existing calls. `retry=False` covers transport retries, but does
+not check the separate 2-second ComWinTop command deadline at the actual
+send boundary. Neither patch is ready to enable production writes.
+
+Before upstream adoption, add these cases to each project's own CI, test
+the deadline at the physical send boundary and a real HA process restart,
+and review all custom transport implementations. Both upstreams require
+human review of AI-assisted work and prohibit autonomous external PRs;
+tmodbus additionally asks contributors to discuss the change first.
+The files here are a proposal, not a release artifact.

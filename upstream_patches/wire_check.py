@@ -5,6 +5,7 @@ import struct
 
 from modbus_connection import ModbusSerialParams, ModbusTcpParams
 from modbus_connection.exceptions import ModbusError
+from modbus_connection.pymodbus import ModbusConnection as PymodbusConnection
 from modbus_connection.tmodbus import ModbusConnection
 
 from tests.wire import Simulator
@@ -92,6 +93,37 @@ async def legacy_busy_retry_still_exists():
         await sim.close()
 
 
+async def cancelled_write_never_replays(backend):
+    sim = await Wire().start()
+    sim.fault = "silent"
+    cls = ModbusConnection if backend == "tmodbus" else PymodbusConnection
+    connection = cls(ModbusTcpParams(host="127.0.0.1", port=sim.port), timeout=1)
+    try:
+        unit = connection.for_unit(1)
+        task = asyncio.create_task(unit.write_register(16, 0x0204, retry=False))
+        async with asyncio.timeout(1):
+            while not [r for r in sim.trace if r[1] == 6]:  # noqa: ASYNC110
+                await asyncio.sleep(0.01)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError, ModbusError:
+            pass
+        else:
+            raise AssertionError("write was not cancelled")
+        await connection.close()  # release the HA-owned connection on unload
+        sim.fault = None
+        fresh = cls(ModbusTcpParams(host="127.0.0.1", port=sim.port), timeout=0.3)
+        try:
+            assert await fresh.for_unit(1).read_holding_registers(32, 1) == [200]
+        finally:
+            await fresh.close()
+        assert len([r for r in sim.trace if r[1] == 6]) == 1
+    finally:
+        await connection.close()
+        await sim.close()
+
+
 async def main():
     for mode in ("tcp", "rtu"):
         for fc in (5, 6, 15, 16) if mode == "tcp" else (5, 6):
@@ -99,7 +131,9 @@ async def main():
                 await exercise(mode, fc, fault)
         await concurrent_read(mode)
     await legacy_busy_retry_still_exists()
-    print("27 wire scenarios passed: explicit no-retry and unchanged legacy behavior")
+    for backend in ("tmodbus", "pymodbus"):
+        await cancelled_write_never_replays(backend)
+    print("29 wire scenarios passed: no-retry, cancellation and legacy behavior")
 
 
 if __name__ == "__main__":

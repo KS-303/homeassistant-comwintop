@@ -1,6 +1,7 @@
 # L-51a: No-Retry-Pfad im gemeinsamen Modbus-Unterbau
 
-Stand: 16.11.2026, Draft auf L-51-PR #2. Produktionsschreiben bleiben gesperrt.
+Stand: 16.11.2026, separater Draft auf Basis von L-51-PR #2.
+Produktionsschreiben bleiben gesperrt.
 
 ## Ursache in den installierten Versionen
 
@@ -27,7 +28,7 @@ Zwei getrennte [Patchentwürfe](../upstream_patches/README.md):
 2. modbus-connection: dasselbe optionale Keyword an den vier öffentlichen
    `ModbusUnit`-Methoden und beiden Backend-Adaptern. Das tmodbus-Backend
    reicht es weiter. pymodbus wird derzeit mit `retries=0` konstruiert;
-   seine signaturkompatible Implementierung benötigt eigene Wire-Tests.
+   seine signaturkompatible Implementierung wurde separat über PTY geprüft.
 
 Home Assistant muss keinen privaten Client freigeben, keine neue Verbindung
 öffnen und keinen globalen Retry-Schalter umstellen. Das bestehende
@@ -54,6 +55,44 @@ die produktiven Reads und L-50-Regression erhalten. Der HA-Reload-Test
 belegt nur, dass die weiterhin lesende ComWinTop-Integration keinen
 aufgeschobenen Write startet; ein echter HA-Neustart während eines FC06
 ist **nicht** nachgewiesen.
+
+Zusätzlich liefen **32 serielle PTY-Szenarien**: FC05/06/15/16 mit tmodbus
+und pymodbus bei Normalantwort, Busy 06, Timeout und geschlossenem PTY.
+Der unabhängige Parser prüfte CRC und die wirklich empfangenen Frames.
+Jeder Write wurde einmal übertragen. Zwei weitere TCP-Versuche brachen
+einen bereits gesendeten FC06 per asyncio-Cancellation ab. Nach Schließen
+und Neuöffnen der Verbindung kam kein alter Write nach. pymodbus meldete
+Cancellation teilweise als `ModbusTimeoutError`; der Wire-Trace blieb
+eindeutig. Ein tatsächlicher HA-Prozessneustart während eines unbestätigten
+Write ist weiterhin **nicht** nachgewiesen.
+
+## Zwei-Sekunden-Frist
+
+Der ComWinTop-WriteManager verwendet eine monotone Frist von zwei Sekunden
+und einen `guard()`. `retry=False` reicht diesen Guard nicht zum tatsächlichen
+Senden durch. Ein Check vor dem Aufruf kann während Lock-Wartezeit, Pacer,
+Verbindungsaufbau oder Busruhe ablaufen. Benötigt wird ein öffentliches,
+optionales `before_send` oder `expires_at`, das **unter dem gemeinsamen
+Transportlock unmittelbar vor dem physischen Send** geprüft wird. Unbekannte
+Backends müssen dabei fail-closed reagieren. Der hier vorliegende Patch
+enthält diesen Hook noch nicht. Deadline-Tests mit belegtem Lock und
+Connect-Verzögerung sind offen. Die 2-s-Frist darf nicht als erfüllt gelten.
+
+## Offizielle Upstream-Repositories und Versionen
+
+- `https://github.com/wlcrs/tmodbus`, Patchbasis **1.1.0**. Die
+  `.github/CONTRIBUTING.md` verlangt vorherige Besprechung mit den
+  Maintainers. Die AI-Richtlinie verlangt menschliches Verstehen und
+  untersagt autonome Issues/PRs.
+- `https://github.com/home-assistant-libs/modbus-connection`, Patchbasis
+  **4.12.7**. AI-Richtlinie ebenso; `CLAUDE.md` verlangt bei öffentlicher
+  API-Änderung README und Referenzdokumentation.
+- HA Core **2026.11.0** pinnt `tmodbus==1.1.0`,
+  `modbus-connection[tmodbus]==4.12.7` und `pymodbus==3.13.1` in
+  `homeassistant/components/modbus/manifest.json`. L-51a benötigt
+  *künftige* Releases beider geänderter Bibliotheken und eine HA-Version,
+  die beide pinnt. Noch unveröffentlichte Versionsnummern dürfen nicht
+  erfunden werden. Keine Änderung durch eine Custom-Integration erzwingen.
 
 ## Grenze und Freigabe
 
