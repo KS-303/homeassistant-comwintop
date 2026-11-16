@@ -118,11 +118,14 @@
         },
         "communication": {
           "title": "Modbus communication (read only)",
-          "description": "Device address: {address} (configured in Home Assistant: {configured_address}); baud rate: {baudrate}; parity: {parity}; data bits: {databits}; stop bits: {stopbits}; register 16: {raw}; status: {status}. Configuration writes are locked until register encoding and single transmission are verified for this model and bus. Reopen for a fresh read."
+          "description": "Register 16 is read freshly. Values below are displayed only and never saved. A separate laboratory-only slave-ID write test is available; baud/parity and production output writes remain locked.",
+          "data": {
+            "inspection": "Communication parameters read from device (display only)"
+          }
         },
         "address_test": {
           "title": "TM-32DS: change slave ID on isolated test bench",
-          "description": "ISOLATED TEST BUS ONLY, with a single TM-32DS. The current HA Modbus backend may resend FC06 on Busy. No additional RS485 participants and no connected outputs. Target address must be unused; lack of a read response is not proof. Connection loss may leave the outcome unknown.",
+          "description": "ISOLATED SINGLE-DEVICE TEST BUS ONLY. HA's Modbus backend may TRANSMIT FC06 MORE THAN ONCE on Busy. Check that no other device is connected and the target address is unused. Both confirmations are mandatory.",
           "data": {
             "target_id": "New slave ID (1–247)",
             "isolated": "I confirm this is a physically isolated bus with one TM-32DS only",
@@ -133,7 +136,8 @@
           "title": "TM-32DS: final confirmation",
           "description": "WARNING: A single HA write call may emit multiple FC06 frames. Proposed change: address {old_id} → {target_id}, register 16 {old_raw} → {new_raw}. The integration will read back the new address. If ambiguous, the HA address stays unchanged. Submit one experimental write request?",
           "data": {
-            "confirm": "Explicitly start this experimental write request"
+            "confirm": "Explicitly start this experimental write request",
+            "write_preview": "Planned write operation (display only; editing this text has no effect)"
           }
         }
       },
