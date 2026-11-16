@@ -115,6 +115,11 @@ def unit_id_box():
     return selector({"number": {"min": 1, "max": 247, "step": 1, "mode": "box"}})
 
 
+def informational_text():
+    """Use a multi-line text field for readable, non-persisted flow previews."""
+    return selector({"text": {"multiline": True}})
+
+
 def connection_schema(mode, defaults=None, language="en"):
     defaults = defaults or {}
     fields = {vol.Required("name", default=defaults.get("name", "Modbus-Verbindung")): str}
@@ -370,7 +375,7 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
         )
         return self.async_show_form(
             step_id="communication",
-            data_schema=vol.Schema({vol.Optional("inspection", default=report): str}),
+            data_schema=vol.Schema({vol.Optional("inspection", default=report): informational_text()}),
             description_placeholders=values,
         )
 
@@ -451,7 +456,7 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
             step_id="address_test",
             data_schema=vol.Schema(
                 {
-                    vol.Optional("lab_notice", default=notice): str,
+                    vol.Optional("lab_notice", default=notice): informational_text(),
                     vol.Required("target_id"): unit_id_box(),
                     vol.Required("isolated", default=False): bool,
                     vol.Required("understand_retry", default=False): bool,
@@ -521,7 +526,7 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
             step_id="address_test_confirm",
             data_schema=vol.Schema(
                 {
-                    vol.Optional("write_preview", default=preview): str,
+                    vol.Optional("write_preview", default=preview): informational_text(),
                     vol.Required("confirm", default=False): bool,
                 }
             ),
