@@ -60,7 +60,12 @@ Keine Cloud, keine Anlagenregelung, keine Sicherheitssteuerung.
 
 - Mehrere Verbindungen, mehrere CWT-Geräte als einzeln verwaltete Subentries.
 - Modbus TCP, TCP→RTU-Gateway, transparentes RTU-over-TCP, Serial/USB-RS485.
-- TM-32DS: 32 Temperaturkanäle. MB308N: 8 Analogeingänge, 4 analoge
+- TM-32DS: 32 DS18B20-Temperaturkanäle, beim Anlegen lesend geprüft. In der
+  Geräteverwaltung lassen sich Kanalbereiche manuell gesammelt deaktivieren oder
+  aktivieren. Feuchtefühler sind an diesen Eingängen nicht unterstützt; ein
+  separater RS485-Feuchtesensor braucht ein eigenes validiertes Geräteprofil.
+  Nach dem Aktivieren ohne angeschlossenen Fühler bleibt der Kanal `unavailable`.
+  MB308N: 8 Analogeingänge, 4 analoge
   Ausgangs-Readbacks, 8 Digitaleingänge und 8 digitale Ausgangs-Readbacks.
 - NO/NC pro DI; Skalierung/Signalbereich pro AI; Gruppen- und optionale
   individuelle Kanal-Abfrageintervalle.
