@@ -18,6 +18,12 @@ async def async_get_config_entry_diagnostics(hass, entry):
                 "status": unit.status,
                 "counters": dict(unit.counters),
                 "latency_ms": unit.latency_ms,
+                "poll_task_running": bool(unit._poll_task and not unit._poll_task.done()),
+                "seconds_since_last_response": (
+                    round(time.monotonic() - unit.last_response, 1)
+                    if unit.last_response is not None
+                    else None
+                ),
                 "intervals": unit.intervals,
                 "channels": {
                     key: {
