@@ -39,6 +39,8 @@ async def test_diagnostics_redact_connection_identity_and_measurements():
         status="SUSPECT",
         counters=Counter({"responses": 3, "timeout": 1}),
         latency_ms=37.1,
+        _poll_task=None,
+        last_response=time.monotonic() - 2,
         intervals={"temperature": 15},
         samples={"temperature_1": good_sample, "temperature_2": bad_sample},
         options=lambda key: {"poll_interval": 5} if key == "temperature_1" else {},
@@ -66,6 +68,8 @@ async def test_diagnostics_redact_connection_identity_and_measurements():
     assert len(exported["devices"]) == 1
     device = exported["devices"][0]
     assert device["counters"] == {"responses": 3, "timeout": 1}
+    assert device["poll_task_running"] is False
+    assert device["seconds_since_last_response"] >= 0
     assert device["channels"]["temperature_1"]["effective_interval"] == 5
     assert device["channels"]["temperature_1"]["interval_source"] == "individual"
     assert device["channels"]["temperature_1"]["successful_reads_since_reload"] == 3
