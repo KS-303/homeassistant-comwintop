@@ -55,3 +55,11 @@ bei einem 15-s-Kanal nicht allein durch den Retryplan einen Ablauf seiner
 weiterhin sofort. Dies garantiert keinen ununterbrochenen Betrieb von
 Pumpen/Heizungen; deren lokale Sicherheits- und Rückfallfunktion liegt außerhalb
 von Home Assistant.
+
+Die Abfrageschleife besitzt zusätzlich eine überwachte Ausführung: Nach einem
+unerwarteten Task-Abbruch werden gespeicherte Messwerte ungültig, der Status
+wechselt auf OFFLINE und die Abfrage startet höchstens zweimal binnen fünf
+Minuten automatisch neu. Danach bleibt sie sichtbar gestoppt, bis die
+Integration neu geladen und der Fehler untersucht wurde. Der Diagnoseexport
+meldet, ob der Task läuft und wie alt die letzte Modbus-Antwort ist. Diese
+Überwachung kann einen physischen Netz- oder RS485-Ausfall nicht beseitigen.
