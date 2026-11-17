@@ -160,7 +160,8 @@
         "invalid_interval": "Ungültiges Abfrageintervall. Individuellen Wert innerhalb der Kanalgrenzen eingeben.",
         "bulk_confirmation_required": "Bitte die Sammeldeaktivierung ausdrücklich bestätigen.",
         "invalid_channel_range": "Ungültiger Kanalbereich: Beginn darf nicht hinter Ende liegen.",
-        "invalid_scale": "Ungültige Skalierung: Minimum und Maximum müssen verschieden und endlich sein."
+        "invalid_scale": "Ungültige Skalierung: Minimum und Maximum müssen verschieden und endlich sein.",
+        "choose_individual_interval": "Ein Wert wurde eingegeben. Bitte „Individuell“ als Abfrageintervall wählen oder das Zahlenfeld leeren."
       },
       "abort": {
         "reconfigure_successful": "Einstellungen aktualisiert.",
