@@ -43,3 +43,15 @@ Einzelversuche und offene Gesamtabnahmen stehen in der zentralen
 Der b6-Laborversuch ist ein historischer Zweig und nicht im b15-Paket enthalten.
 Slave-ID, DO/AO und L-51b bleiben gesperrt. Der separate WriteManager gehört
 nicht zum Installations-ZIP und belegt keine Hardware-Schreibfreigabe.
+
+## Polling-Recovery bei Einzel-Timeout (Entwicklungsbranch)
+
+Der erste fehlgeschlagene Leseversuch nutzt für die nächste Abfrage nur das
+normale Kanalintervall. Ab dem zweiten aufeinanderfolgenden Fehler gilt der
+begrenzte Backoff; ein Kanal wird bei Fehlern nicht schneller als sein
+konfiguriertes Intervall abgefragt. Damit verursacht ein einzelner 3-s-Timeout
+bei einem 15-s-Kanal nicht allein durch den Retryplan einen Ablauf seiner
+45-s-Stale-Frist. Ein tatsächlicher Verbindungsabbruch invalidiert Messwerte
+weiterhin sofort. Dies garantiert keinen ununterbrochenen Betrieb von
+Pumpen/Heizungen; deren lokale Sicherheits- und Rückfallfunktion liegt außerhalb
+von Home Assistant.
