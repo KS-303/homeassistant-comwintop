@@ -682,3 +682,18 @@ async def test_channel_interval_value_requires_individual_choice_and_diagnostics
     assert channels["temperature_2"]["interval_source"] == "group"
     assert "successful_reads_since_reload" in channels["temperature_1"]
     assert not [frame for frame in sim.trace if frame[1] not in (1, 2, 3, 4)]
+
+
+async def test_communication_register_refreshes_after_read_recovery(hass, sim):
+    """A recovered TM-32DS refreshes register 16 without waiting five minutes."""
+    entry = make_entry(sim)
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+    c = next(iter(entry.runtime_data.units.values()))
+    await wait_for(lambda: c.communication_values is not None)
+    initial = sum(frame[:3] == (1, 3, 16) for frame in sim.trace)
+    c.connection_lost()
+    assert c.communication_values is None
+    await wait_for(lambda: c.communication_values is not None)
+    assert sum(frame[:3] == (1, 3, 16) for frame in sim.trace) == initial + 1
+    assert not [frame for frame in sim.trace if frame[1] not in (1, 2, 3, 4)]
