@@ -160,7 +160,8 @@
         "invalid_interval": "Invalid polling interval. Enter a value within the channel limits.",
         "bulk_confirmation_required": "Explicitly confirm bulk disabling.",
         "invalid_channel_range": "Invalid channel range: first must not exceed last.",
-        "invalid_scale": "Invalid scale: minimum and maximum must be different finite numbers."
+        "invalid_scale": "Invalid scale: minimum and maximum must be different finite numbers.",
+        "choose_individual_interval": "A value was entered. Select “Individual” polling interval or clear the number field."
       },
       "abort": {
         "reconfigure_successful": "Settings updated.",
