@@ -63,3 +63,9 @@ Minuten automatisch neu. Danach bleibt sie sichtbar gestoppt, bis die
 Integration neu geladen und der Fehler untersucht wurde. Der Diagnoseexport
 meldet, ob der Task läuft und wie alt die letzte Modbus-Antwort ist. Diese
 Überwachung kann einen physischen Netz- oder RS485-Ausfall nicht beseitigen.
+
+Nach einem Verbindungsverlust bleibt die Kommunikationsdiagnose nicht bis zur
+nächsten planmäßigen Fünf-Minuten-Abfrage leer: Sobald ein neuer Temperaturwert
+über denselben Bus erfolgreich eingelesen wurde, wird Register 16 einmal
+zusätzlich lesend aktualisiert. Bei Fehlern dieses Diagnose-Reads gibt es eine
+30-s-Sperrfrist vor dem nächsten ereignisgesteuerten Versuch.
