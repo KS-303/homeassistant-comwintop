@@ -68,7 +68,11 @@ Keine Cloud, keine Anlagenregelung, keine Sicherheitssteuerung.
   MB308N: 8 Analogeingänge, 4 analoge
   Ausgangs-Readbacks, 8 Digitaleingänge und 8 digitale Ausgangs-Readbacks.
 - NO/NC pro DI; Skalierung/Signalbereich pro AI; Gruppen- und optionale
-  individuelle Kanal-Abfrageintervalle.
+  individuelle Kanal-Abfrageintervalle. Beim Eingeben eines Einzelwerts muss
+  im Kanalformular „Individuell“ gewählt sein; ein versehentlich unter
+  „Standard“ eingegebener Wert wird mit einer Fehlermeldung zurückgewiesen.
+  Der Diagnoseexport zeigt je Kanal Gruppen-/Einzelwert, effektive Sekunden
+  und den Abstand der letzten beiden gültigen Messungen.
 - Stabile Geräte-UUIDs, Kanalqualität, Ablauf veralteter Daten, anonymisierte Diagnose.
 - Ausgeschriebene Kanalnamen in Deutsch und Englisch; eigenes Integrationsicon
   mit dem Projekthandle KS-303.
