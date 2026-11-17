@@ -690,7 +690,9 @@ async def test_communication_register_refreshes_after_read_recovery(hass, sim):
     await hass.config_entries.async_add(entry)
     await hass.async_block_till_done()
     c = next(iter(entry.runtime_data.units.values()))
-    await wait_for(lambda: c.communication_values is not None)
+    async with asyncio.timeout(8):
+        while c.communication_values is None:  # noqa: ASYNC110
+            await asyncio.sleep(0.02)
     initial = sum(frame[:3] == (1, 3, 16) for frame in sim.trace)
     c.connection_lost()
     assert c.communication_values is None
