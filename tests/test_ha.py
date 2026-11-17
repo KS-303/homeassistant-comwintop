@@ -699,3 +699,33 @@ async def test_communication_register_refreshes_after_read_recovery(hass, sim):
     await wait_for(lambda: c.communication_values is not None)
     assert sum(frame[:3] == (1, 3, 16) for frame in sim.trace) == initial + 1
     assert not [frame for frame in sim.trace if frame[1] not in (1, 2, 3, 4)]
+
+
+async def test_failed_communication_register_rechecks_after_healthy_temperature(hass, sim):
+    """One failed diagnostic read must not leave the address hidden for five minutes."""
+    entry = make_entry(sim)
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+    c = next(iter(entry.runtime_data.units.values()))
+    async with asyncio.timeout(8):
+        while c.communication_values is None:  # noqa: ASYNC110
+            await asyncio.sleep(0.02)
+    original = c.unit.read_holding_registers
+
+    async def fail_register_16_once(address, count):
+        if address == 16:
+            raise TimeoutError
+        return await original(address, count)
+
+    c.unit.read_holding_registers = fail_register_16_once
+    assert await c.read_communication() is None
+    assert c.communication_values is None
+    c.unit.read_holding_registers = original
+    # Simulate the elapsed, bounded diagnostic retry window; no five-minute wait.
+    c._communication_retry_at = 0
+    for key in c._next:
+        if c.enabled(key):
+            c._next[key] = 0
+    await wait_for(lambda: c.communication_values is not None)
+    assert c.communication_values["address"] == "0"
+    assert not [frame for frame in sim.trace if frame[1] not in (1, 2, 3, 4)]
