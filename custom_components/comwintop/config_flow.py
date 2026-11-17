@@ -566,6 +566,8 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                 "individual" if "poll_interval" in selected else "standard",
             )
             if mode == "standard":
+                if "poll_interval" in selected and options.get("poll_interval") is None:
+                    errors["base"] = "choose_individual_interval"
                 selected.pop("poll_interval", None)
             elif mode != "individual" or selected.get("poll_interval") is None:
                 errors["base"] = "invalid_interval"
