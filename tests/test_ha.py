@@ -703,6 +703,7 @@ async def test_communication_register_refreshes_after_read_recovery(hass, sim):
 
 async def test_failed_communication_register_rechecks_after_healthy_temperature(hass, sim):
     """One failed diagnostic read must not leave the address hidden for five minutes."""
+    sim.registers[(1, 16)] = 0x0104
     entry = make_entry(sim)
     await hass.config_entries.async_add(entry)
     await hass.async_block_till_done()
@@ -727,5 +728,5 @@ async def test_failed_communication_register_rechecks_after_healthy_temperature(
         if c.enabled(key):
             c._next[key] = 0
     await wait_for(lambda: c.communication_values is not None)
-    assert c.communication_values["address"] == "0"
+    assert c.communication_values["address"] == "1"
     assert not [frame for frame in sim.trace if frame[1] not in (1, 2, 3, 4)]
