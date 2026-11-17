@@ -1,6 +1,6 @@
 [project]
 name = "homeassistant-comwintop"
-version = "0.1.0b15"
+version = "0.1.0b16"
 requires-python = ">=3.14.2"
 dependencies = []
 
