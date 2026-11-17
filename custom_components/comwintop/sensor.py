@@ -178,5 +178,13 @@ class UnitStatus(CoordinatorEntity, SensorEntity):
             "write_release": "hardware_validation_required",
             "transport_connected": self.coordinator.unit.connected,
             "latency_ms": self.coordinator.latency_ms,
+            "poll_task_running": bool(
+                self.coordinator._poll_task and not self.coordinator._poll_task.done()
+            ),
+            "seconds_since_last_response": (
+                round(time.monotonic() - self.coordinator.last_response, 1)
+                if self.coordinator.last_response is not None
+                else None
+            ),
             **self.coordinator.counters,
         }
