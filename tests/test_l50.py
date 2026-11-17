@@ -240,7 +240,7 @@ async def test_busy_exception_does_not_trigger_block_split(hass):
         assert unit.read_holding_registers.await_count == 1
         assert not c._pending and not c._known_bad
         assert c.counters["device_exceptions"] == 1
-        assert min(c._next.values()) - time.monotonic() > 20
+        assert 14 < min(c._next.values()) - time.monotonic() < 16
     finally:
         await c.stop()
 
@@ -524,3 +524,23 @@ async def test_actual_wire_cadence_for_three_temperature_intervals(hass, sim):
     assert c.samples["temperature_3"].successful_reads == 1
     assert c.samples["temperature_1"].successful_reads >= 2
     assert not [call for call in sim.trace if call[1] in (5, 6, 15, 16)]
+
+
+async def test_first_timeout_retries_before_channel_stale_deadline(hass):
+    """A single missed 15 s read must not cause an avoidable availability gap."""
+    c, unit = coordinator(hass)
+    key = "temperature_1"
+    # Simulate the last valid value and the three-second failed request.
+    c.samples[key].accept(20.0, 200, time.monotonic() - 18)
+    for channel in c._next:
+        c._next[channel] = 0 if channel == key else float("inf")
+    unit.read_holding_registers = AsyncMock(side_effect=TimeoutError())
+    try:
+        await c._poll_one(time.monotonic())
+        stale_deadline = c.samples[key].received + 3 * c.interval(key)
+        assert c._next[key] < stale_deadline
+        assert c.status == "SUSPECT"
+        assert c.counters["timeout"] == 1
+        assert unit.read_holding_registers.await_count == 1
+    finally:
+        await c.stop()
