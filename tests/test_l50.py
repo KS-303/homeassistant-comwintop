@@ -544,3 +544,28 @@ async def test_first_timeout_retries_before_channel_stale_deadline(hass):
         assert unit.read_holding_registers.await_count == 1
     finally:
         await c.stop()
+
+
+async def test_poll_supervisor_restarts_twice_then_stops_and_invalidates(hass):
+    """Permanent poll-loop failures cannot spin forever or leave old values online."""
+    c, _unit = coordinator(hass)
+    attempts = 0
+    c.samples["temperature_1"].accept(20, 200, time.monotonic())
+
+    async def broken_poll():
+        nonlocal attempts
+        attempts += 1
+        raise RuntimeError("synthetic_poll_failure")
+
+    c._poll = broken_poll
+    task = asyncio.create_task(c._poll_supervised())
+    c._poll_task = task
+    try:
+        async with asyncio.timeout(9):
+            await task
+        assert attempts == 3
+        assert c.counters["poll_task_failures"] == 3
+        assert c.status == "OFFLINE"
+        assert not c.available("temperature_1")
+    finally:
+        await c.stop()
