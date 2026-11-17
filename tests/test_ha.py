@@ -652,3 +652,33 @@ async def test_tm32ds_bulk_activation_preserves_settings_and_never_writes(hass, 
     await hass.async_block_till_done()
     assert entry.subentries[sub.subentry_id].data["channels"]["temperature_3"]["enabled"]
     assert not [frame for frame in sim.trace if frame[1] not in (1, 2, 3, 4)]
+
+
+async def test_channel_interval_value_requires_individual_choice_and_diagnostics(hass, sim):
+    entry = make_entry(sim)
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+    sub = next(iter(entry.subentries.values()))
+    manager = hass.config_entries.subentries
+    flow = await manager.async_init(
+        (entry.entry_id, "device"),
+        context={"source": "reconfigure", "subentry_id": sub.subentry_id},
+    )
+    flow = await manager.async_configure(flow["flow_id"], {"next_step_id": "channel"})
+    flow = await manager.async_configure(flow["flow_id"], {"channel": "temperature_1"})
+    form = {"name": "", "enabled": True, "poll_interval_mode": "standard", "poll_interval": 5}
+    result = await manager.async_configure(flow["flow_id"], form)
+    assert result["errors"]["base"] == "choose_individual_interval"
+    assert not sub.data["channels"].get("temperature_1", {}).get("poll_interval")
+    form["poll_interval_mode"] = "individual"
+    result = await manager.async_configure(result["flow_id"], form)
+    assert result["type"] == "abort", result
+    await hass.async_block_till_done()
+    data = await async_get_config_entry_diagnostics(hass, entry)
+    channels = data["devices"][0]["channels"]
+    assert channels["temperature_1"]["effective_interval"] == 5
+    assert channels["temperature_1"]["interval_source"] == "individual"
+    assert channels["temperature_2"]["effective_interval"] == 15
+    assert channels["temperature_2"]["interval_source"] == "group"
+    assert "successful_reads_since_reload" in channels["temperature_1"]
+    assert not [frame for frame in sim.trace if frame[1] not in (1, 2, 3, 4)]
