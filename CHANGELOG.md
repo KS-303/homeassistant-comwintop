@@ -6,7 +6,8 @@
 - Unerwartet gestoppte Polling-Schleife meldet OFFLINE, verwirft alte Daten
   und startet kontrolliert höchstens zweimal in fünf Minuten neu.
 - Kommunikation-Diagnose meldet Polling-Task-Zustand und Alter der letzten
-  Antwort. Register 16 wird planmäßig alle fünf Minuten lesend geprüft;
+  Antwort. Register 16 wird planmäßig alle fünf Minuten sowie nach einer
+  bestätigten Wiederverbindung über denselben Bus lesend geprüft;
   eine solche Abfrage ist keine Slave-ID-Änderung.
 - Kanalformular verwirft einen Einzelwert bei Auswahl von „Standard“ nicht
   mehr still; Diagnose trennt Gruppen- und Einzelintervalle.
