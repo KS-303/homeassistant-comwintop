@@ -51,6 +51,8 @@ class UnitCoordinator(DataUpdateCoordinator):
         self.communication_values = None
         self.communication_received = None
         self.communication_error = None
+        self._communication_refresh = asyncio.Event()
+        self._communication_retry_at = 0.0
         self._stopping = False
         self._next = {key: 0.0 if self.enabled(key) else float("inf") for key in self.samples}
         # Only a failed block is split. Its finite children are tried one at a
@@ -138,11 +140,13 @@ class UnitCoordinator(DataUpdateCoordinator):
             self.communication_values = None
             self.communication_received = None
             self.communication_error = type(err).__name__
+            self._communication_retry_at = time.monotonic() + 30
             self.async_set_updated_data(self.samples)
             return None
         self.communication_values = result
         self.communication_received = time.monotonic()
         self.communication_error = None
+        self._communication_retry_at = 0.0
         self.async_set_updated_data(self.samples)
         return result
 
@@ -151,7 +155,12 @@ class UnitCoordinator(DataUpdateCoordinator):
         await asyncio.sleep(5)
         while True:
             await self.read_communication()
-            await asyncio.sleep(300)
+            self._communication_refresh.clear()
+            try:
+                async with asyncio.timeout(300):
+                    await self._communication_refresh.wait()
+            except TimeoutError:
+                pass
 
     async def _age(self):
         while True:
@@ -269,6 +278,14 @@ class UnitCoordinator(DataUpdateCoordinator):
             self.last_response = received
             self.latency_ms = round((received - started) * 1000, 1)
             self.counters["responses"] += 1
+            if (
+                self.model == "tm_32ds"
+                and self.communication_values is None
+                and received >= self._communication_retry_at
+            ):
+                # A fresh temperature reply proves the link recovered. Refresh
+                # the cached communication register once through the same bus.
+                self._communication_refresh.set()
         except IllegalDataAddressError:
             self.counters["register_exceptions"] += 1
             if count > 1:
