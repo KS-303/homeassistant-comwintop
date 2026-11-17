@@ -23,6 +23,15 @@ async def async_get_config_entry_diagnostics(hass, entry):
                     key: {
                         "enabled": unit.enabled(key),
                         "effective_interval": unit.interval(key),
+                        "interval_source": (
+                            "individual"
+                            if unit.options(key).get("poll_interval") is not None
+                            else "group"
+                        ),
+                        "successful_reads_since_reload": sample.successful_reads,
+                        "seconds_between_successful_reads": (
+                            sample.last_successful_read_delta_seconds
+                        ),
                         "available": unit.available(key),
                         "error": sample.error,
                         "age_seconds": round(time.monotonic() - sample.received, 1)
