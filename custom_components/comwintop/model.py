@@ -82,22 +82,29 @@ def validate_device(data):
                 raise InvalidValue("invalid_scale")
 
 
+def set_temperature_range_enabled(old, first: int, last: int, enabled: bool):
+    """Set an inclusive TM-32DS temperature-channel range, retaining metadata."""
+    if old.get("model") != "tm_32ds":
+        raise InvalidValue("bulk_change_not_supported")
+    if type(first) is not int or type(last) is not int or not 1 <= first <= last <= 32:
+        raise InvalidValue("invalid_channel_range")
+    if type(enabled) is not bool:
+        raise InvalidValue("invalid_channel_state")
+    updated = deepcopy(old)
+    settings = updated.setdefault("channels", {})
+    for index in range(first, last + 1):
+        key = f"temperature_{index}"
+        settings[key] = dict(settings.get(key, {})) | {"enabled": enabled}
+    return revise_device(old, updated)
+
+
 def disable_temperature_range(old, first: int, last: int):
     """Disable an explicitly chosen range; never infer wiring from unavailable values.
 
     This only affects TM-32DS polling and entity availability, not hardware I/O.
     Previously stored channel names and individual intervals are retained.
     """
-    if old.get("model") != "tm_32ds":
-        raise InvalidValue("bulk_disable_not_supported")
-    if type(first) is not int or type(last) is not int or not 1 <= first <= last <= 32:
-        raise InvalidValue("invalid_channel_range")
-    updated = deepcopy(old)
-    settings = updated.setdefault("channels", {})
-    for index in range(first, last + 1):
-        key = f"temperature_{index}"
-        settings[key] = dict(settings.get(key, {})) | {"enabled": False}
-    return revise_device(old, updated)
+    return set_temperature_range_enabled(old, first, last, False)
 
 
 def revise_device(old, updated):

@@ -12,7 +12,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             [
                 DigitalSensor(coordinator, key, group, index)
                 for key, group, index in channels(coordinator.model)
-                if group.kind in ("di", "do")
+                if group.kind in ("di", "do") and coordinator.enabled(key)
             ],
             config_subentry_id=sub_id,
         )

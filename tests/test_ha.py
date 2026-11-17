@@ -500,3 +500,233 @@ async def test_mb308n_all_channel_forms_serialize_and_preserve_settings(hass, si
         for setting in entry.subentries[sub.subentry_id].data["channels"].values()
     )
     assert not [call for call in sim.trace if call[1] not in (1, 2, 3, 4)]
+
+
+async def test_tm32ds_creation_scans_registers_and_skips_unplugged_entities(hass, sim):
+    """The one-time scan uses FC03 blocks; only confirmed channels get entities."""
+    for index in range(32):
+        sim.registers[(2, 32 + index)] = 213 if index == 0 else 212 if index == 1 else 0xFC18
+    entry = make_entry(sim)
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+    manager = hass.config_entries.subentries
+    flow = await manager.async_init((entry.entry_id, "device"), context={"source": "user"})
+    result = await manager.async_configure(
+        flow["flow_id"],
+        {
+            "name": "New temperature module",
+            "model": "tm_32ds",
+            "unit_id": 2,
+            "acknowledge_beta": True,
+        },
+    )
+    assert result["type"] == "create_entry", result
+    await hass.async_block_till_done()
+    sub = next(s for s in entry.subentries.values() if s.data["unit_id"] == 2)
+    assert all(
+        sub.data["channels"][f"temperature_{index}"]["enabled"] is False for index in range(3, 33)
+    )
+    assert "temperature_1" not in sub.data["channels"]
+    registry = er.async_get(hass)
+    assert registry.async_get_entity_id("sensor", DOMAIN, f"{sub.data['device_uid']}_temperature_1")
+    assert registry.async_get_entity_id("sensor", DOMAIN, f"{sub.data['device_uid']}_temperature_2")
+    assert (
+        registry.async_get_entity_id("sensor", DOMAIN, f"{sub.data['device_uid']}_temperature_3")
+        is None
+    )
+    assert (
+        registry.async_get_entity_id(
+            "sensor", DOMAIN, f"{sub.data['device_uid']}_temperature_3_raw"
+        )
+        is None
+    )
+    scans = [frame for frame in sim.trace if frame[:3] == (2, 3, 32) and frame[3] == 32]
+    assert len(scans) == 3
+    assert not [frame for frame in sim.trace if frame[1] not in (1, 2, 3, 4)]
+    flow = await manager.async_init(
+        (entry.entry_id, "device"),
+        context={"source": "reconfigure", "subentry_id": sub.subentry_id},
+    )
+    flow = await manager.async_configure(flow["flow_id"], {"next_step_id": "channel"})
+    flow = await manager.async_configure(flow["flow_id"], {"channel": "temperature_3"})
+    result = await manager.async_configure(
+        flow["flow_id"],
+        {"name": "", "enabled": True, "poll_interval_mode": "standard"},
+    )
+    assert result["type"] == "abort", result
+    await hass.async_block_till_done()
+    assert registry.async_get_entity_id("sensor", DOMAIN, f"{sub.data['device_uid']}_temperature_3")
+
+
+async def test_scan_rejects_ambiguous_and_partial_values():
+    from custom_components.comwintop.config_flow import detected_tm32ds_channels
+
+    first = [210] * 32
+    second = [210] * 32
+    third = [211] * 32
+    second[1] = third[1] = 0
+    second[2] = third[2] = 850
+    second[3] = third[3] = 0xFC18
+    third[4] = 0xFC18
+    disabled = detected_tm32ds_channels((first, second, third))
+    assert "temperature_1" not in disabled
+    assert set(disabled) == {f"temperature_{i}" for i in range(2, 6)}
+    with pytest.raises(ValueError, match="invalid_scan_length"):
+        detected_tm32ds_channels((first, second[:31], third))
+
+
+async def test_reconfigure_bulk_menu_has_visible_label_and_numeric_boxes(hass, sim):
+    from homeassistant.helpers import config_validation as cv
+    from probatio.codecs.fields import to_field_list
+
+    hass.config.language = "de"
+    entry = make_entry(sim)
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+    sub = next(iter(entry.subentries.values()))
+    manager = hass.config_entries.subentries
+    flow = await manager.async_init(
+        (entry.entry_id, "device"),
+        context={"source": "reconfigure", "subentry_id": sub.subentry_id},
+    )
+    assert (
+        flow["menu_options"]["disable_temperature_range"]
+        == "Temperaturkanäle gesammelt deaktivieren"
+    )
+    translations = await async_get_translations(
+        hass, "de", "config_subentries", {DOMAIN}, config_flow=True
+    )
+    assert (
+        translations[
+            "component.comwintop.config_subentries.device.step.disable_temperature_range.data.first"
+        ]
+        == "Erster Kanal (1–32)"
+    )
+    form = await manager.async_configure(
+        flow["flow_id"], {"next_step_id": "disable_temperature_range"}
+    )
+    fields = {marker.schema: value for marker, value in form["data_schema"].schema.items()}
+    assert fields["first"].config["max"] == fields["last"].config["max"] == 32
+    to_field_list(form["data_schema"], custom_serializer=cv.custom_serializer)
+    assert not [frame for frame in sim.trace if frame[1] not in (1, 2, 3, 4)]
+
+
+async def test_tm32ds_bulk_activation_preserves_settings_and_never_writes(hass, sim):
+    from custom_components.comwintop.model import set_temperature_range_enabled
+
+    entry = make_entry(sim)
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+    sub = next(iter(entry.subentries.values()))
+    old = dict(sub.data) | {
+        "channels": {"temperature_3": {"name": "Puffer", "poll_interval": 30, "enabled": False}}
+    }
+    changed = set_temperature_range_enabled(old, 3, 4, True)
+    assert changed["device_uid"] == old["device_uid"]
+    assert changed["channels"]["temperature_3"]["name"] == "Puffer"
+    assert changed["channels"]["temperature_3"]["poll_interval"] == 30
+    assert changed["channels"]["temperature_3"]["enabled"] is True
+    assert changed["channels"]["temperature_4"]["enabled"] is True
+    after_disable = set_temperature_range_enabled(changed, 4, 4, False)
+    assert after_disable["channels"]["temperature_3"]["enabled"]
+    with pytest.raises(ValueError):
+        set_temperature_range_enabled(old, 4, 3, True)
+    manager = hass.config_entries.subentries
+    flow = await manager.async_init(
+        (entry.entry_id, "device"),
+        context={"source": "reconfigure", "subentry_id": sub.subentry_id},
+    )
+    assert "enable_temperature_range" in flow["menu_options"]
+    form = await manager.async_configure(
+        flow["flow_id"], {"next_step_id": "enable_temperature_range"}
+    )
+    assert form["type"] == "form"
+    rejected = await manager.async_configure(
+        form["flow_id"], {"first": 3, "last": 4, "confirm": False}
+    )
+    assert rejected["errors"]["base"] == "bulk_confirmation_required"
+    result = await manager.async_configure(
+        rejected["flow_id"], {"first": 3, "last": 4, "confirm": True}
+    )
+    assert result["type"] == "abort", result
+    await hass.async_block_till_done()
+    assert entry.subentries[sub.subentry_id].data["channels"]["temperature_3"]["enabled"]
+    assert not [frame for frame in sim.trace if frame[1] not in (1, 2, 3, 4)]
+
+
+async def test_channel_interval_value_requires_individual_choice_and_diagnostics(hass, sim):
+    entry = make_entry(sim)
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+    sub = next(iter(entry.subentries.values()))
+    manager = hass.config_entries.subentries
+    flow = await manager.async_init(
+        (entry.entry_id, "device"),
+        context={"source": "reconfigure", "subentry_id": sub.subentry_id},
+    )
+    flow = await manager.async_configure(flow["flow_id"], {"next_step_id": "channel"})
+    flow = await manager.async_configure(flow["flow_id"], {"channel": "temperature_1"})
+    form = {"name": "", "enabled": True, "poll_interval_mode": "standard", "poll_interval": 5}
+    result = await manager.async_configure(flow["flow_id"], form)
+    assert result["errors"]["base"] == "choose_individual_interval"
+    assert not sub.data["channels"].get("temperature_1", {}).get("poll_interval")
+    form["poll_interval_mode"] = "individual"
+    result = await manager.async_configure(result["flow_id"], form)
+    assert result["type"] == "abort", result
+    await hass.async_block_till_done()
+    data = await async_get_config_entry_diagnostics(hass, entry)
+    channels = data["devices"][0]["channels"]
+    assert channels["temperature_1"]["effective_interval"] == 5
+    assert channels["temperature_1"]["interval_source"] == "individual"
+    assert channels["temperature_2"]["effective_interval"] == 15
+    assert channels["temperature_2"]["interval_source"] == "group"
+    assert "successful_reads_since_reload" in channels["temperature_1"]
+    assert not [frame for frame in sim.trace if frame[1] not in (1, 2, 3, 4)]
+
+
+async def test_communication_register_refreshes_after_read_recovery(hass, sim):
+    """A recovered TM-32DS refreshes register 16 without waiting five minutes."""
+    entry = make_entry(sim)
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+    c = next(iter(entry.runtime_data.units.values()))
+    async with asyncio.timeout(8):
+        while c.communication_values is None:  # noqa: ASYNC110
+            await asyncio.sleep(0.02)
+    initial = sum(frame[:3] == (1, 3, 16) for frame in sim.trace)
+    c.connection_lost()
+    assert c.communication_values is None
+    await wait_for(lambda: c.communication_values is not None)
+    assert sum(frame[:3] == (1, 3, 16) for frame in sim.trace) == initial + 1
+    assert not [frame for frame in sim.trace if frame[1] not in (1, 2, 3, 4)]
+
+
+async def test_failed_communication_register_rechecks_after_healthy_temperature(hass, sim):
+    """One failed diagnostic read must not leave the address hidden for five minutes."""
+    sim.registers[(1, 16)] = 0x0104
+    entry = make_entry(sim)
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+    c = next(iter(entry.runtime_data.units.values()))
+    async with asyncio.timeout(8):
+        while c.communication_values is None:  # noqa: ASYNC110
+            await asyncio.sleep(0.02)
+    original = c.unit.read_holding_registers
+
+    async def fail_register_16_once(address, count):
+        if address == 16:
+            raise TimeoutError
+        return await original(address, count)
+
+    c.unit.read_holding_registers = fail_register_16_once
+    assert await c.read_communication() is None
+    assert c.communication_values is None
+    c.unit.read_holding_registers = original
+    # Simulate the elapsed, bounded diagnostic retry window; no five-minute wait.
+    c._communication_retry_at = 0
+    for key in c._next:
+        if c.enabled(key):
+            c._next[key] = 0
+    await wait_for(lambda: c.communication_values is not None)
+    assert c.communication_values["address"] == "1"
+    assert not [frame for frame in sim.trace if frame[1] not in (1, 2, 3, 4)]

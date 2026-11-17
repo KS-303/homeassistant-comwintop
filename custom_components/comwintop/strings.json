@@ -58,7 +58,7 @@
             "unit_id": "Modbus unit address (1–247)",
             "acknowledge_beta": "Acknowledge experimental beta limitations"
           },
-          "description": "DO/AO writes and slave-ID changes are disabled in this beta. A successful read does not verify the device model or electrical operation. Configure analog signal modes per channel."
+          "description": "DO/AO writes and slave-ID changes are disabled in this beta. A successful read does not verify the device model or electrical operation. Configure analog signal modes per channel. A new TM-32DS is checked with read-only temperature-register scans; unconfirmed channels start disabled."
         },
         "reconfigure": {
           "title": "Configure device",
@@ -66,8 +66,9 @@
             "device": "Name / unit address",
             "channel": "Configure channel",
             "intervals": "Polling intervals",
-            "communication": "Configure Modbus communication",
-            "disable_temperature_range": "Disable temperature channels in bulk"
+            "communication": "Show Modbus communication",
+            "disable_temperature_range": "Disable temperature channels in bulk",
+            "enable_temperature_range": "Enable temperature channels in bulk"
           }
         },
         "device": {
@@ -132,11 +133,20 @@
         },
         "disable_temperature_range": {
           "title": "Disable temperature channels in bulk",
-          "description": "TM-32DS only. Disable the selected inclusive channel range. Default 3–32 is only a suggested test setup; verify it before confirming! This only disables polling and entities, not physical outputs. Saved names and intervals remain. No automatic sensor detection.",
+          "description": "TM-32DS only. Disable the selected inclusive channel range. This only changes polling and entities, not hardware. Saved names and intervals remain.",
           "data": {
             "first": "First channel (1–32)",
             "last": "Last channel (1–32)",
             "confirm": "I confirm disabling the selected range"
+          }
+        },
+        "enable_temperature_range": {
+          "title": "Enable temperature channels in bulk",
+          "description": "TM-32DS only. Enable the selected range for reading and display, even when no sensor is connected. Channels without valid readings remain unavailable. Saved names and intervals remain. No write to the device.",
+          "data": {
+            "first": "First channel (1–32)",
+            "last": "Last channel (1–32)",
+            "confirm": "I confirm enabling the selected range"
           }
         }
       },
@@ -150,7 +160,8 @@
         "invalid_interval": "Invalid polling interval. Enter a value within the channel limits.",
         "bulk_confirmation_required": "Explicitly confirm bulk disabling.",
         "invalid_channel_range": "Invalid channel range: first must not exceed last.",
-        "invalid_scale": "Invalid scale: minimum and maximum must be different finite numbers."
+        "invalid_scale": "Invalid scale: minimum and maximum must be different finite numbers.",
+        "choose_individual_interval": "A value was entered. Select “Individual” polling interval or clear the number field."
       },
       "abort": {
         "reconfigure_successful": "Settings updated.",

@@ -1,4 +1,4 @@
-# Bekannte Grenzen und Releaseblocker (0.1.0b14)
+# Bekannte Grenzen und Releaseblocker (0.1.0b15)
 
 ## Nachgewiesenes Busy-Retry im HA-Unterbau
 
@@ -18,7 +18,7 @@ Vor einer schreibenden Beta: passende vorgelagerte Korrektur oder geprüfte,
 öffentliche Steuerungsmöglichkeit erforderlich; sämtliche tatsächlichen
 Sendetraces für Timeout, Busy und Disconnect erneut prüfen. Die historische
 b6-Laborausnahme konnte bei Busy mehrfach senden. Sie wurde in b13 entfernt
-und ist in b14 nicht enthalten. [Historische Laboranleitung](l51a_isolated_ha_lab.md).
+und ist in b15 nicht enthalten. [Historische Laboranleitung](l51a_isolated_ha_lab.md).
 
 ## Harte 2-Sekunden-Frist für spätere DO/AO-Schaltbefehle
 
@@ -46,3 +46,13 @@ nicht. Der FC06-Weg bleibt aus anderen Gründen gesperrt.
 - DNS-Aliase/IP-Adressen, die denselben Gateway bezeichnen, sind nicht immer als
   identisch erkennbar. Nur eine Verbindung je physischem Bus konfigurieren.
 - Keine internen Anlagenverriegelungen, keine Schutzabschaltung, kein Echtzeitbetrieb.
+
+## Kanalerkennung bei neuer TM-32DS-Einrichtung
+
+Nur die bekannte Slave-Adresse wird dreimal als FC03-Block 32–63 gelesen. Das
+ist kein Bus-Scan und kein elektrischer Anschlussnachweis. Zwei frische Werte
+müssen dem aktuell unterstützten Decoder entsprechen. Null, 85,0 °C und
+negative/unklare Codes bleiben vorerst deaktiviert, auch wenn ein tatsächlich
+angeschlossener Sensor diesen Wert liefert. Solche Kanäle können manuell
+freigegeben werden. Die Erkennung greift ausschließlich beim Anlegen; ein
+späterer Fehler deaktiviert keine zuvor gespeicherte Kanaloption.

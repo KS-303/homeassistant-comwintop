@@ -1,7 +1,7 @@
 # ComWinTop for Home Assistant
 
-> **Entwicklungsstand 0.1.0b14 (Installationsprüfung, noch kein Release):**
-> Basis ist b13. Das Installationspaket enthält nur fest freigegebene
+> **Entwicklungsstand 0.1.0b16 (Polling-Recovery und TM-32DS-Kanalerkennung, noch kein Release):**
+> Basis ist b14. Das Installationspaket enthält nur fest freigegebene
 > Integrationsdateien; der ungenutzte Schreibmanager bleibt außerhalb des ZIP.
 > Die experimentelle Slave-ID-Schreibfunktion (FC06) sowie DO/AO-Schreiben
 > bleiben vollständig gesperrt. Die Slave-ID und Diagnose sind lesbar.
@@ -19,7 +19,7 @@
 
 ComWinTop verbindet CWT-I/O-Geräte lokal über Modbus mit Home Assistant.
 Der veröffentlichte Stand ist **v0.1.0b1 (lesende Beta)**. Das
-**0.1.0b14-Testpaket** baut auf b13 auf und ist kein GitHub-Release.
+**0.1.0b16-Testpaket** baut auf b14 auf und ist kein GitHub-Release.
 Die Integration ist
 herstellerunabhängig beim Gateway,
 aber für die mitgelieferten Registerprofile gerätespezifisch. Sie ist kein
@@ -34,9 +34,9 @@ Auch alte Formular-URLs brechen ab. Der HA-Unterbau kann bei Busy einen
 Schreibaufruf wiederholen; deshalb sind Slave-ID-Änderungen, DO/AO und L-51b
 (Baudrate/Parität) in diesem Paket gesperrt. Die alte
 [Laboranleitung](docs/l51a_isolated_ha_lab.md) gilt nur für den historischen
-isolierten Laborzweig und darf nicht als Anleitung für b14 verwendet werden.
+isolierten Laborzweig und darf nicht als Anleitung für b15 verwendet werden.
 
-**HA-Anzeige b14:** Die Kommunikationsübersicht zeigt Register 16 und alle
+**HA-Anzeige b15:** Die Kommunikationsübersicht zeigt Register 16 und alle
 Kommunikationsparameter als einzeln beschriftete schreibgeschützte Felder.
 Die Modbus-Adresse wird auch beim normalen Gerät-Anlegen und -Bearbeiten als
 Zahlenfeld statt als Schieberegler angezeigt. Eine eigene Diagnose-Entität
@@ -47,7 +47,7 @@ starten und die Browseransicht neu laden.
 Die getrennte, ausschließlich lesende Kommunikationsinspektion bleibt erhalten.
 Dies ist **kein stabiler Release** und kein produktiv freigegebenes Modul.
 
-**L-50 – in 0.1.0b14 weiter ausschließlich lesend.**
+**L-50 – in 0.1.0b16 weiter ausschließlich lesend.**
 Dies ist noch kein Installationsrelease. Die veröffentlichte Version 0.1.0b1
 bleibt davon unberührt.
 
@@ -60,10 +60,19 @@ Keine Cloud, keine Anlagenregelung, keine Sicherheitssteuerung.
 
 - Mehrere Verbindungen, mehrere CWT-Geräte als einzeln verwaltete Subentries.
 - Modbus TCP, TCP→RTU-Gateway, transparentes RTU-over-TCP, Serial/USB-RS485.
-- TM-32DS: 32 Temperaturkanäle. MB308N: 8 Analogeingänge, 4 analoge
+- TM-32DS: 32 DS18B20-Temperaturkanäle, beim Anlegen lesend geprüft. In der
+  Geräteverwaltung lassen sich Kanalbereiche manuell gesammelt deaktivieren oder
+  aktivieren. Feuchtefühler sind an diesen Eingängen nicht unterstützt; ein
+  separater RS485-Feuchtesensor braucht ein eigenes validiertes Geräteprofil.
+  Nach dem Aktivieren ohne angeschlossenen Fühler bleibt der Kanal `unavailable`.
+  MB308N: 8 Analogeingänge, 4 analoge
   Ausgangs-Readbacks, 8 Digitaleingänge und 8 digitale Ausgangs-Readbacks.
 - NO/NC pro DI; Skalierung/Signalbereich pro AI; Gruppen- und optionale
-  individuelle Kanal-Abfrageintervalle.
+  individuelle Kanal-Abfrageintervalle. Beim Eingeben eines Einzelwerts muss
+  im Kanalformular „Individuell“ gewählt sein; ein versehentlich unter
+  „Standard“ eingegebener Wert wird mit einer Fehlermeldung zurückgewiesen.
+  Der Diagnoseexport zeigt je Kanal Gruppen-/Einzelwert, effektive Sekunden
+  und den Abstand der letzten beiden gültigen Messungen.
 - Stabile Geräte-UUIDs, Kanalqualität, Ablauf veralteter Daten, anonymisierte Diagnose.
 - Ausgeschriebene Kanalnamen in Deutsch und Englisch; eigenes Integrationsicon
   mit dem Projekthandle KS-303.
@@ -117,9 +126,20 @@ behalten ihre eigenen Namen. Home Assistant 2026.11 kann das Icon direkt aus
 `custom_components/comwintop/brand/` laden. Nach einem Update ist ein
 vollständiger Neustart erforderlich.
 
+Beim erstmaligen Anlegen eines TM-32DS liest die Integration die bekannten
+32 Temperaturregister dreimal über die gemeinsam genutzte HA-Modbus-Verbindung.
+Nur Kanäle mit zwei gültigen frischen Werten werden eingeschaltet; `0xFC18`,
+85,0 °C und der mehrdeutige Rohwert null werden vorerst deaktiviert. Der erste
+Block ist ein Start-/Umwandlungsvorlauf. Die Erkennung prüft weder alle Slave-IDs
+noch den tatsächlichen Anschluss elektrisch. Deaktivierte Kanäle werden beim
+neuen Gerät nicht als Entitäten angelegt; sie bleiben jederzeit über
+**Gerät konfigurieren → Kanal konfigurieren** einzeln aktivierbar. Bestehende
+Geräte werden beim Update nicht erneut automatisch bewertet. Bei einem
+Transportfehler wird das Anlegen abgebrochen statt alle Kanäle zu deaktivieren.
+
 Die Beta wird manuell per ZIP installiert. Der Default-Branch `main` und der
 einzige veröffentlichte Release enthalten noch b1. Eine HACS-Adresse für
-dieses Repository würde daher **nicht** das b14-Testpaket installieren.
+dieses Repository würde daher **nicht** das b15-Testpaket installieren.
 Eine Aufnahme in den HACS-Katalog ist noch nicht erfolgt.
 [Schrittweiser HA-Test](docs/ha_test_plan.md).
 
@@ -131,7 +151,7 @@ prüfen, nur `/config/custom_components/comwintop` aus dem gewünschten
 Wenn das ZIP unter `/config` liegt, lautet der Update-Befehl im HA-Terminal:
 
 ```bash
-cd /config && unzip -o comwintop-0.1.0b14-install.zip
+cd /config && unzip -o comwintop-0.1.0b16-install.zip
 ```
 
 Das Archiv legt ausschließlich `/config/custom_components/comwintop/` an.
@@ -204,8 +224,8 @@ geprüft. [Bestandsaufnahme und Merge-Reihenfolge](docs/repository_inventory.md)
 ## English
 
 Local, manufacturer-neutral Modbus connections with model-specific CWT profiles.
-Published v0.1.0b1 is a read-only beta; this unreleased 0.1.0b14 read-only test
-package builds on b13. TM-32DS offers 32 temperature
+Published v0.1.0b1 is a read-only beta; this unreleased 0.1.0b16 read-only test
+package builds on b14. TM-32DS offers 32 temperature
 channels; MB308N offers
 8 analog inputs, 8 digital inputs and read-only output register values.
 Connect through Modbus TCP, TCP-to-RTU gateway, transparent RTU over TCP, or

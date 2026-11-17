@@ -240,7 +240,7 @@ async def test_busy_exception_does_not_trigger_block_split(hass):
         assert unit.read_holding_registers.await_count == 1
         assert not c._pending and not c._known_bad
         assert c.counters["device_exceptions"] == 1
-        assert min(c._next.values()) - time.monotonic() > 20
+        assert 14 < min(c._next.values()) - time.monotonic() < 16
     finally:
         await c.stop()
 
@@ -491,3 +491,81 @@ async def test_bulk_disable_ha_flow_requires_confirmation_and_never_writes(hass,
     assert current["channels"]["temperature_2"]["poll_interval"] == 30
     assert all(not current["channels"][f"temperature_{i}"]["enabled"] for i in range(3, 33))
     assert not [call for call in sim.trace if call[1] not in (1, 2, 3, 4)]
+
+
+async def test_actual_wire_cadence_for_three_temperature_intervals(hass, sim):
+    """Measure requests and accepted samples on the TCP wire, not only deadlines."""
+    entry = configured_entry(
+        {
+            "temperature_1": {"poll_interval": 5},
+            "temperature_2": {"poll_interval": 10},
+            "temperature_3": {"poll_interval": 30},
+        },
+        {"temperature": 15},
+        port=sim.port,
+    )
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+    c = next(iter(entry.runtime_data.units.values()))
+    await wait_for(lambda: c.available("temperature_3"))
+    initial = {
+        key: c.samples[key].received for key in ("temperature_1", "temperature_2", "temperature_3")
+    }
+    async with asyncio.timeout(12):
+        while c.samples["temperature_1"].successful_reads < 2:  # noqa: ASYNC110
+            await asyncio.sleep(0.02)
+    assert c.samples["temperature_2"].successful_reads == 1
+    assert c.samples["temperature_3"].successful_reads == 1
+    assert c.samples["temperature_1"].received - initial["temperature_1"] >= 4.7
+    async with asyncio.timeout(8):
+        while c.samples["temperature_2"].successful_reads < 2:  # noqa: ASYNC110
+            await asyncio.sleep(0.02)
+    assert c.samples["temperature_2"].received - initial["temperature_2"] >= 9.7
+    assert c.samples["temperature_3"].successful_reads == 1
+    assert c.samples["temperature_1"].successful_reads >= 2
+    assert not [call for call in sim.trace if call[1] in (5, 6, 15, 16)]
+
+
+async def test_first_timeout_retries_before_channel_stale_deadline(hass):
+    """A single missed 15 s read must not cause an avoidable availability gap."""
+    c, unit = coordinator(hass)
+    key = "temperature_1"
+    # Simulate the last valid value and the three-second failed request.
+    c.samples[key].accept(20.0, 200, time.monotonic() - 18)
+    for channel in c._next:
+        c._next[channel] = 0 if channel == key else float("inf")
+    unit.read_holding_registers = AsyncMock(side_effect=TimeoutError())
+    try:
+        await c._poll_one(time.monotonic())
+        stale_deadline = c.samples[key].received + 3 * c.interval(key)
+        assert c._next[key] < stale_deadline
+        assert c.status == "SUSPECT"
+        assert c.counters["timeout"] == 1
+        assert unit.read_holding_registers.await_count == 1
+    finally:
+        await c.stop()
+
+
+async def test_poll_supervisor_restarts_twice_then_stops_and_invalidates(hass):
+    """Permanent poll-loop failures cannot spin forever or leave old values online."""
+    c, _unit = coordinator(hass)
+    attempts = 0
+    c.samples["temperature_1"].accept(20, 200, time.monotonic())
+
+    async def broken_poll():
+        nonlocal attempts
+        attempts += 1
+        raise RuntimeError("synthetic_poll_failure")
+
+    c._poll = broken_poll
+    task = asyncio.create_task(c._poll_supervised())
+    c._poll_task = task
+    try:
+        async with asyncio.timeout(9):
+            await task
+        assert attempts == 3
+        assert c.counters["poll_task_failures"] == 3
+        assert c.status == "OFFLINE"
+        assert not c.available("temperature_1")
+    finally:
+        await c.stop()

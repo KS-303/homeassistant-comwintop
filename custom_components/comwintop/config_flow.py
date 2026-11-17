@@ -14,13 +14,15 @@ from homeassistant.helpers.selector import selector
 from modbus_connection.exceptions import ModbusError
 
 from .const import DEFAULT_INTERVALS, DOMAIN, MIN_INTERVALS
-from .model import disable_temperature_range, revise_device, validate_device
+from .model import revise_device, set_temperature_range_enabled, validate_device
 from .profiles import (
     BUILTIN_PROFILES,
     MODEL_NAMES,
     MODES,
     PROFILES,
+    InvalidValue,
     channels,
+    decode_temperature,
     load_local_profiles,
     publish_local_profiles,
 )
@@ -83,6 +85,24 @@ DISPLAY_LABELS = {
         "scaled": "Scaled measurement",
     },
 }
+DEVICE_MENU_LABELS = {
+    "de": {
+        "device": "Name / Modbus-Adresse",
+        "channel": "Kanal konfigurieren",
+        "intervals": "Abfrageintervalle",
+        "disable_temperature_range": "Temperaturkanäle gesammelt deaktivieren",
+        "enable_temperature_range": "Temperaturkanäle gesammelt aktivieren",
+        "communication": "Modbus-Kommunikation anzeigen",
+    },
+    "en": {
+        "device": "Name / unit address",
+        "channel": "Configure channel",
+        "intervals": "Polling intervals",
+        "disable_temperature_range": "Disable temperature channels in bulk",
+        "enable_temperature_range": "Enable temperature channels in bulk",
+        "communication": "Show Modbus communication",
+    },
+}
 PARITY_LABELS = {
     "de": {"N": "Keine Parität", "E": "Gerade Parität", "O": "Ungerade Parität"},
     "en": {"N": "No parity", "E": "Even parity", "O": "Odd parity"},
@@ -112,6 +132,10 @@ def select(options):
 def unit_id_box():
     """Display a numeric input instead of a slider with 247 positions."""
     return selector({"number": {"min": 1, "max": 247, "step": 1, "mode": "box"}})
+
+
+def temperature_channel_box():
+    return selector({"number": {"min": 1, "max": 32, "step": 1, "mode": "box"}})
 
 
 def read_only_text():
@@ -157,6 +181,40 @@ async def probe(hass, connection, device):
             values = await getattr(unit, group.method)(group.start, 1)
         if len(values) != 1:
             raise ValueError("invalid_length")
+
+
+def detected_tm32ds_channels(frames):
+    """Conservatively enable only sensors confirmed by two fresh full-block reads."""
+    if len(frames) != 3 or any(len(frame) != 32 for frame in frames):
+        raise ValueError("invalid_scan_length")
+    disabled = {}
+    for index, (second, third) in enumerate(zip(frames[1], frames[2], strict=True), 1):
+        # Zero can be a real 0 °C reading but is also a common empty-register
+        # value. Leave it for explicit manual activation rather than guessing.
+        try:
+            if second == 0 or third == 0:
+                raise InvalidValue("ambiguous_zero")
+            decode_temperature(second)
+            decode_temperature(third)
+        except InvalidValue:
+            disabled[f"temperature_{index}"] = {"enabled": False}
+    return disabled
+
+
+async def scan_tm32ds_channels(hass, connection, unit_id):
+    """Read FC03/32..63 through HA's shared transport; never scan slave IDs."""
+    params = await hass.async_add_executor_job(params_from, dict(connection))
+    frames = []
+    async with async_get_temporary_unit(hass, params, unit_id) as unit:
+        for attempt in range(3):
+            async with asyncio.timeout(3):
+                values = await unit.read_holding_registers(32, 32)
+            if len(values) != 32:
+                raise HomeAssistantError("incomplete_temperature_scan")
+            frames.append(values)
+            if attempt < 2:
+                await asyncio.sleep(0.8)
+    return detected_tm32ds_channels(frames)
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -322,53 +380,60 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
             "channels": {},
         }
         validate_device(data)
-        await probe(self.hass, entry.data, data)
+        if data["model"] == "tm_32ds":
+            data["channels"] = await scan_tm32ds_channels(self.hass, entry.data, data["unit_id"])
+        else:
+            await probe(self.hass, entry.data, data)
+        validate_device(data)
         return self.async_create_entry(title=data["name"], data=data, unique_id=data["device_uid"])
 
     async def async_step_reconfigure(self, user_input=None):
         self._sub = self._get_reconfigure_subentry()
         options = ["device", "channel", "intervals"]
         if self._sub.data["model"] == "tm_32ds":
-            options.append("disable_temperature_range")
+            options.extend(("disable_temperature_range", "enable_temperature_range"))
         options.append("communication")
+        labels = DEVICE_MENU_LABELS[ui_language(self.hass)]
         return self.async_show_menu(
             step_id="reconfigure",
-            menu_options=options,
+            menu_options={option: labels[option] for option in options},
         )
 
-    async def async_step_disable_temperature_range(self, user_input=None):
-        """Explicitly disable selected TM-32DS channels; never infer unused sensors."""
+    async def _temperature_range_form(self, step_id, enabled, user_input):
+        """Explicit user selection only; never turn on a channel based on a guess."""
         sub = self._get_reconfigure_subentry()
         if sub.data["model"] != "tm_32ds":
             return self.async_abort(reason="bulk_disable_unavailable")
         errors = {}
         if user_input is not None:
-            first = int(user_input["first"])
-            last = int(user_input["last"])
             if not user_input["confirm"]:
                 errors["base"] = "bulk_confirmation_required"
             else:
                 try:
-                    updated = disable_temperature_range(dict(sub.data), first, last)
-                except ValueError:
+                    first = integral_seconds(user_input["first"])
+                    last = integral_seconds(user_input["last"])
+                    updated = set_temperature_range_enabled(dict(sub.data), first, last, enabled)
+                except (ValueError, vol.Invalid):
                     errors["base"] = "invalid_channel_range"
                 else:
                     return self.async_update_and_abort(self._get_entry(), sub, data=updated)
         return self.async_show_form(
-            step_id="disable_temperature_range",
+            step_id=step_id,
             data_schema=vol.Schema(
                 {
-                    vol.Required("first", default=3): vol.All(
-                        vol.Coerce(int), vol.Range(min=1, max=32)
-                    ),
-                    vol.Required("last", default=32): vol.All(
-                        vol.Coerce(int), vol.Range(min=1, max=32)
-                    ),
+                    vol.Required("first", default=3): temperature_channel_box(),
+                    vol.Required("last", default=32): temperature_channel_box(),
                     vol.Required("confirm", default=False): bool,
                 }
             ),
             errors=errors,
         )
+
+    async def async_step_disable_temperature_range(self, user_input=None):
+        return await self._temperature_range_form("disable_temperature_range", False, user_input)
+
+    async def async_step_enable_temperature_range(self, user_input=None):
+        return await self._temperature_range_form("enable_temperature_range", True, user_input)
 
     async def async_step_communication(self, user_input=None):
         """Read fresh register 16 and show each value in its own locked field."""
@@ -501,6 +566,8 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                 "individual" if "poll_interval" in selected else "standard",
             )
             if mode == "standard":
+                if "poll_interval" in selected and options.get("poll_interval") is None:
+                    errors["base"] = "choose_individual_interval"
                 selected.pop("poll_interval", None)
             elif mode != "individual" or selected.get("poll_interval") is None:
                 errors["base"] = "invalid_interval"

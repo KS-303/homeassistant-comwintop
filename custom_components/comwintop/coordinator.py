@@ -21,15 +21,18 @@ from .profiles import PROFILES, InvalidValue, channel_key, channels, decode_chan
 
 def failed_poll_delay(interval: float, failures: int) -> float:
     """Back off transient read failures without accelerating slow channels."""
-    if failures <= 0:
+    if failures <= 1:
+        # One missed reply must not double a healthy channel cadence:
+        # 15 s + 3 s timeout + 30 s retry would exceed its 45 s stale limit.
         return interval
-    return min(max(30, interval), interval * 2 ** min(failures, 5))
+    return min(max(30, interval), interval * 2 ** min(failures - 1, 5))
 
 
 class UnitCoordinator(DataUpdateCoordinator):
     def __init__(self, hass, entry, subentry, unit, bus_lock, logger):
         super().__init__(hass, logger, config_entry=entry, name=f"comwintop_{subentry.subentry_id}")
         self.subentry, self.unit, self.bus_lock = subentry, unit, bus_lock
+        self._logger = logger
         self.settings = dict(subentry.data)
         self.model = self.settings["model"]
         self.groups = tuple(PROFILES[self.model])
@@ -48,6 +51,8 @@ class UnitCoordinator(DataUpdateCoordinator):
         self.communication_values = None
         self.communication_received = None
         self.communication_error = None
+        self._communication_refresh = asyncio.Event()
+        self._communication_retry_at = 0.0
         self._stopping = False
         self._next = {key: 0.0 if self.enabled(key) else float("inf") for key in self.samples}
         # Only a failed block is split. Its finite children are tried one at a
@@ -94,7 +99,7 @@ class UnitCoordinator(DataUpdateCoordinator):
 
     async def start(self):
         self._poll_task = self.config_entry.async_create_background_task(
-            self.hass, self._poll(), f"comwintop_poll_{self.uid}"
+            self.hass, self._poll_supervised(), f"comwintop_poll_{self.uid}"
         )
         self._age_task = self.config_entry.async_create_background_task(
             self.hass, self._age(), f"comwintop_age_{self.uid}"
@@ -135,11 +140,13 @@ class UnitCoordinator(DataUpdateCoordinator):
             self.communication_values = None
             self.communication_received = None
             self.communication_error = type(err).__name__
+            self._communication_retry_at = time.monotonic() + 30
             self.async_set_updated_data(self.samples)
             return None
         self.communication_values = result
         self.communication_received = time.monotonic()
         self.communication_error = None
+        self._communication_retry_at = 0.0
         self.async_set_updated_data(self.samples)
         return result
 
@@ -148,7 +155,12 @@ class UnitCoordinator(DataUpdateCoordinator):
         await asyncio.sleep(5)
         while True:
             await self.read_communication()
-            await asyncio.sleep(300)
+            self._communication_refresh.clear()
+            try:
+                async with asyncio.timeout(300):
+                    await self._communication_refresh.wait()
+            except TimeoutError:
+                pass
 
     async def _age(self):
         while True:
@@ -157,6 +169,34 @@ class UnitCoordinator(DataUpdateCoordinator):
                 self._last_available = current
                 self.async_set_updated_data(self.samples)
             await asyncio.sleep(0.5)
+
+    async def _poll_supervised(self):
+        """Restart an unexpected poll-loop crash, at most twice in five minutes."""
+        crashes = deque()
+        while not self._stopping:
+            try:
+                await self._poll()
+                raise RuntimeError("poll_loop_returned")
+            except asyncio.CancelledError:
+                raise
+            except Exception as err:
+                self._logger.error("ComWinTop polling stopped: %s", type(err).__name__)
+                self.counters["poll_task_failures"] += 1
+                self.status = "OFFLINE"
+                self._pending.clear()
+                for sample in self.samples.values():
+                    sample.fail("poll_task_failed", invalidate=True)
+                self.async_set_updated_data(self.samples)
+                now = time.monotonic()
+                while crashes and now - crashes[0] > 300:
+                    crashes.popleft()
+                crashes.append(now)
+                if len(crashes) >= 3:
+                    return
+                await asyncio.sleep(2 ** len(crashes))
+                for key in self._next:
+                    if self.enabled(key):
+                        self._next[key] = 0.0
 
     async def _poll(self):
         while True:
@@ -238,6 +278,14 @@ class UnitCoordinator(DataUpdateCoordinator):
             self.last_response = received
             self.latency_ms = round((received - started) * 1000, 1)
             self.counters["responses"] += 1
+            if (
+                self.model == "tm_32ds"
+                and self.communication_values is None
+                and received >= self._communication_retry_at
+            ):
+                # A fresh temperature reply proves the link recovered. Refresh
+                # the cached communication register once through the same bus.
+                self._communication_refresh.set()
         except IllegalDataAddressError:
             self.counters["register_exceptions"] += 1
             if count > 1:

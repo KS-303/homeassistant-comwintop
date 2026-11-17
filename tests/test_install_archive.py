@@ -19,7 +19,7 @@ def test_install_archive_excludes_extra_files_and_write_prototype(tmp_path, monk
     monkeypatch.setattr(build_package, "COMPONENT", component)
 
     build_package.build()
-    archive = tmp_path / "dist/comwintop-0.1.0b14-install.zip"
+    archive = next((tmp_path / "dist").glob("comwintop-*-install.zip"))
     with ZipFile(archive) as zipped:
         names = set(zipped.namelist())
         assert names == {

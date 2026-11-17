@@ -1,4 +1,4 @@
-# Implementierungsstatus – 0.1.0b14, lesendes Testpaket
+# Implementierungsstatus – 0.1.0b16, lesendes Testpaket
 
 L-51 ist für den TM-32DS lesend implementiert. Das historische FC06-Labormenü
 aus b6–b12 ist seit b13 vollständig gesperrt. Die verwendete HA-Modbus-Version
@@ -21,7 +21,7 @@ Dies ist die erste **lesende Testversion**, kein vollständiger stabiler P0-Rele
 | AI physisch / Prozent / Zwei-Punkt-Skalierung | implementiert; tatsächlichen Signalmodus je Kanal manuell setzen |
 | AO-Skalierung und Eingabevalidierung | Rechenfunktionen/testbare Regeln vorhanden; keine produktive number-Entität |
 | Pollintervalle pro Gruppe und Kanal, Stale-Timer, Backoff | L-50 implementiert; TCP-/RTU-Simulator, Konfigurations- und Fehlertests; Hardwaretest der gemischten Intervalle offen |
-| Kanaldeaktivierung, stabile UUID, Unit-Adressänderung | implementiert; keine Hardwareadressänderung |
+| Kanaldeaktivierung, stabile UUID, Unit-Adressänderung | implementiert; keine Hardwareadressänderung; neue TM-32DS-Geräte prüfen 32 Register einmalig und starten mit unbestätigten Kanälen deaktiviert |
 | Verbindungshost/-port ändern | implementiert mit Lesetest und stabilen IDs |
 | Gerät zwischen zwei bestehenden Verbindungseinträgen umziehen | noch nicht in Beta-UI; darf bis Implementierung nicht durch Löschen/Neuanlage simuliert werden |
 | Transportart eines bestehenden Eintrags wechseln | noch nicht in Beta-UI; neue Verbindung erforderlich |
@@ -40,6 +40,32 @@ Telegramme steht im [L-50-Prüfbericht](l50_test_report.md).
 Einzelversuche und offene Gesamtabnahmen stehen in der zentralen
 [Test- und Freigabematrix](test_release_matrix.md).
 
-Der b6-Laborversuch ist ein historischer Zweig und nicht im b14-Paket enthalten.
+Der b6-Laborversuch ist ein historischer Zweig und nicht im b15-Paket enthalten.
 Slave-ID, DO/AO und L-51b bleiben gesperrt. Der separate WriteManager gehört
 nicht zum Installations-ZIP und belegt keine Hardware-Schreibfreigabe.
+
+## Polling-Recovery bei Einzel-Timeout (Entwicklungsbranch)
+
+Der erste fehlgeschlagene Leseversuch nutzt für die nächste Abfrage nur das
+normale Kanalintervall. Ab dem zweiten aufeinanderfolgenden Fehler gilt der
+begrenzte Backoff; ein Kanal wird bei Fehlern nicht schneller als sein
+konfiguriertes Intervall abgefragt. Damit verursacht ein einzelner 3-s-Timeout
+bei einem 15-s-Kanal nicht allein durch den Retryplan einen Ablauf seiner
+45-s-Stale-Frist. Ein tatsächlicher Verbindungsabbruch invalidiert Messwerte
+weiterhin sofort. Dies garantiert keinen ununterbrochenen Betrieb von
+Pumpen/Heizungen; deren lokale Sicherheits- und Rückfallfunktion liegt außerhalb
+von Home Assistant.
+
+Die Abfrageschleife besitzt zusätzlich eine überwachte Ausführung: Nach einem
+unerwarteten Task-Abbruch werden gespeicherte Messwerte ungültig, der Status
+wechselt auf OFFLINE und die Abfrage startet höchstens zweimal binnen fünf
+Minuten automatisch neu. Danach bleibt sie sichtbar gestoppt, bis die
+Integration neu geladen und der Fehler untersucht wurde. Der Diagnoseexport
+meldet, ob der Task läuft und wie alt die letzte Modbus-Antwort ist. Diese
+Überwachung kann einen physischen Netz- oder RS485-Ausfall nicht beseitigen.
+
+Nach einem Verbindungsverlust bleibt die Kommunikationsdiagnose nicht bis zur
+nächsten planmäßigen Fünf-Minuten-Abfrage leer: Sobald ein neuer Temperaturwert
+über denselben Bus erfolgreich eingelesen wurde, wird Register 16 einmal
+zusätzlich lesend aktualisiert. Bei Fehlern dieses Diagnose-Reads gibt es eine
+30-s-Sperrfrist vor dem nächsten ereignisgesteuerten Versuch.

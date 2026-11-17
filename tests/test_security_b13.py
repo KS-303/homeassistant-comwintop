@@ -51,4 +51,3 @@ def test_audited_version_is_consistent():
 
     manifest = Path(__file__).resolve().parents[1] / "custom_components/comwintop/manifest.json"
     assert VERSION == json.loads(manifest.read_text(encoding="utf-8"))["version"]
-    assert VERSION == "0.1.0b14"

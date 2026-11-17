@@ -23,20 +23,27 @@ async def test_diagnostics_redact_connection_identity_and_measurements():
         raw=secret_raw,
         value=secret_value,
         error=None,
+        successful_reads=3,
+        last_successful_read_delta_seconds=5.2,
     )
     bad_sample = SimpleNamespace(
         received=None,
         raw=secret_raw,
         value=None,
         error="timeout",
+        successful_reads=0,
+        last_successful_read_delta_seconds=None,
     )
     unit = SimpleNamespace(
         model="tm_32ds",
         status="SUSPECT",
         counters=Counter({"responses": 3, "timeout": 1}),
         latency_ms=37.1,
+        _poll_task=None,
+        last_response=time.monotonic() - 2,
         intervals={"temperature": 15},
         samples={"temperature_1": good_sample, "temperature_2": bad_sample},
+        options=lambda key: {"poll_interval": 5} if key == "temperature_1" else {},
         enabled=lambda key: key == "temperature_1",
         interval=lambda key: 5 if key == "temperature_1" else 30,
         available=lambda key: key == "temperature_1",
@@ -61,7 +68,13 @@ async def test_diagnostics_redact_connection_identity_and_measurements():
     assert len(exported["devices"]) == 1
     device = exported["devices"][0]
     assert device["counters"] == {"responses": 3, "timeout": 1}
+    assert device["poll_task_running"] is False
+    assert device["seconds_since_last_response"] >= 0
     assert device["channels"]["temperature_1"]["effective_interval"] == 5
+    assert device["channels"]["temperature_1"]["interval_source"] == "individual"
+    assert device["channels"]["temperature_1"]["successful_reads_since_reload"] == 3
+    assert device["channels"]["temperature_1"]["seconds_between_successful_reads"] == 5.2
+    assert device["channels"]["temperature_2"]["interval_source"] == "group"
     assert device["channels"]["temperature_1"]["age_seconds"] >= 0
     assert device["channels"]["temperature_2"]["age_seconds"] is None
     assert device["channels"]["temperature_2"]["error"] == "timeout"
