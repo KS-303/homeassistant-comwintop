@@ -21,9 +21,11 @@ from .profiles import PROFILES, InvalidValue, channel_key, channels, decode_chan
 
 def failed_poll_delay(interval: float, failures: int) -> float:
     """Back off transient read failures without accelerating slow channels."""
-    if failures <= 0:
+    if failures <= 1:
+        # One missed reply must not double a healthy channel cadence:
+        # 15 s + 3 s timeout + 30 s retry would exceed its 45 s stale limit.
         return interval
-    return min(max(30, interval), interval * 2 ** min(failures, 5))
+    return min(max(30, interval), interval * 2 ** min(failures - 1, 5))
 
 
 class UnitCoordinator(DataUpdateCoordinator):
