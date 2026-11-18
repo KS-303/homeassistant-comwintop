@@ -28,6 +28,7 @@ class Sample:
     error: str | None = None
     invalid: bool = False
     successful_reads: int = 0
+    consecutive_read_failures: int = 0
     last_successful_read_utc: str | None = None
     last_successful_read_delta_seconds: float | None = None
 
@@ -46,6 +47,12 @@ class Sample:
         self.last_successful_read_utc = datetime.now(UTC).isoformat()
         self.raw_received = now
         self.error, self.invalid = None, False
+        self.consecutive_read_failures = 0
+
+    def read_failed(self, error):
+        """Record a failed request for this channel, independently of its peers."""
+        self.consecutive_read_failures += 1
+        self.fail(error, invalidate=self.consecutive_read_failures >= 3)
 
     def fail(self, error, *, invalidate=False):
         self.error = error

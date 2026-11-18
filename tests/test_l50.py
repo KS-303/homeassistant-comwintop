@@ -539,7 +539,7 @@ async def test_first_timeout_retries_before_channel_stale_deadline(hass):
         await c._poll_one(time.monotonic())
         stale_deadline = c.samples[key].received + 3 * c.interval(key)
         assert c._next[key] < stale_deadline
-        assert c.status == "SUSPECT"
+        assert c.status == "ONLINE"  # First miss is diagnostic, not a visible alarm.
         assert c.counters["timeout"] == 1
         assert unit.read_holding_registers.await_count == 1
     finally:

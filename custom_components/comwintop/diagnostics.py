@@ -35,6 +35,7 @@ async def async_get_config_entry_diagnostics(hass, entry):
                             else "group"
                         ),
                         "successful_reads_since_reload": sample.successful_reads,
+                        "consecutive_read_failures": sample.consecutive_read_failures,
                         "seconds_between_successful_reads": (
                             sample.last_successful_read_delta_seconds
                         ),
