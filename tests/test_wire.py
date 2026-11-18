@@ -69,8 +69,11 @@ async def test_unit_failure_does_not_poison_other_unit(sim):
 async def test_shared_link_waits_one_second_after_reply_across_units(mode):
     """Measure actual received-to-next-sent gap, not only configured timeout."""
     sim = await Simulator(mode).start()
-    params = (ModbusTcpParams(host="127.0.0.1", port=sim.port) if mode == "tcp"
-              else ModbusSerialParams(device=f"socket://127.0.0.1:{sim.port}", baudrate=9600))
+    params = (
+        ModbusTcpParams(host="127.0.0.1", port=sim.port)
+        if mode == "tcp"
+        else ModbusSerialParams(device=f"socket://127.0.0.1:{sim.port}", baudrate=9600)
+    )
     c = ModbusConnection(params, timeout=0.3)
     try:
         first, second = c.for_unit(1), c.for_unit(2)
@@ -88,8 +91,11 @@ async def test_shared_link_waits_one_second_after_reply_across_units(mode):
 @pytest.mark.parametrize("mode", ["tcp", "rtu"])
 async def test_shared_link_waits_after_unanswered_request(mode):
     sim = await Simulator(mode).start()
-    params = (ModbusTcpParams(host="127.0.0.1", port=sim.port) if mode == "tcp"
-              else ModbusSerialParams(device=f"socket://127.0.0.1:{sim.port}", baudrate=9600))
+    params = (
+        ModbusTcpParams(host="127.0.0.1", port=sim.port)
+        if mode == "tcp"
+        else ModbusSerialParams(device=f"socket://127.0.0.1:{sim.port}", baudrate=9600)
+    )
     c = ModbusConnection(params, timeout=0.1)
     try:
         first, second = c.for_unit(1), c.for_unit(2)

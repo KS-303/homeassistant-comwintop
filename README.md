@@ -1,7 +1,7 @@
 # ComWinTop for Home Assistant
 
-> **Entwicklungsstand 0.1.0b17 (Polling-Recovery und TM-32DS-Kanalerkennung, noch kein Release):**
-> Basis ist b14. Das Installationspaket enthält nur fest freigegebene
+> **Entwicklungsstand 0.1.0b18 (b17-Stabilisierung, noch kein Release):**
+> Basis ist b17. Das Installationspaket enthält nur fest freigegebene
 > Integrationsdateien; der ungenutzte Schreibmanager bleibt außerhalb des ZIP.
 > Die experimentelle Slave-ID-Schreibfunktion (FC06) sowie DO/AO-Schreiben
 > bleiben vollständig gesperrt. Die Slave-ID und Diagnose sind lesbar.
@@ -19,11 +19,14 @@
 
 ComWinTop verbindet CWT-I/O-Geräte lokal über Modbus mit Home Assistant.
 Der veröffentlichte Stand ist **v0.1.0b1 (lesende Beta)**. Das
-**0.1.0b17-Testpaket** baut auf b16 auf und ist kein GitHub-Release.
+**0.1.0b18-Testpaket** baut auf b17 auf und ist kein GitHub-Release.
 Die Integration ist
 herstellerunabhängig beim Gateway,
 aber für die mitgelieferten Registerprofile gerätespezifisch. Sie ist kein
 Produkt des Geräteherstellers und enthält keine Anlagenregelung.
+Eine explizite Lizenzdatei fehlt derzeit; Rechte zur Nachnutzung sind damit
+nicht erteilt. Vor einer Freigabe zur Nachnutzung ist die Lizenzwahl
+durch den Rechteinhaber zu klären.
 
 **Vor der Installation:** [Funktionen und reale Nachweise](docs/test_release_matrix.md),
 [Einschränkungen](docs/known_limits.md),
@@ -47,7 +50,7 @@ starten und die Browseransicht neu laden.
 Die getrennte, ausschließlich lesende Kommunikationsinspektion bleibt erhalten.
 Dies ist **kein stabiler Release** und kein produktiv freigegebenes Modul.
 
-**L-50 – in 0.1.0b17 weiter ausschließlich lesend.**
+**L-50 – in 0.1.0b18 weiter ausschließlich lesend.**
 Dies ist noch kein Installationsrelease. Die veröffentlichte Version 0.1.0b1
 bleibt davon unberührt.
 
@@ -107,9 +110,15 @@ Unter **Gerät konfigurieren → Abfrageintervalle** bleiben die Standardwerte
 je Kanalgruppe einstellbar. Unter **Gerät konfigurieren → Kanal konfigurieren →
 Abfrageintervall** wählt man „Standard (Gruppenintervall übernehmen)“ oder
 „Individuell“ samt Sekundenwert. Das Zahlenfeld wird bei „Standard“ ignoriert.
-Temperatur: 5–3600 s; DI/DO: 1–3600 s; AI/AO: 2–3600 s. Lokal definierte
-Profile übernehmen die Mindestintervalle ihrer Kanalarten. Vorhandene
-Konfigurationen ohne Override nutzen unverändert ihre Gruppenintervalle.
+Neu einstellbar: 5–3600 s je Kanalart. Neu angelegte MB-308N starten mit
+DI/DO 8 s und AI/AO 20 s. Bereits gespeicherte kürzere Gruppen- und
+Einzelintervalle werden unverändert geladen; im Dialog sind neu eingegebene
+Werte unter 5 s nicht mehr zulässig. Lokal definierte Profile übernehmen die
+neuen Eingabegrenzen. Bei vielen Geräten oder getrennt fälligen Einzelkanälen
+garantiert selbst 5 s nicht, dass die gemeinsame Buskapazität reicht.
+Die Diagnose `minimum_read_rate_hz` zeigt eine optimistische Untergrenze je
+Gerät; ab 0,9 Anfragen/s warnt die Integration. Weitere Geräte und
+getrennte Kanalblöcke erhöhen die wirkliche Last.
 
 Nur fällige zusammenhängende Kanäle werden zu Modbus-Blöcken gebündelt.
 Beim TM-32DS liegt der vollständige Temperaturblock auf FC03, Adressen 32–63
@@ -136,14 +145,18 @@ neuen Gerät nicht als Entitäten angelegt; sie bleiben jederzeit über
 **Gerät konfigurieren → Kanal konfigurieren** einzeln aktivierbar. Bestehende
 Geräte werden beim Update nicht erneut automatisch bewertet. Bei einem
 Transportfehler wird das Anlegen abgebrochen statt alle Kanäle zu deaktivieren.
+Vorhandene Registereinträge deaktivierter Kanäle bleiben mit ihrer Entity-ID
+als „durch die Integration deaktiviert“ erhalten; bei Aktivierung erscheinen
+sie wieder. Ein Gerät ohne aktive Kanäle zeigt „Keine aktiven Kanäle“.
 
 Die Beta wird manuell per ZIP installiert. Der Default-Branch `main` und der
 einzige veröffentlichte Release enthalten noch b1. Eine HACS-Adresse für
-dieses Repository würde daher **nicht** das b15-Testpaket installieren.
+dieses Repository wählt ohne explizite Entwicklungsreferenz keinen geprüften
+Beta-Stand aus.
 Eine Aufnahme in den HACS-Katalog ist noch nicht erfolgt.
 [Schrittweiser HA-Test](docs/ha_test_plan.md).
 
-**0.1.0b17-Bustest:** ComWinTop fordert beim öffentlichen gemeinsamen
+**0.1.0b18-Bustest:** ComWinTop fordert beim öffentlichen gemeinsamen
 Modbus-Manager eine Sekunde Pause vom Ende der letzten Anfrage/Antwort bis
 zum Start der nächsten an. Zusammenhängende fällige TM-32DS-Register werden
 weiterhin als Block gelesen. Die Pause ersetzt keine Prüfung auf verspätete
@@ -154,6 +167,11 @@ Sollintervalle verzögern; die kanalbezogene Stale-Frist bleibt maßgeblich.
 Ein neuer Diagnose-Binärsensor je aktiviertem Temperaturkanal meldet nach
 drei gültig beantworteten Telegrammen mit dem nachgewiesenen Fehlerwert `0xFC18` eine
 **Fühlerstörung**. Fehlende Telegramme melden keinen Fühlerdefekt.
+`bus_lock_wait_ms` misst die Wartezeit auf die ComWinTop-Hub-Sperre;
+`read_call_ms` umfasst den öffentlichen Leseaufruf einschließlich einer
+möglichen internen Pause. `latency_ms` ist bewusst leer: Die öffentliche
+HA-Modbus-API liefert keinen tatsächlichen Sendezeitpunkt. Die Antwortzeit
+des Geräts ist nur mit unabhängigem Busmitschnitt zu messen.
 
 ### Update und vollständige Entfernung
 
@@ -163,7 +181,9 @@ prüfen, nur `/config/custom_components/comwintop` aus dem gewünschten
 Wenn das ZIP unter `/config` liegt, lautet der Update-Befehl im HA-Terminal:
 
 ```bash
-cd /config && unzip -o comwintop-0.1.0b17-install.zip
+cd /config
+mv custom_components/comwintop custom_components/comwintop.backup
+unzip comwintop-0.1.0b18-install.zip
 ```
 
 Das Archiv legt ausschließlich `/config/custom_components/comwintop/` an.
@@ -172,6 +192,10 @@ produktive Installation kopieren. Danach Verbindung, Entitätskennungen,
 Kanalnamen und ausschließlich lesende Daten prüfen; bei Problemen Backup
 wiederherstellen. Bereits angelegte Geräte- und Kanaloptionen liegen in HA,
 nicht im Integrationsordner.
+Nach erfolgreichem Neustart und Datenprüfung kann ausschließlich der
+Backup-Ordner entfernt werden. Durch das Ersetzen des ganzen Ordners bleiben
+keine alten Python-Dateien wie `write_manager.py` zurück. Wer über eine
+HA-Update-Entität aktualisiert, prüft deren angezeigte Zielversion und Quelle.
 
 Zur Entfernung in **Einstellungen → Geräte & Dienste** die ComWinTop-
 Verbindungseinträge entfernen, Home Assistant stoppen, nur
@@ -236,8 +260,8 @@ geprüft. [Bestandsaufnahme und Merge-Reihenfolge](docs/repository_inventory.md)
 ## English
 
 Local, manufacturer-neutral Modbus connections with model-specific CWT profiles.
-Published v0.1.0b1 is a read-only beta; this unreleased 0.1.0b17 read-only test
-package builds on b14. TM-32DS offers 32 temperature
+Published v0.1.0b1 is a read-only beta; this unreleased 0.1.0b18 read-only test
+package builds on b17. TM-32DS offers 32 temperature
 channels; MB308N offers
 8 analog inputs, 8 digital inputs and read-only output register values.
 Connect through Modbus TCP, TCP-to-RTU gateway, transparent RTU over TCP, or

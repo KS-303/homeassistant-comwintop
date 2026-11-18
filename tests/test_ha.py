@@ -226,12 +226,41 @@ async def test_channel_configuration_deactivate_reactivate_preserves_id(hass, si
     await configure_channel(False)
     c = next(iter(entry.runtime_data.units.values()))
     assert not c.enabled("temperature_1")
-    assert hass.states.get(eid).state == "unavailable"
+    assert registry.async_get(eid).disabled_by == er.RegistryEntryDisabler.INTEGRATION
+    assert hass.states.get(eid) is None
     await configure_channel(True)
     c = next(iter(entry.runtime_data.units.values()))
     await wait_for(lambda: c.available("temperature_1"))
     assert registry.async_get_entity_id("sensor", DOMAIN, "device-id_temperature_1") == eid
+    assert registry.async_get(eid).disabled_by is None
     assert not [r for r in sim.trace if r[1] > 4]
+
+
+async def test_old_disabled_channel_registry_preserves_id_and_user_choice(hass, sim):
+    entry = make_entry(sim)
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+    registry = er.async_get(hass)
+    first = registry.async_get_entity_id("sensor", DOMAIN, "device-id_temperature_1")
+    second = registry.async_get_entity_id("sensor", DOMAIN, "device-id_temperature_2")
+    registry.async_update_entity(second, disabled_by=er.RegistryEntryDisabler.USER)
+    sub = next(iter(entry.subentries.values()))
+    data = dict(sub.data) | {
+        "channels": {"temperature_1": {"enabled": False}, "temperature_2": {"enabled": False}}
+    }
+    hass.config_entries.async_update_subentry(entry, sub, data=data)
+    await hass.async_block_till_done()
+    assert registry.async_get(first).disabled_by == er.RegistryEntryDisabler.INTEGRATION
+    assert registry.async_get(second).disabled_by == er.RegistryEntryDisabler.USER
+    c = next(iter(entry.runtime_data.units.values()))
+    assert c.status == "INITIALIZING"  # Other channels are still enabled.
+    sub = entry.subentries[sub.subentry_id]
+    data = dict(sub.data) | {"channels": {key: {"enabled": False} for key in c.samples}}
+    hass.config_entries.async_update_subentry(entry, sub, data=data)
+    await hass.async_block_till_done()
+    assert next(iter(entry.runtime_data.units.values())).status == "INACTIVE"
+    assert registry.async_get_entity_id("sensor", DOMAIN, "device-id_temperature_1") == first
+    assert registry.async_get(second).disabled_by == er.RegistryEntryDisabler.USER
 
 
 async def test_reconfigure_address_preserves_entities(hass, sim):

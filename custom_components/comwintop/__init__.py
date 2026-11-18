@@ -9,12 +9,13 @@ from homeassistant.components.modbus import async_get_unit
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryError, ConfigEntryNotReady, HomeAssistantError
+from homeassistant.helpers import entity_registry as er
 from modbus_connection.exceptions import ModbusError
 
 from .const import PLATFORMS
 from .coordinator import UnitCoordinator
 from .model import validate_device
-from .profiles import InvalidValue, load_local_profiles, publish_local_profiles
+from .profiles import InvalidValue, channels, load_local_profiles, publish_local_profiles
 from .transport import params_from
 
 _LOGGER = logging.getLogger(__name__)
@@ -24,6 +25,44 @@ _LOGGER = logging.getLogger(__name__)
 class Runtime:
     units: dict[str, UnitCoordinator]
     bus_lock: asyncio.Lock
+
+
+def _sync_disabled_channel_registry(hass, entry, coordinators):
+    """Keep old entity IDs and user choices when channels are turned off/on.
+
+    An old b13 entity must be marked disabled by this integration, otherwise
+    HA lists the orphan as 'no longer provided'. Only our known channel IDs
+    and our own INTEGRATION disabler are ever changed.
+    """
+    registry = er.async_get(hass)
+    entries = {
+        (item.domain, item.unique_id): item
+        for item in er.async_entries_for_config_entry(registry, entry.entry_id)
+        if item.platform == entry.domain
+    }
+    for coordinator in coordinators.values():
+        for key, group, _ in channels(coordinator.model):
+            base = f"{coordinator.uid}_{key}"
+            domains = (
+                (("binary_sensor", base), ("sensor", f"{base}_raw"))
+                if group.kind in ("di", "do")
+                else (("sensor", base), ("sensor", f"{base}_raw"))
+            )
+            if group.kind == "temperature":
+                domains += (("binary_sensor", f"{base}_probe_fault"),)
+            for identity in domains:
+                item = entries.get(identity)
+                if item is None:
+                    continue
+                if not coordinator.enabled(key) and item.disabled_by is None:
+                    registry.async_update_entity(
+                        item.entity_id, disabled_by=er.RegistryEntryDisabler.INTEGRATION
+                    )
+                elif (
+                    coordinator.enabled(key)
+                    and item.disabled_by == er.RegistryEntryDisabler.INTEGRATION
+                ):
+                    registry.async_update_entity(item.entity_id, disabled_by=None)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -42,7 +81,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         ids: set[int] = set()
 
         for sub in entry.subentries.values():
-            validate_device(sub.data)
+            validate_device(sub.data, legacy=True)
             unit_id = sub.data["unit_id"]
             if unit_id in ids:
                 raise ValueError("duplicate_unit")
@@ -64,6 +103,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             coordinators[sub.subentry_id] = coordinator
 
         entry.runtime_data = Runtime(coordinators, lock)
+        _sync_disabled_channel_registry(hass, entry, coordinators)
         forwarding_attempted = True
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
         for coordinator in coordinators.values():

@@ -49,8 +49,9 @@ Home Assistant Core 2026.11.0 und den in `requirements-test.txt`
 festgehaltenen direkten Paketversionen. **123 Tests bestanden, 0 fehlgeschlagen;
 91 % Statement-Abdeckung.** Ruff (Lint/Format), Paketprüfung und Python-
 Compileall bestanden. Fünf Deprecation-Warnungen stammen aus HA-Abhängigkeiten.
-Vollständige Testausgabe und JUnit
-liegen unter `docs/evidence/l50-pytest.txt` und `docs/evidence/l50-junit.xml`.
+Dies ist ein historischer L-50-Lauf. Der aktuelle Gesamtlauf und die Grenzen
+stehen im [b18-Testnachweis](evidence/b18-validation.md); alte XML-/Logdateien
+wurden wegen überholter Ergebnisse aus dem Entwicklungsbranch entfernt.
 Bestehende Beta-Schreibsperren (`HARDWARE_VALIDATED_WRITES` leer; keine produktiven
 Switch-/Number-Ausgänge) bleiben bestehen. Die isolierte WriteManager-Engine
 ist keine freigegebene Hardware-Schreibfunktion.

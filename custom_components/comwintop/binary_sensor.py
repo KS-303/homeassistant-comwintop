@@ -39,10 +39,13 @@ class TemperatureProbeFault(ChannelEntity, BinarySensorEntity):
         self._attr_unique_id += "_probe_fault"
         language = coordinator.hass.config.language.lower()
         label = coordinator.options(key).get("name") or (
-            f"Temperaturkanal {index + 1}" if language.startswith("de")
+            f"Temperaturkanal {index + 1}"
+            if language.startswith("de")
             else f"Temperature channel {index + 1}"
         )
-        self._attr_name = f"{label} – Fühlerstörung" if language.startswith("de") else f"{label} – Probe fault"
+        self._attr_name = (
+            f"{label} – Fühlerstörung" if language.startswith("de") else f"{label} – Probe fault"
+        )
 
     @property
     def available(self):

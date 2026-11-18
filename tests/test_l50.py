@@ -56,7 +56,15 @@ class Unit:
         return [220] * count
 
 
-def configured_entry(channels=None, intervals=None, *, second=False, port=15020, transport="tcp"):
+def configured_entry(
+    channels=None,
+    intervals=None,
+    *,
+    second=False,
+    second_intervals=None,
+    port=15020,
+    transport="tcp",
+):
     original = make_entry(type("Link", (), {"port": port})())
     sub = next(iter(original.subentries.values()))
     data = dict(sub.data) | {"channels": channels or {}, "intervals": intervals or {}}
@@ -69,7 +77,7 @@ def configured_entry(channels=None, intervals=None, *, second=False, port=15020,
             "device_uid": "second-device",
             "model": "mb_308n",
             "channels": {},
-            "intervals": {},
+            "intervals": second_intervals or {},
         }
         subentries.append(
             {
@@ -137,7 +145,7 @@ def test_group_change_preserves_override_and_write_gate():
     assert updated["channels"]["temperature_1"]["name"] == "Supply"
 
 
-@pytest.mark.parametrize("key,minimum", [("di_1", 1), ("do_1", 1), ("ai_1", 2), ("ao_1", 2)])
+@pytest.mark.parametrize("key,minimum", [("di_1", 5), ("do_1", 5), ("ai_1", 5), ("ao_1", 5)])
 def test_non_temperature_profile_minimums(key, minimum):
     data = dict(next(iter(configured_entry(second=True).subentries.values())).data)
     data["model"] = "mb_308n"
@@ -146,6 +154,47 @@ def test_non_temperature_profile_minimums(key, minimum):
     data["channels"][key]["poll_interval"] = minimum - 1
     with pytest.raises(InvalidValue):
         validate_device(data)
+
+
+def test_old_short_mb_intervals_load_but_new_short_intervals_are_rejected():
+    old = dict(next(iter(configured_entry(second=True).subentries.values())).data)
+    old["model"] = "mb_308n"
+    old["intervals"] = {"di": 1, "do": 2, "ai": 2, "ao": 10}
+    old["channels"] = {"di_1": {"poll_interval": 1}}
+    validate_device(old, legacy=True)
+    revise_device(old, old | {"name": "Retained settings"})
+    with pytest.raises(InvalidValue):
+        revise_device(old, old | {"intervals": old["intervals"] | {"do": 3}})
+
+
+async def test_legacy_short_mb_interval_form_remains_editable(hass, sim):
+    entry = configured_entry(
+        second=True,
+        port=sim.port,
+        second_intervals={"di": 1, "do": 2, "ai": 10, "ao": 10},
+    )
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+    mb = next(s for s in entry.subentries.values() if s.data["model"] == "mb_308n")
+    assert (
+        next(
+            c for c in entry.runtime_data.units.values() if c.model == "mb_308n"
+        ).minimum_read_rate_hz
+        == 1.7
+    )
+    mgr = hass.config_entries.subentries
+    flow = await mgr.async_init(
+        (entry.entry_id, "device"),
+        context={"source": "reconfigure", "subentry_id": mb.subentry_id},
+    )
+    form = await mgr.async_configure(flow["flow_id"], {"next_step_id": "intervals"})
+    assert form["step_id"] == "intervals"
+    rejected = await mgr.async_configure(flow["flow_id"], {"di": 1, "do": 3, "ai": 10, "ao": 10})
+    assert rejected["type"] == "form" and rejected["errors"]["base"] == "invalid_interval"
+    accepted = await mgr.async_configure(flow["flow_id"], {"di": 1, "do": 5, "ai": 10, "ao": 10})
+    assert accepted["type"] == "abort"
+    await hass.async_block_till_done()
+    assert entry.subentries[mb.subentry_id].data["intervals"]["di"] == 1
 
 
 async def test_mixed_due_blocks_and_no_fast_neighbor_refresh(hass):
@@ -567,7 +616,44 @@ async def test_poll_supervisor_restarts_twice_then_stops_and_invalidates(hass):
             await task
         assert attempts == 3
         assert c.counters["poll_task_failures"] == 3
+        assert c.counters["poll_task_exhausted"] == 1
         assert c.status == "OFFLINE"
         assert not c.available("temperature_1")
     finally:
         await c.stop()
+
+
+async def test_new_mb_defaults_fit_measured_one_second_bus_spacing(hass):
+    """Observe real TCP frames for all four MB groups, not only a rate formula."""
+    from custom_components.comwintop.const import NEW_DEVICE_INTERVALS
+
+    sim = await Simulator().start()
+    entry = configured_entry(
+        channels={f"temperature_{i}": {"enabled": False} for i in range(1, 33)},
+        second=True,
+        second_intervals={kind: NEW_DEVICE_INTERVALS[kind] for kind in ("di", "do", "ai", "ao")},
+        port=sim.port,
+    )
+    try:
+        await hass.config_entries.async_add(entry)
+        await hass.async_block_till_done()
+        mb = next(c for c in entry.runtime_data.units.values() if c.model == "mb_308n")
+        assert mb.minimum_read_rate_hz == 0.35
+        async with asyncio.timeout(12):
+            while len([f for f in sim.trace if f[0] == 2]) < 5:  # noqa: ASYNC110
+                await asyncio.sleep(0.05)
+        frames = [
+            (frame, when)
+            for frame, when in zip(sim.trace, sim.trace_times, strict=True)
+            if frame[0] == 2
+        ]
+        assert {frame[1] for frame, _ in frames[:4]} == {1, 2, 3, 4}
+        assert all(b - a >= 0.97 for (_, a), (_, b) in zip(frames, frames[1:], strict=False))
+        first_di = next(t for f, t in frames if f[1] == 2)
+        second_di = next(t for f, t in frames[1:] if f[1] == 2)
+        assert second_di - first_di >= 8
+        assert not [f for f in sim.trace if f[1] > 4]
+    finally:
+        if entry.runtime_data is not None:
+            await hass.config_entries.async_unload(entry.entry_id)
+        await sim.close()
