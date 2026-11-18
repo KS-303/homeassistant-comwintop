@@ -14,7 +14,7 @@ from modbus_connection.exceptions import (
 )
 
 from .communication import inspect_tm32ds
-from .const import DEFAULT_INTERVALS
+from .const import BUS_MESSAGE_SPACING, DEFAULT_INTERVALS
 from .model import Sample, effective_interval
 from .profiles import PROFILES, InvalidValue, channel_key, channels, decode_channel
 
@@ -62,7 +62,9 @@ class UnitCoordinator(DataUpdateCoordinator):
         self._last_available = None
         # Register the listener last so a rejected unit setting cannot leak
         # a live callback from a partially constructed coordinator.
-        unit.set_message_spacing(0.01)
+        # Public modbus-connection pacer serializes the physical link, including
+        # other units on the same HA connection. Starts after the last exchange.
+        unit.set_message_spacing(BUS_MESSAGE_SPACING)
         self._unsubscribe = unit.on_connection_lost(self.connection_lost)
         self.data = self.samples
 
@@ -280,9 +282,7 @@ class UnitCoordinator(DataUpdateCoordinator):
                 try:
                     value = decode_channel(group.kind, raw, self.options(key))
                 except InvalidValue as err:
-                    self.samples[key].raw = raw
-                    self.samples[key].fail(str(err), invalidate=True)
-                    self.samples[key].raw_received = received
+                    self.samples[key].invalid_value(str(err), raw, received)
                     self.counters["value_errors"] += 1
                 else:
                     self.samples[key].accept(value, raw, received)

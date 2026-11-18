@@ -25,6 +25,8 @@ async def test_diagnostics_redact_connection_identity_and_measurements():
         error=None,
         successful_reads=3,
         consecutive_read_failures=0,
+        consecutive_invalid_values=0,
+        consecutive_probe_fault_values=0,
         last_successful_read_delta_seconds=5.2,
     )
     bad_sample = SimpleNamespace(
@@ -34,6 +36,8 @@ async def test_diagnostics_redact_connection_identity_and_measurements():
         error="timeout",
         successful_reads=0,
         consecutive_read_failures=2,
+        consecutive_invalid_values=0,
+        consecutive_probe_fault_values=0,
         last_successful_read_delta_seconds=None,
     )
     unit = SimpleNamespace(

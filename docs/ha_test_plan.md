@@ -1,4 +1,4 @@
-# Hardwareabnahme – lesendes 0.1.0b16-Testpaket
+# Hardwareabnahme – lesendes 0.1.0b17-Testpaket
 
 ## L-51 vor jeder Schreibfreigabe
 

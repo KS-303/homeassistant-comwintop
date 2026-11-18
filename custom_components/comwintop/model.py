@@ -29,6 +29,8 @@ class Sample:
     invalid: bool = False
     successful_reads: int = 0
     consecutive_read_failures: int = 0
+    consecutive_invalid_values: int = 0
+    consecutive_probe_fault_values: int = 0
     last_successful_read_utc: str | None = None
     last_successful_read_delta_seconds: float | None = None
 
@@ -48,6 +50,22 @@ class Sample:
         self.raw_received = now
         self.error, self.invalid = None, False
         self.consecutive_read_failures = 0
+        self.consecutive_invalid_values = 0
+        self.consecutive_probe_fault_values = 0
+
+    def invalid_value(self, error, raw, now):
+        """A complete device reply with an invalid *individual* channel value."""
+        self.consecutive_read_failures = 0
+        self.consecutive_invalid_values += 1
+        # Only the measured TM-32DS unplugged-DS18B20 sentinel proves this
+        # particular fault. 85 °C and unknown encodings are ambiguous.
+        self.consecutive_probe_fault_values = (
+            self.consecutive_probe_fault_values + 1 if raw == 0xFC18 else 0
+        )
+        self.raw, self.raw_received = raw, now
+        self.fail(error, invalidate=True)
+        # The raw diagnostic must remain visible after a valid Modbus reply.
+        self.raw_received = now
 
     def read_failed(self, error):
         """Record a failed request for this channel, independently of its peers."""

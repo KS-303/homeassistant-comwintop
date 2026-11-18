@@ -1,11 +1,12 @@
 """Stable names and beta limits; no hardware validation is implied."""
 
 DOMAIN = "comwintop"
-VERSION = "0.1.0b16"
+VERSION = "0.1.0b17"
 PLATFORMS = ["sensor", "binary_sensor", "switch", "number"]
 DEFAULT_INTERVALS = {"temperature": 15, "di": 2, "do": 2, "ai": 10, "ao": 10}
 MIN_INTERVALS = {"temperature": 5, "di": 1, "do": 1, "ai": 2, "ao": 2}
 STALE_FACTOR = 3
+BUS_MESSAGE_SPACING = 1.0  # End of previous exchange to start of next, on shared HA link.
 WRITE_TTL = 2.0
 READBACK_ATTEMPTS = 3
 READBACK_DELAY = 0.2

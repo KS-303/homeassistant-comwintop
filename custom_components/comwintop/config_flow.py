@@ -13,7 +13,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.selector import selector
 from modbus_connection.exceptions import ModbusError
 
-from .const import DEFAULT_INTERVALS, DOMAIN, MIN_INTERVALS
+from .const import BUS_MESSAGE_SPACING, DEFAULT_INTERVALS, DOMAIN, MIN_INTERVALS
 from .model import revise_device, set_temperature_range_enabled, validate_device
 from .profiles import (
     BUILTIN_PROFILES,
@@ -213,7 +213,7 @@ async def scan_tm32ds_channels(hass, connection, unit_id):
                 raise HomeAssistantError("incomplete_temperature_scan")
             frames.append(values)
             if attempt < 2:
-                await asyncio.sleep(0.8)
+                await asyncio.sleep(BUS_MESSAGE_SPACING)
     return detected_tm32ds_channels(frames)
 
 
