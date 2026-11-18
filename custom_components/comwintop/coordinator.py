@@ -80,6 +80,16 @@ class UnitCoordinator(DataUpdateCoordinator):
             time.monotonic(), self.interval(key)
         )
 
+    def _refresh_read_status(self):
+        """A healthy neighbouring channel cannot clear another channel's fault."""
+        active = [self.samples[key] for key in self.samples if self.enabled(key)]
+        if active and all(sample.consecutive_read_failures >= 3 for sample in active):
+            self.status = "OFFLINE"
+        elif any(sample.consecutive_read_failures >= 3 for sample in active):
+            self.status = "SUSPECT"
+        elif self.last_response is not None or any(sample.received is not None for sample in active):
+            self.status = "ONLINE"
+
     def connection_lost(self):
         if self._stopping:
             return
@@ -95,6 +105,7 @@ class UnitCoordinator(DataUpdateCoordinator):
                 self._next[key] = recovery_at
         for sample in self.samples.values():
             sample.fail("transport_lost", invalidate=True)
+            sample.consecutive_read_failures = max(3, sample.consecutive_read_failures)
         self.async_set_updated_data(self.samples)
 
     async def start(self):
@@ -263,6 +274,9 @@ class UnitCoordinator(DataUpdateCoordinator):
             for key, raw in zip(keys, values, strict=True):
                 if not self.enabled(key):
                     continue
+                # A valid Modbus reply proves that this channel's *communication*
+                # succeeded even when the physical probe reports an invalid value.
+                self.samples[key].consecutive_read_failures = 0
                 try:
                     value = decode_channel(group.kind, raw, self.options(key))
                 except InvalidValue as err:
@@ -274,8 +288,8 @@ class UnitCoordinator(DataUpdateCoordinator):
                     self.samples[key].accept(value, raw, received)
                     self._known_bad.discard(key)
             self.failures = 0
-            self.status = "ONLINE"
             self.last_response = received
+            self._refresh_read_status()
             self.latency_ms = round((received - started) * 1000, 1)
             self.counters["responses"] += 1
             if (
@@ -301,10 +315,10 @@ class UnitCoordinator(DataUpdateCoordinator):
             # Busy and other exceptions are not evidence of a bad register.
             # Never fan a 32-register block out into 63 busy retries.
             self.failures += 1
-            self.status = "SUSPECT" if self.failures < 3 else "OFFLINE"
             self.counters["device_exceptions"] += 1
             for key in keys:
-                self.samples[key].fail("device_exception", invalidate=self.failures >= 3)
+                self.samples[key].read_failed("device_exception")
+            self._refresh_read_status()
         except ModbusConnectionError:
             self.failures += 1
             self.connection_lost()
@@ -313,12 +327,10 @@ class UnitCoordinator(DataUpdateCoordinator):
             self.failures += 1
             code = "timeout" if isinstance(err, TimeoutError) else "protocol_error"
             self.counters[code] += 1
-            self.status = "OFFLINE" if self.failures >= 3 else "SUSPECT"
             for key in keys:
-                self.samples[key].fail(code)
-            if self.failures >= 3:
-                for sample in self.samples.values():
-                    sample.fail("unit_offline", invalidate=True)
+                self.samples[key].read_failed(code)
+            self._refresh_read_status()
+            if self.status == "OFFLINE":
                 recovery_at = time.monotonic() + min(30, 2 ** min(self.failures, 5))
                 for key in self._next:
                     if self.enabled(key):

@@ -54,7 +54,8 @@ async def test_single_timeout_preserves_value_but_three_failures_offline(quality
     stamp = c.samples["temperature_1"].received
     u.read_holding_registers.side_effect = ModbusTimeoutError("timeout")
     await c.poll_group(g)
-    assert c.status == "SUSPECT" and c.available("temperature_1")
+    assert c.status == "ONLINE" and c.available("temperature_1")
+    assert c.samples["temperature_1"].consecutive_read_failures == 1
     assert c.samples["temperature_1"].received == stamp
     await c.poll_group(g)
     await c.poll_group(g)
@@ -62,6 +63,47 @@ async def test_single_timeout_preserves_value_but_three_failures_offline(quality
     u.read_holding_registers.side_effect = None
     await c.poll_group(g)
     assert c.status == "ONLINE" and c.available("temperature_1")
+
+
+async def test_three_misses_are_counted_per_enabled_channel(quality):
+    c, u = quality
+    c.settings["channels"] = {
+        f"temperature_{index}": {"enabled": index <= 2} for index in range(1, 33)
+    }
+    c._next = {key: float("inf") for key in c.samples}
+    c._next["temperature_1"] = c._next["temperature_2"] = 0.0
+    u.read_holding_registers.return_value = [220, 221]
+    await c._poll_one(0.0)
+    assert c.status == "ONLINE"
+    u.read_holding_registers.side_effect = ModbusTimeoutError("timeout")
+    for _ in range(3):
+        c._next["temperature_1"] = 0.0
+        await c._poll_one(0.0)
+    assert c.status == "SUSPECT"
+    assert c.samples["temperature_1"].consecutive_read_failures == 3
+    assert c.samples["temperature_2"].consecutive_read_failures == 0
+    assert not c.available("temperature_1") and c.available("temperature_2")
+    u.read_holding_registers.side_effect = None
+    u.read_holding_registers.return_value = [223]
+    c._next["temperature_1"] = 0.0
+    await c._poll_one(0.0)
+    assert c.status == "ONLINE" and c.available("temperature_1")
+
+
+async def test_two_misses_on_each_channel_do_not_add_up_to_device_fault(quality):
+    c, u = quality
+    c.settings["channels"] = {
+        f"temperature_{index}": {"enabled": index <= 2} for index in range(1, 33)
+    }
+    c._next = {key: float("inf") for key in c.samples}
+    u.read_holding_registers.side_effect = ModbusTimeoutError("timeout")
+    for key in ("temperature_1", "temperature_2"):
+        for _ in range(2):
+            c._next[key] = 0.0
+            await c._poll_one(0.0)
+    assert c.status == "INITIALIZING"
+    assert c.samples["temperature_1"].consecutive_read_failures == 2
+    assert c.samples["temperature_2"].consecutive_read_failures == 2
 
 
 async def test_transport_error_invalidates_every_channel_immediately(quality):
@@ -102,7 +144,7 @@ async def test_short_response_not_accepted(quality):
     c, u = quality
     u.read_holding_registers.return_value = [220]
     await c.poll_group(PROFILES["tm_32ds"][0])
-    assert c.status == "SUSPECT" and c.counters["protocol_error"] == 1
+    assert c.status == "INITIALIZING" and c.counters["protocol_error"] == 1
     assert all(s.received is None for s in c.samples.values())
 
 
