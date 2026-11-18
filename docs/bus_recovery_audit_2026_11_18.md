@@ -47,3 +47,12 @@ werden nicht als defekter Fühler klassifiziert. Ein solcher Wert bleibt sofort
 Kommunikationsfehler gezählt; daraus wird kein Fühlerdefekt gefolgert.
 Weitere Ursachenanalyse der sechs isolierten verlorenen Antworten ist
 Gegenstand des 24-Stunden-Hardwaretests.
+
+Der äußere Lesezeitrahmen wurde von drei auf vier Sekunden verlängert, damit
+ein Pacer-Slot von einer Sekunde nicht schon vor dem Senden einen falschen
+Timeout auslöst. Diese Frist schließt weiterhin Wartezeit auf andere Nutzer
+im gemeinsamen HA-Manager ein. Bei größerem Rückstau wäre für eine strikte
+Unterscheidung von „noch nicht gesendet“ und „keine Antwort“ eine öffentliche
+Transport-Metrik erforderlich; die Integration kann das ohne Zugriff auf
+private Verbindungsobjekte nicht beweisen. Beim Entladen wird die per Unit
+angeforderte Pause wieder zurückgesetzt.

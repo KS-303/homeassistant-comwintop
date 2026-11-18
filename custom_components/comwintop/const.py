@@ -7,6 +7,7 @@ DEFAULT_INTERVALS = {"temperature": 15, "di": 2, "do": 2, "ai": 10, "ao": 10}
 MIN_INTERVALS = {"temperature": 5, "di": 1, "do": 1, "ai": 2, "ao": 2}
 STALE_FACTOR = 3
 BUS_MESSAGE_SPACING = 1.0  # End of previous exchange to start of next, on shared HA link.
+READ_DEADLINE = 4.0  # Original 3 s request budget plus one pacing slot.
 WRITE_TTL = 2.0
 READBACK_ATTEMPTS = 3
 READBACK_DELAY = 0.2
