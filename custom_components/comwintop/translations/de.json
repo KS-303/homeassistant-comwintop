@@ -98,7 +98,7 @@
             "poll_interval_mode": "Abfrageintervall",
             "poll_interval": "Individueller Wert (Sekunden; bei Standard ignoriert)"
           },
-          "description": "DI: NC invertiert ausschließlich die logische Anzeige; NO bleibt unverändert. AI/AO: Signalbereich im Formular ist eine Dekodier-Einstellung und ändert keine Jumper oder Geräteparameter. DO und AO sind in dieser Beta nur lesbar. Kanal deaktivieren schaltet keine Last ab."
+          "description": "DI: NC invertiert ausschließlich die logische Anzeige; NO bleibt unverändert. AI/AO: Signalbereich im Formular ist eine Dekodier-Einstellung und ändert keine Jumper oder Geräteparameter. DO und AO sind in dieser Beta nur lesbar. Kanal deaktivieren schaltet keine Last ab. Bereits gespeicherte Intervalle unter 5 Sekunden können nur unverändert beibehalten werden. Neue Werte müssen mindestens 5 Sekunden betragen."
         },
         "intervals": {
           "title": "Abfrageintervalle",
@@ -108,7 +108,8 @@
             "do": "Digitale Ausgänge (Sekunden)",
             "ai": "Analoge Eingänge (Sekunden)",
             "ao": "Analoge Ausgänge (Sekunden)"
-          }
+          },
+          "description": "Bereits gespeicherte Intervalle unter 5 Sekunden können nur unverändert beibehalten werden. Neue Werte müssen mindestens 5 Sekunden betragen."
         },
         "profile_preview": {
           "title": "Lokales Geräteprofil prüfen",

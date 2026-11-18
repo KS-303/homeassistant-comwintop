@@ -1,6 +1,6 @@
 # ComWinTop for Home Assistant
 
-> **Entwicklungsstand 0.1.0b18 (b17-Stabilisierung, noch kein Release):**
+> **Entwicklungsstand 0.1.0b19 (Registry-Korrektur, noch kein Release):**
 > Basis ist b17. Das Installationspaket enthält nur fest freigegebene
 > Integrationsdateien; der ungenutzte Schreibmanager bleibt außerhalb des ZIP.
 > Die experimentelle Slave-ID-Schreibfunktion (FC06) sowie DO/AO-Schreiben
@@ -19,7 +19,7 @@
 
 ComWinTop verbindet CWT-I/O-Geräte lokal über Modbus mit Home Assistant.
 Der veröffentlichte Stand ist **v0.1.0b1 (lesende Beta)**. Das
-**0.1.0b18-Testpaket** baut auf b17 auf und ist kein GitHub-Release.
+**0.1.0b19-Testpaket** baut auf b18 auf und ist kein GitHub-Release.
 Die Integration ist
 herstellerunabhängig beim Gateway,
 aber für die mitgelieferten Registerprofile gerätespezifisch. Sie ist kein
@@ -182,8 +182,10 @@ Wenn das ZIP unter `/config` liegt, lautet der Update-Befehl im HA-Terminal:
 
 ```bash
 cd /config
-mv custom_components/comwintop custom_components/comwintop.backup
-unzip comwintop-0.1.0b18-install.zip
+mkdir -p /config/backup
+test ! -e /config/backup/comwintop-previous && \
+  mv custom_components/comwintop /config/backup/comwintop-previous && \
+  unzip comwintop-0.1.0b19-install.zip
 ```
 
 Das Archiv legt ausschließlich `/config/custom_components/comwintop/` an.

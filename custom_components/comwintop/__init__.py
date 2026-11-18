@@ -10,6 +10,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryError, ConfigEntryNotReady, HomeAssistantError
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.storage import Store
 from modbus_connection.exceptions import ModbusError
 
 from .const import PLATFORMS
@@ -27,7 +28,7 @@ class Runtime:
     bus_lock: asyncio.Lock
 
 
-def _sync_disabled_channel_registry(hass, entry, coordinators):
+async def _sync_disabled_channel_registry(hass, entry, coordinators):
     """Keep old entity IDs and user choices when channels are turned off/on.
 
     An old b13 entity must be marked disabled by this integration, otherwise
@@ -35,11 +36,16 @@ def _sync_disabled_channel_registry(hass, entry, coordinators):
     and our own INTEGRATION disabler are ever changed.
     """
     registry = er.async_get(hass)
+    store = Store(hass, 1, f"comwintop.channel_registry.{entry.entry_id}")
+    saved = await store.async_load() or {}
+    owned = set(saved.get("disabled", []))
     entries = {
         (item.domain, item.unique_id): item
         for item in er.async_entries_for_config_entry(registry, entry.entry_id)
         if item.platform == entry.domain
     }
+    disable = []
+    enable = []
     for coordinator in coordinators.values():
         for key, group, _ in channels(coordinator.model):
             base = f"{coordinator.uid}_{key}"
@@ -54,15 +60,28 @@ def _sync_disabled_channel_registry(hass, entry, coordinators):
                 item = entries.get(identity)
                 if item is None:
                     continue
+                marker = f"{identity[0]}:{identity[1]}"
                 if not coordinator.enabled(key) and item.disabled_by is None:
-                    registry.async_update_entity(
-                        item.entity_id, disabled_by=er.RegistryEntryDisabler.INTEGRATION
-                    )
+                    owned.add(marker)
+                    disable.append(item.entity_id)
                 elif (
                     coordinator.enabled(key)
                     and item.disabled_by == er.RegistryEntryDisabler.INTEGRATION
+                    and (marker in owned or not identity[1].endswith("_raw"))
                 ):
-                    registry.async_update_entity(item.entity_id, disabled_by=None)
+                    enable.append((item.entity_id, marker))
+                elif item.disabled_by not in (None, er.RegistryEntryDisabler.INTEGRATION):
+                    owned.discard(marker)
+                elif coordinator.enabled(key) and item.disabled_by is None:
+                    owned.discard(marker)
+    # Persist ownership first: interrupted reloads can safely repeat the change.
+    await store.async_save({"disabled": sorted(owned)})
+    for entity_id in disable:
+        registry.async_update_entity(entity_id, disabled_by=er.RegistryEntryDisabler.INTEGRATION)
+    for entity_id, marker in enable:
+        registry.async_update_entity(entity_id, disabled_by=None)
+        owned.discard(marker)
+    await store.async_save({"disabled": sorted(owned)})
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -103,7 +122,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             coordinators[sub.subentry_id] = coordinator
 
         entry.runtime_data = Runtime(coordinators, lock)
-        _sync_disabled_channel_registry(hass, entry, coordinators)
+        await _sync_disabled_channel_registry(hass, entry, coordinators)
         forwarding_attempted = True
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
         for coordinator in coordinators.values():

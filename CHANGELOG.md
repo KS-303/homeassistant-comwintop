@@ -1,3 +1,11 @@
+## 0.1.0b19 (Registry-Korrektur; Testpaket)
+
+- Rohwertdiagnosen bleiben beim Neuladen standardmäßig deaktiviert. Die Integration merkt sich, welche zuvor aktiven Entitäten sie beim Deaktivieren eines Kanals abgeschaltet hat.
+- Der Intervalldialog erläutert die Sonderregel für alte Werte unter fünf Sekunden.
+- Ohne aktive Kanäle bleibt der Status auch bei Verbindungsabbruch INACTIVE.
+- Der Backup-Pfad der manuellen Installation liegt außerhalb von custom_components.
+- RTU-Timeout-Reset und Hardwaretests bleiben offen; Schreibfunktionen gesperrt.
+
 ## 0.1.0b18 (b17-Stabilisierung; Testpaket, kein Release)
 
 - Nach Einzelregister-Antwort „Illegal Data Address“ wird der Kommunikations-

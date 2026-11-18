@@ -152,6 +152,8 @@ async def test_no_active_channel_is_not_initializing(quality):
     c.settings["channels"] = {key: {"enabled": False} for key in c.samples}
     c._refresh_read_status()
     assert c.status == "INACTIVE"
+    c.connection_lost()
+    assert c.status == "INACTIVE"
     await c.poll_group(PROFILES["tm_32ds"][0])
     u.read_holding_registers.assert_not_called()
 
