@@ -1,4 +1,4 @@
-# Implementierungsstatus – 0.1.0b16, lesendes Testpaket
+# Implementierungsstatus – 0.1.0b17, lesendes Testpaket
 
 L-51 ist für den TM-32DS lesend implementiert. Das historische FC06-Labormenü
 aus b6–b12 ist seit b13 vollständig gesperrt. Die verwendete HA-Modbus-Version

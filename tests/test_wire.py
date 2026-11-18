@@ -5,6 +5,8 @@ from modbus_connection import ModbusSerialParams, ModbusTcpParams
 from modbus_connection.exceptions import ModbusError
 from modbus_connection.tmodbus import ModbusConnection
 
+from custom_components.comwintop.const import BUS_MESSAGE_SPACING
+
 from .wire import Simulator
 
 
@@ -61,6 +63,48 @@ async def test_unit_failure_does_not_poison_other_unit(sim):
         assert await c.for_unit(1).read_holding_registers(32, 1) == [200]
     finally:
         await c.close()
+
+
+@pytest.mark.parametrize("mode", ["tcp", "rtu"])
+async def test_shared_link_waits_one_second_after_reply_across_units(mode):
+    """Measure actual received-to-next-sent gap, not only configured timeout."""
+    sim = await Simulator(mode).start()
+    params = (ModbusTcpParams(host="127.0.0.1", port=sim.port) if mode == "tcp"
+              else ModbusSerialParams(device=f"socket://127.0.0.1:{sim.port}", baudrate=9600))
+    c = ModbusConnection(params, timeout=0.3)
+    try:
+        first, second = c.for_unit(1), c.for_unit(2)
+        first.set_message_spacing(BUS_MESSAGE_SPACING)
+        second.set_message_spacing(BUS_MESSAGE_SPACING)
+        await first.read_holding_registers(32, 2)
+        await second.read_holding_registers(0, 1)
+        assert sim.trace_times[1] - sim.reply_times[0] >= BUS_MESSAGE_SPACING - 0.03
+        assert len(sim.trace) == 2
+    finally:
+        await c.close()
+        await sim.close()
+
+
+@pytest.mark.parametrize("mode", ["tcp", "rtu"])
+async def test_shared_link_waits_after_unanswered_request(mode):
+    sim = await Simulator(mode).start()
+    params = (ModbusTcpParams(host="127.0.0.1", port=sim.port) if mode == "tcp"
+              else ModbusSerialParams(device=f"socket://127.0.0.1:{sim.port}", baudrate=9600))
+    c = ModbusConnection(params, timeout=0.1)
+    try:
+        first, second = c.for_unit(1), c.for_unit(2)
+        first.set_message_spacing(BUS_MESSAGE_SPACING)
+        second.set_message_spacing(BUS_MESSAGE_SPACING)
+        sim.silent_units.add(1)
+        with pytest.raises(ModbusError):
+            await first.read_holding_registers(32, 1)
+        returned = asyncio.get_running_loop().time()
+        await second.read_holding_registers(0, 1)
+        assert sim.trace_times[1] - returned >= BUS_MESSAGE_SPACING - 0.03
+        assert len(sim.trace) == 2
+    finally:
+        await c.close()
+        await sim.close()
 
 
 @pytest.mark.parametrize("fault", [None, "crc"])

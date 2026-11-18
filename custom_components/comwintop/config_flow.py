@@ -13,7 +13,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.selector import selector
 from modbus_connection.exceptions import ModbusError
 
-from .const import DEFAULT_INTERVALS, DOMAIN, MIN_INTERVALS
+from .const import BUS_MESSAGE_SPACING, DEFAULT_INTERVALS, DOMAIN, MIN_INTERVALS, READ_DEADLINE
 from .model import revise_device, set_temperature_range_enabled, validate_device
 from .profiles import (
     BUILTIN_PROFILES,
@@ -177,7 +177,7 @@ async def probe(hass, connection, device):
     params = await hass.async_add_executor_job(params_from, dict(connection))
     group = PROFILES[device["model"]][0]
     async with async_get_temporary_unit(hass, params, device["unit_id"]) as unit:
-        async with asyncio.timeout(3):
+        async with asyncio.timeout(READ_DEADLINE):
             values = await getattr(unit, group.method)(group.start, 1)
         if len(values) != 1:
             raise ValueError("invalid_length")
@@ -207,13 +207,13 @@ async def scan_tm32ds_channels(hass, connection, unit_id):
     frames = []
     async with async_get_temporary_unit(hass, params, unit_id) as unit:
         for attempt in range(3):
-            async with asyncio.timeout(3):
+            async with asyncio.timeout(READ_DEADLINE):
                 values = await unit.read_holding_registers(32, 32)
             if len(values) != 32:
                 raise HomeAssistantError("incomplete_temperature_scan")
             frames.append(values)
             if attempt < 2:
-                await asyncio.sleep(0.8)
+                await asyncio.sleep(BUS_MESSAGE_SPACING)
     return detected_tm32ds_channels(frames)
 
 

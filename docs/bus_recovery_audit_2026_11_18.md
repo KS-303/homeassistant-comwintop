@@ -25,3 +25,34 @@ Registerwerk (`renderer/app.js`, `waitBusReady`) überwacht am eigenen RTU-Empfa
 3. Regression von Serial, RTU-over-TCP, Modbus TCP, Bus-Scheduler, Kanal-Overrides, Diagnoseabfrage, Reload und Start, einschließlich fremder Nutzer derselben HA-Verbindung.
 4. Bei Änderungen am Timeout-Reset: beobachtete Busruhe im öffentlichen gemeinsamen Backend oder Nachweis einer verlässlichen Frame-Quarantäne durch Wire-Tests. Keine zweite Busverbindung.
 5. Keine produktive DO/AO-Steuerung allein aufgrund dieses lesenden Fixes. Keine 99-%-Garantie ohne Hardware-Nachweis.
+
+## Ergänzung 0.1.0b17
+
+Die öffentliche `modbus-connection`-Methode `unit.set_message_spacing(1.0)`
+verwendet den Pacer der HA-Shared-Verbindung: Er hält den Zugriff auf einen
+physikalischen Link serialisiert, merkt sich den Abschluss der letzten
+Anfrage und berücksichtigt die Pause um den vorherigen und nächsten Slave.
+Der neue Wire-Test misst den Abstand zwischen Antwort/Timeout und folgender
+Sendeoperation an TCP und RTU-over-TCP; der TM-32DS-Einrichtungsscan hält
+zwischen den drei Blocklesungen ebenfalls mindestens eine Sekunde ein.
+Bei der aktuell beobachteten Einzelblockabfrage alle 15 Sekunden führt dies
+zu keiner wesentlichen Änderung der Buslast oder zum nachweislichen Beheben
+fehlender Antworten. Der Link-Reset nach einem RTU-Timeout bleibt erhalten.
+
+Ein eigener Diagnose-Binärsensor je aktiviertem Temperaturkanal meldet einen
+Fühlerfehler nach drei *empfangenen*, aber für diesen Kanal ungültigen
+Registerwerten `0xFC18`. Unbekannte Codes oder die mehrdeutigen 85 °C
+werden nicht als defekter Fühler klassifiziert. Ein solcher Wert bleibt sofort
+`unavailable`. Bei fehlender Blockantwort werden hingegen
+Kommunikationsfehler gezählt; daraus wird kein Fühlerdefekt gefolgert.
+Weitere Ursachenanalyse der sechs isolierten verlorenen Antworten ist
+Gegenstand des 24-Stunden-Hardwaretests.
+
+Der äußere Lesezeitrahmen wurde von drei auf vier Sekunden verlängert, damit
+ein Pacer-Slot von einer Sekunde nicht schon vor dem Senden einen falschen
+Timeout auslöst. Diese Frist schließt weiterhin Wartezeit auf andere Nutzer
+im gemeinsamen HA-Manager ein. Bei größerem Rückstau wäre für eine strikte
+Unterscheidung von „noch nicht gesendet“ und „keine Antwort“ eine öffentliche
+Transport-Metrik erforderlich; die Integration kann das ohne Zugriff auf
+private Verbindungsobjekte nicht beweisen. Beim Entladen wird die per Unit
+angeforderte Pause wieder zurückgesetzt.

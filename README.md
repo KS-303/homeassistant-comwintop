@@ -1,6 +1,6 @@
 # ComWinTop for Home Assistant
 
-> **Entwicklungsstand 0.1.0b16 (Polling-Recovery und TM-32DS-Kanalerkennung, noch kein Release):**
+> **Entwicklungsstand 0.1.0b17 (Polling-Recovery und TM-32DS-Kanalerkennung, noch kein Release):**
 > Basis ist b14. Das Installationspaket enthält nur fest freigegebene
 > Integrationsdateien; der ungenutzte Schreibmanager bleibt außerhalb des ZIP.
 > Die experimentelle Slave-ID-Schreibfunktion (FC06) sowie DO/AO-Schreiben
@@ -19,7 +19,7 @@
 
 ComWinTop verbindet CWT-I/O-Geräte lokal über Modbus mit Home Assistant.
 Der veröffentlichte Stand ist **v0.1.0b1 (lesende Beta)**. Das
-**0.1.0b16-Testpaket** baut auf b14 auf und ist kein GitHub-Release.
+**0.1.0b17-Testpaket** baut auf b16 auf und ist kein GitHub-Release.
 Die Integration ist
 herstellerunabhängig beim Gateway,
 aber für die mitgelieferten Registerprofile gerätespezifisch. Sie ist kein
@@ -47,7 +47,7 @@ starten und die Browseransicht neu laden.
 Die getrennte, ausschließlich lesende Kommunikationsinspektion bleibt erhalten.
 Dies ist **kein stabiler Release** und kein produktiv freigegebenes Modul.
 
-**L-50 – in 0.1.0b16 weiter ausschließlich lesend.**
+**L-50 – in 0.1.0b17 weiter ausschließlich lesend.**
 Dies ist noch kein Installationsrelease. Die veröffentlichte Version 0.1.0b1
 bleibt davon unberührt.
 
@@ -143,6 +143,18 @@ dieses Repository würde daher **nicht** das b15-Testpaket installieren.
 Eine Aufnahme in den HACS-Katalog ist noch nicht erfolgt.
 [Schrittweiser HA-Test](docs/ha_test_plan.md).
 
+**0.1.0b17-Bustest:** ComWinTop fordert beim öffentlichen gemeinsamen
+Modbus-Manager eine Sekunde Pause vom Ende der letzten Anfrage/Antwort bis
+zum Start der nächsten an. Zusammenhängende fällige TM-32DS-Register werden
+weiterhin als Block gelesen. Die Pause ersetzt keine Prüfung auf verspätete
+Rohbytes und behebt die sechs beobachteten unbeantworteten Anfragen bei
+15 Sekunden Abstand nicht nachweislich. Bei vielen Kanälen mit kurzen,
+unterschiedlichen Intervallen kann die Ein-Sekunden-Grenze einzelne
+Sollintervalle verzögern; die kanalbezogene Stale-Frist bleibt maßgeblich.
+Ein neuer Diagnose-Binärsensor je aktiviertem Temperaturkanal meldet nach
+drei gültig beantworteten Telegrammen mit dem nachgewiesenen Fehlerwert `0xFC18` eine
+**Fühlerstörung**. Fehlende Telegramme melden keinen Fühlerdefekt.
+
 ### Update und vollständige Entfernung
 
 Vor einem Update HA-Backup erstellen, Integrationsversion und Paket-SHA-256
@@ -151,7 +163,7 @@ prüfen, nur `/config/custom_components/comwintop` aus dem gewünschten
 Wenn das ZIP unter `/config` liegt, lautet der Update-Befehl im HA-Terminal:
 
 ```bash
-cd /config && unzip -o comwintop-0.1.0b16-install.zip
+cd /config && unzip -o comwintop-0.1.0b17-install.zip
 ```
 
 Das Archiv legt ausschließlich `/config/custom_components/comwintop/` an.
@@ -224,7 +236,7 @@ geprüft. [Bestandsaufnahme und Merge-Reihenfolge](docs/repository_inventory.md)
 ## English
 
 Local, manufacturer-neutral Modbus connections with model-specific CWT profiles.
-Published v0.1.0b1 is a read-only beta; this unreleased 0.1.0b16 read-only test
+Published v0.1.0b1 is a read-only beta; this unreleased 0.1.0b17 read-only test
 package builds on b14. TM-32DS offers 32 temperature
 channels; MB308N offers
 8 analog inputs, 8 digital inputs and read-only output register values.

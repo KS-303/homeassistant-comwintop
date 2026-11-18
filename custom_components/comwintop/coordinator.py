@@ -14,7 +14,7 @@ from modbus_connection.exceptions import (
 )
 
 from .communication import inspect_tm32ds
-from .const import DEFAULT_INTERVALS
+from .const import BUS_MESSAGE_SPACING, DEFAULT_INTERVALS, READ_DEADLINE
 from .model import Sample, effective_interval
 from .profiles import PROFILES, InvalidValue, channel_key, channels, decode_channel
 
@@ -62,7 +62,9 @@ class UnitCoordinator(DataUpdateCoordinator):
         self._last_available = None
         # Register the listener last so a rejected unit setting cannot leak
         # a live callback from a partially constructed coordinator.
-        unit.set_message_spacing(0.01)
+        # Public modbus-connection pacer serializes the physical link, including
+        # other units on the same HA connection. Starts after the last exchange.
+        unit.set_message_spacing(BUS_MESSAGE_SPACING)
         self._unsubscribe = unit.on_connection_lost(self.connection_lost)
         self.data = self.samples
 
@@ -129,6 +131,7 @@ class UnitCoordinator(DataUpdateCoordinator):
         await asyncio.gather(*tasks, return_exceptions=True)
         self.unit.require_timeout(None)
         self.unit.require_connect_delay(None)
+        self.unit.set_message_spacing(0)
 
     async def read_communication(self):
         """Refresh TM-32DS configuration via FC03 under the shared bus lock.
@@ -140,7 +143,7 @@ class UnitCoordinator(DataUpdateCoordinator):
             return None
         try:
             async with self.bus_lock:
-                async with asyncio.timeout(3):
+                async with asyncio.timeout(READ_DEADLINE):
                     raw_values = await self.unit.read_holding_registers(16, 1)
             if len(raw_values) != 1:
                 raise ValueError("invalid_communication_register_length")
@@ -266,7 +269,7 @@ class UnitCoordinator(DataUpdateCoordinator):
             # ComWinTop shares this fairness lock across its own units. The HA
             # backend also serializes ALL integrations sharing the physical link.
             async with self.bus_lock:
-                async with asyncio.timeout(3):
+                async with asyncio.timeout(READ_DEADLINE):
                     values = await getattr(self.unit, group.method)(group.start + offset, count)
             if len(values) != count:
                 raise ModbusProtocolError("invalid_response_length")
@@ -280,9 +283,7 @@ class UnitCoordinator(DataUpdateCoordinator):
                 try:
                     value = decode_channel(group.kind, raw, self.options(key))
                 except InvalidValue as err:
-                    self.samples[key].raw = raw
-                    self.samples[key].fail(str(err), invalidate=True)
-                    self.samples[key].raw_received = received
+                    self.samples[key].invalid_value(str(err), raw, received)
                     self.counters["value_errors"] += 1
                 else:
                     self.samples[key].accept(value, raw, received)

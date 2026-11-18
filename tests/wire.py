@@ -20,6 +20,7 @@ class Simulator:
         self.mode = mode
         self.trace = []
         self.trace_times = []
+        self.reply_times = []
         self.writers = set()
         self.tasks = set()
         self.fault = None
@@ -120,6 +121,7 @@ class Simulator:
                 else:
                     writer.write(packet)
                     await writer.drain()
+                self.reply_times.append(time.monotonic())
         except (asyncio.IncompleteReadError, ConnectionError, asyncio.CancelledError):
             pass
         finally:

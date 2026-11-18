@@ -1,3 +1,18 @@
+## 0.1.0b17 (gemeinsamer Busabstand und Fühlerdiagnose; Testpaket)
+
+- Öffentlicher Pacer der gemeinsam genutzten HA-Modbus-Verbindung: mindestens
+  eine Sekunde vom Abschluss einer Anfrage bis zur nächsten Sendung, auch
+  zwischen unterschiedlichen Slaves. Der TM-32DS-Erkennungsscan hält
+  ebenfalls eine Sekunde Abstand zwischen den Blocklesungen.
+- Der dreimalige nachgewiesene Fehlerwert `0xFC18` an einem aktivierten
+  Temperaturkanal schaltet dessen neuen Diagnose-Binärsensor auf
+  „Fühlerstörung“. Fehlende Blockantworten begründen keinen Fühlerdefekt.
+  Ungültige Werte werden sofort `unavailable`.
+- Getrennte Diagnosezähler für fehlende Antworten, ungültige Kanalwerte
+  und bestätigte Fühlerfehler. Schreibsperre unverändert.
+- Die sechs isolierten Aussetzer im vorhandenen Wire-Mitschnitt traten trotz
+  15 Sekunden Abstand auf; die Ursache bleibt Gegenstand des Hardwaretests.
+
 ## 0.1.0b16 (Polling-Recovery und Selbstüberwachung; kein Release)
 
 - Erster fehlgeschlagener Leseversuch: nächster Versuch nach dem normalen

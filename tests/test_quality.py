@@ -9,6 +9,7 @@ from modbus_connection.exceptions import (
     ModbusTimeoutError,
 )
 
+from custom_components.comwintop.binary_sensor import TemperatureProbeFault
 from custom_components.comwintop.coordinator import UnitCoordinator
 from custom_components.comwintop.profiles import PROFILES
 
@@ -146,6 +147,36 @@ async def test_short_response_not_accepted(quality):
     await c.poll_group(PROFILES["tm_32ds"][0])
     assert c.status == "INITIALIZING" and c.counters["protocol_error"] == 1
     assert all(s.received is None for s in c.samples.values())
+
+
+async def test_three_invalid_probe_values_do_not_report_bus_failure(quality):
+    c, u = quality
+    group = PROFILES["tm_32ds"][0]
+    u.read_holding_registers.return_value = [0xFC18, *([220] * 31)]
+    probe = TemperatureProbeFault(c, "temperature_1", group, 0)
+    for attempt in range(3):
+        await c.poll_group(group)
+        assert c.status == "ONLINE"
+        assert not c.available("temperature_1")
+        assert c.available("temperature_2")
+        assert probe.is_on is (attempt == 2)
+        assert probe.available
+    assert c.samples["temperature_1"].consecutive_read_failures == 0
+    u.read_holding_registers.return_value = [225] * 32
+    await c.poll_group(group)
+    assert not probe.is_on and c.available("temperature_1")
+
+
+async def test_ambiguous_85_celsius_never_claims_a_defective_probe(quality):
+    c, u = quality
+    group = PROFILES["tm_32ds"][0]
+    u.read_holding_registers.return_value = [850, *([220] * 31)]
+    probe = TemperatureProbeFault(c, "temperature_1", group, 0)
+    for _ in range(3):
+        await c.poll_group(group)
+    assert c.samples["temperature_1"].consecutive_invalid_values == 3
+    assert c.samples["temperature_1"].consecutive_probe_fault_values == 0
+    assert not probe.is_on
 
 
 async def test_unexpected_error_remains_diagnostic(quality):

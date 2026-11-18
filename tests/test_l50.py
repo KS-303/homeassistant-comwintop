@@ -341,7 +341,9 @@ async def test_actual_tcp_scheduler_measured_intervals_and_shared_gateway(hass, 
     timestamps = [
         t for call, t in zip(sim.trace, sim.trace_times, strict=True) if call == (1, 3, 32, 1)
     ]
-    assert 4.7 <= timestamps[0] - sim.trace_times[0] <= 6.0
+    # The register-16 diagnostic can become due at five seconds as well;
+    # the shared one-second gap may delay this channel by one bus slot.
+    assert 4.7 <= timestamps[0] - sim.trace_times[0] <= 6.25
     assert not [r for r in sim.trace if r[1] in (5, 6, 15, 16)]
 
 
