@@ -56,3 +56,47 @@ Unterscheidung von „noch nicht gesendet“ und „keine Antwort“ eine öffen
 Transport-Metrik erforderlich; die Integration kann das ohne Zugriff auf
 private Verbindungsobjekte nicht beweisen. Beim Entladen wird die per Unit
 angeforderte Pause wieder zurückgesetzt.
+
+## Ergänzung 0.1.0b18: überprüfte Grenzen
+
+Eine Einzelregister-Antwort mit Modbus-Exception 02 belegt eine antwortende
+Slave-Verbindung, aber keinen verwertbaren Kanalwert. Nach einem Link-Abbruch
+setzt sie den Kommunikationsfehlerzähler dieses Kanals zurück und beendet den
+irreführenden Dauerzustand `SUSPECT`; sein Messwert bleibt `unavailable`.
+Für unbekannte MB-308N-Register/Funktionscodes bleibt die Hardwarevalidierung
+offen.
+
+Die frühere `latency_ms`-Messung begann vor der ComWinTop-Sperre und dem
+Backend-Pacer. Sie war deshalb keine Gerätelatenz. Das Feld bleibt aus
+Kompatibilitätsgründen vorhanden, ist aber leer; `bus_lock_wait_ms` und
+`read_call_ms` sind getrennt. Letzteres kann den Pacer und Wartezeit bei
+fremden Nutzern der HA-Verbindung enthalten. Ohne öffentliche Wire-Sendezeit
+in `modbus-connection` ist eine echte Gerätelatenz aus der Integration nicht
+berechenbar. Die 27 ms Median stammen ausschließlich aus dem früheren
+unabhängigen Mitschnitt.
+
+Bei vier MB-Lesegruppen brauchten die alten Standardwerte rechnerisch
+`1/2+1/2+1/10+1/10=1,2` Blockanfragen/s. Ein Sekundenabstand erlaubt
+höchstens knapp eine Anfrage/s, ohne Übertragungsdauer. Neue MB-Geräte
+beginnen bei 8/8/20/20 s (optimistisch 0,35 Anfragen/s). Ein TCP-Wire-Test
+beobachtet vier verschiedene Funktionscodes, mindestens 0,97 s Abstand
+zwischen gesendeten Frames und mindestens 8 s zwischen DI-Abfragen.
+Mehrere Geräte, fremde Teilnehmer und getrennt fällige Einzelkanäle können
+den Bus weiterhin sättigen. Alte kürzere Einstellungen bleiben erhalten;
+für deren Stale-Fristen gibt es keine physikalische Garantie. Eine
+busweite Lastkontrolle für beliebige Konfigurationen braucht weitere
+Aufnahmeprüfungen und Hardwaremessungen.
+Die Diagnose zeigt deshalb `minimum_read_rate_hz` als optimistische
+Untergrenze pro Gerät und warnt ab 0,9 Anfragen/s. Das ist weder eine
+Messung der tatsächlichen Last noch ein busweiter Zulassungsnachweis.
+
+Deaktivierte Legacy-Entitäten werden im HA-Register als durch die Integration
+deaktiviert markiert. IDs und manuelle Benutzersperren bleiben bestehen.
+Nach drei unerwarteten Polling-Abstürzen in fünf Minuten schreibt die
+Aufsicht einen kritischen Logeintrag und `poll_task_exhausted=1`.
+
+**Offen:** Der RTU-Link-Reset nach jedem Timeout unterbricht noch immer die
+gemeinsame HA-Verbindung. Ihn ohne nachgewiesene Behandlung verspäteter
+Antworten zu entfernen wäre riskant. Außerdem fehlt eine 24-Stunden-Abnahme
+mit realer Hardware. Dieses Paket ist keine Freigabe für Pumpen- oder
+Heizungssteuerung; produktive FC05/06/15/16-Schreibfunktionen bleiben gesperrt.

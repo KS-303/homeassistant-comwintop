@@ -13,7 +13,14 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.selector import selector
 from modbus_connection.exceptions import ModbusError
 
-from .const import BUS_MESSAGE_SPACING, DEFAULT_INTERVALS, DOMAIN, MIN_INTERVALS, READ_DEADLINE
+from .const import (
+    BUS_MESSAGE_SPACING,
+    CONFIGURABLE_MIN_INTERVALS,
+    DEFAULT_INTERVALS,
+    DOMAIN,
+    NEW_DEVICE_INTERVALS,
+    READ_DEADLINE,
+)
 from .model import revise_device, set_temperature_range_enabled, validate_device
 from .profiles import (
     BUILTIN_PROFILES,
@@ -376,7 +383,9 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
         data |= {
             "device_uid": str(uuid4()),
             "connection_uid": entry.data["connection_uid"],
-            "intervals": dict(DEFAULT_INTERVALS),
+            "intervals": {
+                group.kind: NEW_DEVICE_INTERVALS[group.kind] for group in PROFILES[data["model"]]
+            },
             "channels": {},
         }
         validate_device(data)
@@ -518,10 +527,15 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
     async def async_step_intervals(self, user_input=None):
         sub = self._get_reconfigure_subentry()
         kinds = [g.kind for g in PROFILES[sub.data["model"]]]
+        errors = {}
         if user_input is not None:
             data = dict(sub.data) | {"intervals": dict(sub.data.get("intervals", {})) | user_input}
-            validate_device(data)
-            return self.async_update_and_abort(self._get_entry(), sub, data=data)
+            try:
+                validate_device(data, previous=sub.data)
+            except (ValueError, KeyError):
+                errors["base"] = "invalid_interval"
+            else:
+                return self.async_update_and_abort(self._get_entry(), sub, data=data)
         return self.async_show_form(
             step_id="intervals",
             data_schema=vol.Schema(
@@ -529,10 +543,22 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                     vol.Required(
                         kind,
                         default=sub.data.get("intervals", {}).get(kind, DEFAULT_INTERVALS[kind]),
-                    ): vol.All(vol.Coerce(int), vol.Range(min=MIN_INTERVALS[kind], max=3600))
+                    ): vol.All(
+                        vol.Coerce(int),
+                        vol.Range(
+                            min=min(
+                                CONFIGURABLE_MIN_INTERVALS[kind],
+                                sub.data.get("intervals", {}).get(
+                                    kind, CONFIGURABLE_MIN_INTERVALS[kind]
+                                ),
+                            ),
+                            max=3600,
+                        ),
+                    )
                     for kind in kinds
                 }
             ),
+            errors=errors,
         )
 
     async def async_step_channel(self, user_input=None):
@@ -619,7 +645,10 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                 ),
             ): vol.All(
                 vol.Coerce(float),
-                vol.Range(min=MIN_INTERVALS[kind], max=3600),
+                vol.Range(
+                    min=min(CONFIGURABLE_MIN_INTERVALS[kind], options.get("poll_interval", 3600)),
+                    max=3600,
+                ),
             ),
         }
         if kind == "di":

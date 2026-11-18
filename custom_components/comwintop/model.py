@@ -4,7 +4,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from .const import DEFAULT_INTERVALS, MIN_INTERVALS, STALE_FACTOR
+from .const import CONFIGURABLE_MIN_INTERVALS, DEFAULT_INTERVALS, MIN_INTERVALS, STALE_FACTOR
 from .profiles import MODES, InvalidValue, channels, finite
 
 
@@ -79,21 +79,33 @@ class Sample:
             self.raw_received = None
 
 
-def validate_device(data):
+def validate_device(data, *, previous=None, legacy=False):
+    def minimum_for(kind, value, previous_value):
+        if kind not in DEFAULT_INTERVALS:
+            raise InvalidValue("invalid_interval")
+        unchanged = previous is not None and previous_value == value
+        return MIN_INTERVALS[kind] if legacy or unchanged else CONFIGURABLE_MIN_INTERVALS[kind]
+
     model = data["model"]
     valid = {key for key, _, _ in channels(model)}
     if type(data["unit_id"]) is not int or not 1 <= data["unit_id"] <= 247:
         raise InvalidValue("invalid_unit")
     for kind, interval in data.get("intervals", {}).items():
-        if kind not in DEFAULT_INTERVALS or not MIN_INTERVALS[kind] <= finite(interval) <= 3600:
+        old = previous.get("intervals", {}).get(kind) if previous is not None else None
+        if not minimum_for(kind, interval, old) <= finite(interval) <= 3600:
             raise InvalidValue("invalid_interval")
     for key, options in data.get("channels", {}).items():
         if key not in valid:
             raise InvalidValue("invalid_channel")
         override = options.get("poll_interval")
+        kind = key.rsplit("_", 1)[0]
+        old = (
+            previous.get("channels", {}).get(key, {}).get("poll_interval")
+            if previous is not None
+            else None
+        )
         if override is not None and (
-            type(override) is not int
-            or not MIN_INTERVALS[key.rsplit("_", 1)[0]] <= override <= 3600
+            type(override) is not int or not minimum_for(kind, override, old) <= override <= 3600
         ):
             raise InvalidValue("invalid_interval")
         if options.get("mode") not in (None, *MODES):
@@ -147,5 +159,5 @@ def revise_device(old, updated):
         )
         if moved or changed_output or not options.get("enabled", True):
             options["write_enabled"] = False
-    validate_device(new)
+    validate_device(new, previous=old)
     return new

@@ -1,4 +1,12 @@
-# Bekannte Grenzen und Releaseblocker (0.1.0b15)
+# Bekannte Grenzen und Releaseblocker (0.1.0b18)
+
+Die b18-Korrekturen sind Simulator- und HA-Core-geprüft, aber noch nicht am
+realen Gateway abgenommen. Bei mehr als einem Gerät oder stark versetzten
+Einzelintervallen kann die feste Ein-Sekunden-Buspause die gewünschten
+Abfragezeiten überschreiten. Ein RTU-Timeout setzt weiterhin die gemeinsame
+Verbindung zurück. Die öffentliche HA-Modbus-Unit bietet keine echte
+Gerätelatenz-Metrik; `latency_ms` bleibt deshalb leer. Für einen 24-Stunden-
+Hardwaretest sind Busframes und Frische jedes aktiven Kanals zu prüfen.
 
 ## Nachgewiesenes Busy-Retry im HA-Unterbau
 

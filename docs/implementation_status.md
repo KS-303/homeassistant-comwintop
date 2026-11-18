@@ -1,4 +1,4 @@
-# Implementierungsstatus – 0.1.0b17, lesendes Testpaket
+# Implementierungsstatus – 0.1.0b18, lesendes Testpaket
 
 L-51 ist für den TM-32DS lesend implementiert. Das historische FC06-Labormenü
 aus b6–b12 ist seit b13 vollständig gesperrt. Die verwendete HA-Modbus-Version
@@ -40,7 +40,7 @@ Telegramme steht im [L-50-Prüfbericht](l50_test_report.md).
 Einzelversuche und offene Gesamtabnahmen stehen in der zentralen
 [Test- und Freigabematrix](test_release_matrix.md).
 
-Der b6-Laborversuch ist ein historischer Zweig und nicht im b15-Paket enthalten.
+Der b6-Laborversuch ist ein historischer Zweig und nicht im b18-Paket enthalten.
 Slave-ID, DO/AO und L-51b bleiben gesperrt. Der separate WriteManager gehört
 nicht zum Installations-ZIP und belegt keine Hardware-Schreibfreigabe.
 
@@ -63,6 +63,16 @@ Minuten automatisch neu. Danach bleibt sie sichtbar gestoppt, bis die
 Integration neu geladen und der Fehler untersucht wurde. Der Diagnoseexport
 meldet, ob der Task läuft und wie alt die letzte Modbus-Antwort ist. Diese
 Überwachung kann einen physischen Netz- oder RS485-Ausfall nicht beseitigen.
+Ab b18 wird die erschöpfte Wiederanlaufzahl zusätzlich kritisch protokolliert.
+Ein Gerät ohne aktiven Kanal hat den Status INACTIVE. Eine antwortende
+Einzelregister-Exception setzt den Kommunikationsfehlerzähler des betreffenden
+Kanals zurück; sie macht seinen Messwert nicht gültig.
+
+Die neue MB-308N-Erstkonfiguration reduziert die optimistische Blocklast auf
+0,35 Anfragen/s. Eine garantierte Lastgrenze bei mehreren Geräten und
+beliebigen Kanal-Overrides ist noch nicht implementiert. Kürzere alte
+Einstellungen bleiben beim Laden kompatibel. Die Gerätelatenz wird mangels
+öffentlichem Sendezeitpunkt nicht mehr vorgetäuscht (`latency_ms` leer).
 
 Nach einem Verbindungsverlust bleibt die Kommunikationsdiagnose nicht bis zur
 nächsten planmäßigen Fünf-Minuten-Abfrage leer: Sobald ein neuer Temperaturwert

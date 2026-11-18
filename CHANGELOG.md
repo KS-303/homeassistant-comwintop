@@ -1,3 +1,22 @@
+## 0.1.0b18 (b17-Stabilisierung; Testpaket, kein Release)
+
+- Nach Einzelregister-Antwort „Illegal Data Address“ wird der Kommunikations-
+  fehlerzähler dieses Kanals zurückgesetzt; sein Wert bleibt ungültig.
+- Bus-Wartezeit und Dauer des öffentlichen Leseaufrufs sind getrennte
+  Diagnosewerte. `latency_ms` bleibt leer, da die HA-Modbus-API den tatsächlichen
+  Sendezeitpunkt nicht bereitstellt und ein Aufruf die interne Pause enthalten kann.
+- Neu angelegte MB-308N erhalten DI/DO 8 s und AI/AO 20 s; neu eingegebene
+  Einzel- und Gruppenintervalle mindestens 5 s. Frühere kürzere Werte werden
+  beim Laden und bei unveränderten Einstellungen weiterhin akzeptiert.
+  Die Diagnose zeigt eine optimistische Mindest-Buslast und warnt ab
+  0,9 Anfragen/s für ein Gerät.
+- Alte Entitäts-IDs deaktivierter Kanäle werden im HA-Register durch die
+  Integration deaktiviert und bei erneuter Aktivierung wieder freigegeben.
+  Nutzerseitig deaktivierte Entitäten bleiben unverändert. Geräte ohne aktive
+  Kanäle zeigen „Keine aktiven Kanäle“.
+- Erschöpfter Neustartversuch der Polling-Schleife wird kritisch protokolliert.
+  Lesender Beta-Stand; sämtliche Schreibfunktionen bleiben gesperrt.
+
 ## 0.1.0b17 (gemeinsamer Busabstand und Fühlerdiagnose; Testpaket)
 
 - Öffentlicher Pacer der gemeinsam genutzten HA-Modbus-Verbindung: mindestens
@@ -13,7 +32,7 @@
 - Die sechs isolierten Aussetzer im vorhandenen Wire-Mitschnitt traten trotz
   15 Sekunden Abstand auf; die Ursache bleibt Gegenstand des Hardwaretests.
 
-## 0.1.0b16 (Polling-Recovery und Selbstüberwachung; kein Release)
+## 0.1.0b16 (Polling-Recovery, Selbstüberwachung und Kanalerkennung; kein Release)
 
 - Erster fehlgeschlagener Leseversuch: nächster Versuch nach dem normalen
   Kanalintervall statt dessen Verdopplung. Weitere Fehler bleiben mit
@@ -30,9 +49,7 @@
   Waveshare/TM-32DS-Verbindung steht aus. Pumpen und Heizungen brauchen eine
   unabhängige lokale Rückfallfunktion. Produktive Schreibfunktionen gesperrt.
 
-# Änderungen
-
-## 0.1.0b16 (TM-32DS: konservative Kanalerkennung; kein Release)
+### Konservative TM-32DS-Kanalerkennung
 
 - Neues TM-32DS-Gerät: drei reine FC03-Blocklesungen der 32
   Temperaturregister über HA-Shared-Modbus; zwei frische gültige Werte

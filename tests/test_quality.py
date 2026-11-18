@@ -133,6 +133,40 @@ async def test_register_exception_splits_once_per_poll(quality):
     assert c.available("temperature_1") and not c.available("temperature_32")
 
 
+async def test_single_illegal_register_response_clears_transport_fault(quality):
+    c, u = quality
+    c.settings["channels"] = {key: {"enabled": key == "temperature_1"} for key in c.samples}
+    c.connection_lost()
+    assert c.status == "OFFLINE"
+    u.read_holding_registers.side_effect = IllegalDataAddressError()
+    c._next["temperature_1"] = 0.0
+    await c._poll_one(0.0)
+    sample = c.samples["temperature_1"]
+    assert sample.consecutive_read_failures == 0
+    assert sample.error == "register_exception" and not c.available("temperature_1")
+    assert c.status == "ONLINE" and c.last_response is not None
+
+
+async def test_no_active_channel_is_not_initializing(quality):
+    c, u = quality
+    c.settings["channels"] = {key: {"enabled": False} for key in c.samples}
+    c._refresh_read_status()
+    assert c.status == "INACTIVE"
+    await c.poll_group(PROFILES["tm_32ds"][0])
+    u.read_holding_registers.assert_not_called()
+
+
+async def test_bus_queue_is_not_misreported_as_device_latency(quality):
+    c, _u = quality
+    async with c.bus_lock:
+        poll = asyncio.create_task(c.poll_group(PROFILES["tm_32ds"][0]))
+        await asyncio.sleep(0.06)
+    await poll
+    assert c.bus_lock_wait_ms >= 50
+    assert c.read_call_ms >= 0
+    assert c.latency_ms is None
+
+
 async def test_disabled_group_never_polled(quality):
     c, u = quality
     g = PROFILES["tm_32ds"][0]

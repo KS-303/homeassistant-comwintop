@@ -1,4 +1,4 @@
-# Hardwareabnahme – lesendes 0.1.0b17-Testpaket
+# Hardwareabnahme – lesendes 0.1.0b18-Testpaket
 
 ## L-51 vor jeder Schreibfreigabe
 
@@ -65,6 +65,9 @@ Nullwerte/85,0 °C manuell nachmessen und bei Bedarf den Kanal aktivieren.
 | 11 | MB308N separat: DI NO/NC, AI mit bekanntem Referenzsignal | NO/NC korrekt; Modus passt zu Jumper; AI-Endpunkte/Mitte verifizieren |
 | 12 | MB308N AO/DO ausschließlich rücklesen | Tatsächliche Readbacks sichtbar; kein Switch/Number-Schreibpfad vorhanden |
 | 13 | 72 Stunden protokollierter Hardwarebetrieb | Fehlerzahlen, Latenzen, Ausfälle und Recovery dokumentieren; keine ungeklärten Fehler |
+| 14 | Nach Busabbruch ein nicht vorhandenes MB-308N-Register lesen | Nur betroffener Wert unavailable; Kommunikationszähler dieses Kanals geht nach gültiger Exception auf null; kein dauerhaftes SUSPECT |
+| 15 | Neu angelegtes MB-308N mit vier Lesegruppen, dazu zweites Gerät | Drahtseitige Intervalle, Rückstau und Stale-Status messen; bei gesättigtem Bus keine ausreichende Frische behaupten |
+| 16 | Alle Temperaturkanäle deaktivieren; vorhandene alte Entity-IDs prüfen | Status „Keine aktiven Kanäle“; alte Registry-Einträge durch Integration deaktiviert; Reaktivierung erhält ID und Nutzerwahl |
 
 ## L-50: zusätzlich am realen TM-32DS prüfen
 
@@ -85,6 +88,9 @@ Nullwerte/85,0 °C manuell nachmessen und bei Bedarf den Kanal aktivieren.
    Gateway gleichzeitig betreiben und Antwortzeiten sowie Timeoutzähler prüfen.
 
 Buslast und Simulatordaten stehen im [L-50-Prüfbericht](l50_test_report.md).
+`read_call_ms` enthält interne Buspausen. Die tatsächliche Antwortlatenz und
+späte Bytes auf dem Waveshare müssen unabhängig am Bus erfasst werden. Den
+RTU-Link-Reset nach Timeout mit mehreren Geräten besonders beobachten.
 
 Für 4–20 mA sind 4 / 12 / 20 mA die drei Referenzpunkte. AI und AO haben
 teilweise unterschiedliche Rohwertskalierung. Elektrische Referenzsignale nur

@@ -41,10 +41,14 @@ class UnitCoordinator(DataUpdateCoordinator):
         self.samples = {key: Sample() for key, _, _ in channels(self.model)}
         self._channel_order = {key: position for position, key in enumerate(self.samples)}
         self.counters = Counter()
-        self.status = "INITIALIZING"
+        self.status = (
+            "INITIALIZING" if any(self.enabled(key) for key in self.samples) else "INACTIVE"
+        )
         self.failures = 0
         self.last_response = None
         self.latency_ms = None
+        self.bus_lock_wait_ms = None
+        self.read_call_ms = None
         self._poll_task = None
         self._age_task = None
         self._communication_task = None
@@ -60,6 +64,21 @@ class UnitCoordinator(DataUpdateCoordinator):
         self._pending = deque()
         self._known_bad = set()
         self._last_available = None
+        minimum_read_rate = 0.0
+        for group in self.groups:
+            intervals = [
+                self.interval(key)
+                for i in range(group.count)
+                if self.enabled(key := channel_key(group.kind, i))
+            ]
+            if intervals:
+                minimum_read_rate += 1 / min(intervals)
+        self.minimum_read_rate_hz = round(minimum_read_rate, 3)
+        if minimum_read_rate * BUS_MESSAGE_SPACING >= 0.9:
+            logger.warning(
+                "ComWinTop minimum read load approaches shared bus capacity; "
+                "increase configured intervals or reduce active channels"
+            )
         # Register the listener last so a rejected unit setting cannot leak
         # a live callback from a partially constructed coordinator.
         # Public modbus-connection pacer serializes the physical link, including
@@ -85,11 +104,15 @@ class UnitCoordinator(DataUpdateCoordinator):
     def _refresh_read_status(self):
         """A healthy neighbouring channel cannot clear another channel's fault."""
         active = [self.samples[key] for key in self.samples if self.enabled(key)]
-        if active and all(sample.consecutive_read_failures >= 3 for sample in active):
+        if not active:
+            self.status = "INACTIVE"
+        elif all(sample.consecutive_read_failures >= 3 for sample in active):
             self.status = "OFFLINE"
         elif any(sample.consecutive_read_failures >= 3 for sample in active):
             self.status = "SUSPECT"
-        elif self.last_response is not None or any(sample.received is not None for sample in active):
+        elif self.last_response is not None or any(
+            sample.received is not None for sample in active
+        ):
             self.status = "ONLINE"
 
     def connection_lost(self):
@@ -206,6 +229,9 @@ class UnitCoordinator(DataUpdateCoordinator):
                     crashes.popleft()
                 crashes.append(now)
                 if len(crashes) >= 3:
+                    self.counters["poll_task_exhausted"] += 1
+                    self._logger.critical("ComWinTop polling exhausted its restart budget")
+                    self.async_set_updated_data(self.samples)
                     return
                 await asyncio.sleep(2 ** len(crashes))
                 for key in self._next:
@@ -262,15 +288,20 @@ class UnitCoordinator(DataUpdateCoordinator):
         if not keys:
             return
         count = len(keys)
-        started = time.monotonic()
         split = False
         recovery = False
+        self.read_call_ms = None
+        waiting_since = time.monotonic()
         try:
             # ComWinTop shares this fairness lock across its own units. The HA
             # backend also serializes ALL integrations sharing the physical link.
             async with self.bus_lock:
+                acquired = time.monotonic()
+                self.bus_lock_wait_ms = round((acquired - waiting_since) * 1000, 1)
                 async with asyncio.timeout(READ_DEADLINE):
+                    called = time.monotonic()
                     values = await getattr(self.unit, group.method)(group.start + offset, count)
+                    self.read_call_ms = round((time.monotonic() - called) * 1000, 1)
             if len(values) != count:
                 raise ModbusProtocolError("invalid_response_length")
             received = time.monotonic()
@@ -291,7 +322,10 @@ class UnitCoordinator(DataUpdateCoordinator):
             self.failures = 0
             self.last_response = received
             self._refresh_read_status()
-            self.latency_ms = round((received - started) * 1000, 1)
+            # The public HA Modbus API does not expose a wire-send timestamp.
+            # A call may include pacer and backend queue time: do not report it
+            # as device latency. Keep the legacy field empty for consumers.
+            self.latency_ms = None
             self.counters["responses"] += 1
             if (
                 self.model == "tm_32ds"
@@ -310,8 +344,15 @@ class UnitCoordinator(DataUpdateCoordinator):
                 self._pending.appendleft((group, offset, keys[:half]))
                 split = True
             else:
-                self.samples[keys[0]].fail("register_exception", invalidate=True)
+                sample = self.samples[keys[0]]
+                # Exception 02 is a complete response from this slave, even
+                # though this individual register has no usable value.
+                sample.consecutive_read_failures = 0
+                sample.fail("register_exception", invalidate=True)
                 self._known_bad.add(keys[0])
+                self.failures = 0
+                self.last_response = time.monotonic()
+                self._refresh_read_status()
         except ModbusExceptionError:
             # Busy and other exceptions are not evidence of a bad register.
             # Never fan a 32-register block out into 63 busy retries.

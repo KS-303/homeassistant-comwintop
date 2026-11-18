@@ -180,6 +180,7 @@
         "name": "Kommunikation",
         "state": {
           "initializing": "Initialisierung",
+          "inactive": "Keine aktiven Kanäle",
           "online": "Online",
           "suspect": "Kommunikation prüfen",
           "offline": "Offline",
