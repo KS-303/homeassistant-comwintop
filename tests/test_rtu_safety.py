@@ -65,7 +65,7 @@ async def test_clean_session_reloads_without_manual_reset():
     await second.close()
 
 
-async def test_timeout_latches_bus_and_survives_unload_and_restart():
+async def test_isolated_timeout_is_transient_and_next_read_restores_session():
     first = guard()
     await first.arm()
     unit = FakeUnit()
@@ -73,7 +73,35 @@ async def test_timeout_latches_bus_and_survives_unload_and_restart():
     with pytest.raises(TimeoutError):
         with first.reading():
             raise TimeoutError
-    assert first.unsafe and unit.unsafe_calls == 1
+    assert not first.unsafe and unit.unsafe_calls == 0
+    assert first.unverified_after_timeout
+    assert first.transient_timeouts == 1
+    assert first.quiet_until > 0
+    # An HA unload while a timeout is still unresolved cannot erase the
+    # persistent marker, even though this was only one missed reply.
+    await first.close()
+    assert FakeStore.persisted == {"active": True}
+    with pytest.raises(Exception, match="Unclean or uncertain"):
+        await guard().arm()
+    # The existing live session can recover after observing a new reply.
+    with first.reading():
+        pass
+    assert not first.unverified_after_timeout and first.recovered_timeouts == 1
+    await first.close()
+    assert FakeStore.persisted == {"active": False}
+
+
+async def test_second_unanswered_read_latches_bus_and_blocks_reconnect():
+    first = guard()
+    await first.arm()
+    unit = FakeUnit()
+    first.attach(unit)
+    for i in range(2):
+        with pytest.raises(TimeoutError):
+            with first.reading():
+                raise TimeoutError
+        assert first.unsafe is (i == 1)
+    assert unit.unsafe_calls == 1
     with pytest.raises(RtuBusUnsafe):
         with first.reading():
             raise AssertionError("never sent")
@@ -81,6 +109,21 @@ async def test_timeout_latches_bus_and_survives_unload_and_restart():
     assert FakeStore.persisted == {"active": True}
     with pytest.raises(Exception, match="Unclean or uncertain"):
         await guard().arm()
+
+
+async def test_transient_timeout_enforces_shared_quiet_period(monkeypatch):
+    first = guard()
+    await first.arm()
+    monkeypatch.setattr(rtu_safety, "RTU_READ_QUIET_SECONDS", 0.04)
+    with pytest.raises(TimeoutError):
+        with first.reading():
+            raise TimeoutError
+    started = rtu_safety.time.monotonic()
+    await first.settle()
+    assert rtu_safety.time.monotonic() - started >= 0.035
+    with first.reading():
+        pass
+    await first.close()
 
 
 async def test_read_cancellation_latches_bus():
@@ -143,8 +186,8 @@ async def test_known_modbus_exception_does_not_latch_bus():
     await first.close()
 
 
-async def test_real_coordinator_stops_polling_after_rtu_timeout(hass):
-    """After an ambiguous timeout even a forced poll cannot emit another frame."""
+async def test_real_coordinator_stops_polling_after_repeated_rtu_timeouts(hass):
+    """After two ambiguous timeouts even a forced poll cannot emit a new frame."""
     import logging
     import time
     from unittest.mock import AsyncMock
@@ -162,12 +205,16 @@ async def test_real_coordinator_stops_polling_after_rtu_timeout(hass):
     gate.attach(c)
     unit.read_holding_registers = AsyncMock(side_effect=TimeoutError())
     await c._poll_one(time.monotonic())
+    assert not gate.unsafe
+    assert gate.transient_timeouts == 1
+    assert c.status == "SUSPECT"
+    await c._poll_one(time.monotonic())
     assert gate.unsafe
     assert c.status == "OFFLINE"
     assert not c.available("temperature_1")
     assert all(value == float("inf") for value in c._next.values())
     await c._poll_one(time.monotonic())
-    assert unit.read_holding_registers.await_count == 1
+    assert unit.read_holding_registers.await_count == 2
     await c.stop()
     await gate.close()
 
