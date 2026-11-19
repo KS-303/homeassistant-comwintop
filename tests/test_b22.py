@@ -2,7 +2,6 @@
 
 import asyncio
 import hashlib
-import time
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -105,17 +104,21 @@ async def test_communication_refresh_not_lost_during_read(hass):
     )
     coordinator.model = "tm_32ds"
 
+    reads = 0
+
     async def read_with_racing_refresh():
-        coordinator._communication_refresh.set()
+        nonlocal reads
+        reads += 1
+        if reads == 1:
+            coordinator._communication_refresh.set()
         return {"status": "read_only"}
 
     coordinator.read_communication = read_with_racing_refresh
     task = asyncio.create_task(coordinator._communication_poll())
     try:
         await asyncio.sleep(5.1)
-        # If refreshed during the first read, clear-before-read keeps the
-        # event set and causes an immediate second read.
-        assert coordinator._communication_refresh.is_set()
+        # A refresh raised during the first read triggers a second read.
+        assert reads >= 2
     finally:
         task.cancel()
         await asyncio.gather(task, return_exceptions=True)
