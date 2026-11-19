@@ -23,6 +23,8 @@ from modbus_connection.exceptions import (
     ModbusExceptionError,
 )
 
+from .transport import endpoint_key
+
 # A Modbus TCP gateway can still misassociate late RTU replies on its serial side.
 RTU_TRANSPORTS = frozenset(("serial", "rtu_tcp", "tcp_gateway"))
 RTU_READ_QUIET_SECONDS = 8.0
@@ -63,10 +65,7 @@ class RtuSessionGuard:
         # usernames, serial paths or gateway addresses in storage filenames.
         self._store = None
         if self.enabled:
-            if entry.data["transport"] == "serial":
-                endpoint = os.path.realpath(entry.data["device"])
-            else:
-                endpoint = f"{entry.data['host'].strip().lower()}:{int(entry.data['port'])}"
+            endpoint = endpoint_key(dict(entry.data))
             fingerprint = sha256(endpoint.encode("utf-8")).hexdigest()[:32]
             self._store = Store(hass, 1, f"comwintop.rtu_session.{fingerprint}")
         self._armed = False
