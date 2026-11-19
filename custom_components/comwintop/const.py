@@ -1,7 +1,7 @@
 """Stable names and beta limits; no hardware validation is implied."""
 
 DOMAIN = "comwintop"
-VERSION = "0.1.0b21"
+VERSION = "0.1.0b22"
 PLATFORMS = ["sensor", "binary_sensor", "switch", "number"]
 DEFAULT_INTERVALS = {"temperature": 15, "di": 2, "do": 2, "ai": 10, "ao": 10}
 MIN_INTERVALS = {"temperature": 5, "di": 1, "do": 1, "ai": 2, "ao": 2}
