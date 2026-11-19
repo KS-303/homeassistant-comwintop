@@ -103,6 +103,13 @@ async def test_inflight_session_marker_survives_simulated_process_crash():
         await guard().arm()
 
 
+def test_tcp_gateway_transport_is_guarded():
+    gateway = RtuSessionGuard(
+        None, SimpleNamespace(data={"transport": "tcp_gateway"}, entry_id="gateway")
+    )
+    assert gateway.enabled
+
+
 def test_tcp_transport_has_no_rtu_guard():
     first = RtuSessionGuard(None, SimpleNamespace(data={"transport": "tcp"}, entry_id="test"))
     assert not first.enabled
