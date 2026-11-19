@@ -88,19 +88,21 @@ class RtuSessionGuard:
         self.marker_key = self._store.key if self._store else None
         self.issue_id = f"rtu_{self.marker_key.rsplit('.', 1)[-1]}" if self._store else None
 
-    def _issue(self, reason):
+    def _issue(self, reason, marker_key=None):
         if self._hass is None or not self.enabled:
             return
+        key = marker_key or self.marker_key
+        issue_id = f"rtu_{key.rsplit('.', 1)[-1]}"
         ir.async_create_issue(
             self._hass,
             "comwintop",
-            self.issue_id,
+            issue_id,
             is_fixable=True,
             is_persistent=True,
             severity=ir.IssueSeverity.ERROR,
             translation_key="rtu_recovery",
-            data={"marker_key": self.marker_key, "reason": reason},
-            translation_placeholders={"reason": reason, "marker": self.marker_key},
+            data={"marker_key": key, "reason": reason},
+            translation_placeholders={"reason": reason, "marker": key},
         )
 
     def _require_clean_marker(self, saved, exists):
@@ -140,7 +142,7 @@ class RtuSessionGuard:
             )
             previous = await self._legacy_store.async_load()
             if legacy_exists and previous != {"active": False}:
-                self._issue("legacy_b21_marker_unresolved")
+                self._issue("legacy_b21_marker_unresolved", self._legacy_store.key)
                 raise ConfigEntryError(
                     "Legacy b21 RTU safety marker remains active or unreadable. "
                     "Physical recovery is required before upgrading."
