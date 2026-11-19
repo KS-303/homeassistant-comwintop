@@ -93,7 +93,11 @@ class RtuSessionGuard:
             self._issue("corrupt_marker")
             raise ConfigEntryError(f"RTU session marker corrupt: {self.marker_key}")
         if saved not in (None, {"active": False}):
-            self._issue(str(saved.get("reason", "unclean_restart")) if isinstance(saved, dict) else "unclean_restart")
+            self._issue(
+                str(saved.get("reason", "unclean_restart"))
+                if isinstance(saved, dict)
+                else "unclean_restart"
+            )
             raise ConfigEntryError(
                 f"RTU session unsafe: {self.marker_key}. Use the Repairs dialog; "
                 "automatic recovery is forbidden."
@@ -148,9 +152,7 @@ class RtuSessionGuard:
         self._issue(reason)
         if self._hass is not None:
             self._hass.async_create_task(
-                self._store.async_save(
-                    {"active": True, "reason": reason, "since": self.reason_at}
-                ),
+                self._store.async_save({"active": True, "reason": reason, "since": self.reason_at}),
                 "ComWinTop RTU fault persistence",
             )
         # The on-disk active marker is intentionally not cleared on errors.
@@ -223,6 +225,7 @@ class RtuSessionGuard:
             raise RtuBusUnsafe("RTU request still running")
         await self._store.async_save({"active": False})
         if self._hass is not None:
+
             def verified():
                 try:
                     value = json.loads(Path(self._store.path).read_text(encoding="utf-8"))
