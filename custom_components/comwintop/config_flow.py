@@ -4,6 +4,7 @@ import asyncio
 import math
 from contextlib import asynccontextmanager
 from copy import deepcopy
+from types import SimpleNamespace
 from uuid import uuid4
 
 import voluptuous as vol
@@ -22,6 +23,7 @@ from .const import (
     NEW_DEVICE_INTERVALS,
     READ_DEADLINE,
 )
+from .rtu_safety import RtuSessionGuard
 from .model import revise_device, set_temperature_range_enabled, validate_device
 from .profiles import (
     BUILTIN_PROFILES,
@@ -197,20 +199,41 @@ async def guarded_temporary_unit(hass, connection, unit_id):
         runtime = getattr(entry, "runtime_data", None)
         if runtime is not None:
             matches.append(runtime)
+    temporary_guard = None
     if not matches:
-        raise HomeAssistantError("ComWinTop connection must be loaded before probing")
-    for runtime in matches:
+        # A connection reconfiguration probes the *new* endpoint before the
+        # running entry has been moved. It needs an independent destination
+        # marker and the original entry's fairness lock.
+        sources = [
+            getattr(entry, "runtime_data", None)
+            for entry in hass.config_entries.async_entries(DOMAIN)
+            if entry.data.get("connection_uid") == connection.get("connection_uid")
+        ]
+        sources = [source for source in sources if source is not None]
+        if len(sources) != 1:
+            raise HomeAssistantError("ComWinTop connection must be loaded before probing")
+        runtime = sources[0]
         if runtime.rtu_guard.unsafe:
             raise HomeAssistantError("rtu_bus_unsynchronized")
-    # Identical endpoints must not be configured as separate independent hubs.
-    if len(matches) != 1:
-        raise HomeAssistantError("multiple_comwintop_hubs_on_same_bus")
-    runtime = matches[0]
+        temporary_guard = RtuSessionGuard(hass, SimpleNamespace(data=connection))
+        await temporary_guard.arm()
+        guard = temporary_guard
+    else:
+        if len(matches) != 1:
+            raise HomeAssistantError("multiple_comwintop_hubs_on_same_bus")
+        runtime = matches[0]
+        guard = runtime.rtu_guard
+        if guard.unsafe:
+            raise HomeAssistantError("rtu_bus_unsynchronized")
     params = await hass.async_add_executor_job(params_from, dict(connection))
-    async with runtime.bus_lock:
-        await runtime.rtu_guard.settle()
-        async with async_get_temporary_unit(hass, params, unit_id) as unit:
-            yield unit, runtime.rtu_guard
+    try:
+        async with runtime.bus_lock:
+            await guard.settle()
+            async with async_get_temporary_unit(hass, params, unit_id) as unit:
+                yield unit, guard
+    finally:
+        if temporary_guard is not None:
+            await temporary_guard.close()
 
 
 async def probe(hass, connection, device):
