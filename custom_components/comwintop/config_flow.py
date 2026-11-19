@@ -23,7 +23,6 @@ from .const import (
     NEW_DEVICE_INTERVALS,
     READ_DEADLINE,
 )
-from .rtu_safety import RtuSessionGuard
 from .model import revise_device, set_temperature_range_enabled, validate_device
 from .profiles import (
     BUILTIN_PROFILES,
@@ -36,6 +35,7 @@ from .profiles import (
     load_local_profiles,
     publish_local_profiles,
 )
+from .rtu_safety import RtuSessionGuard
 from .transport import MODES as TRANSPORTS
 from .transport import endpoint_key, params_from
 
