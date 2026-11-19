@@ -183,6 +183,8 @@ class UnitCoordinator(DataUpdateCoordinator):
             return None
         try:
             async with self.bus_lock:
+                if self.rtu_guard is not None:
+                    await self.rtu_guard.settle()
                 if self.rtu_guard is None:
                     async with asyncio.timeout(READ_DEADLINE):
                         raw_values = await self.unit.read_holding_registers(16, 1)
@@ -325,6 +327,8 @@ class UnitCoordinator(DataUpdateCoordinator):
             # ComWinTop shares this fairness lock across its own units. The HA
             # backend also serializes ALL integrations sharing the physical link.
             async with self.bus_lock:
+                if self.rtu_guard is not None:
+                    await self.rtu_guard.settle()
                 acquired = time.monotonic()
                 self.bus_lock_wait_ms = round((acquired - waiting_since) * 1000, 1)
                 if self.rtu_guard is None:
