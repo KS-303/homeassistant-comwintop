@@ -7,9 +7,11 @@ reads after an ambiguous exchange and survives unclean HA restarts.
 """
 
 import asyncio
+import json
 import os
 from contextlib import contextmanager
 from hashlib import sha256
+from pathlib import Path
 
 from homeassistant.exceptions import ConfigEntryError
 from homeassistant.helpers.storage import Store
@@ -36,6 +38,7 @@ class RtuSessionGuard:
     """
 
     def __init__(self, hass, entry):
+        self._hass = hass
         self.enabled = entry.data["transport"] in RTU_TRANSPORTS
         self.unsafe = False
         self.inflight = 0
@@ -67,6 +70,20 @@ class RtuSessionGuard:
             )
         # Persist before any task can transmit. Failure to persist fails setup.
         await self._store.async_save({"active": True})
+        # HA's Store logs filesystem WriteError instead of propagating it.
+        # Verify actual on-disk persistence before allowing *any* RTU frame.
+        if hass := self._hass:
+            def persisted():
+                try:
+                    data = json.loads(Path(self._store.path).read_text(encoding="utf-8"))
+                    return data.get("key") == self._store.key and data.get("data") == {
+                        "active": True
+                    }
+                except (OSError, ValueError, TypeError, AttributeError):
+                    return False
+
+            if not await hass.async_add_executor_job(persisted):
+                raise ConfigEntryError("RTU session marker not durably stored; reads blocked")
         self._armed = True
 
     def attach(self, coordinator):
