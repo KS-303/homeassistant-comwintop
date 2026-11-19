@@ -99,9 +99,7 @@ async def test_communication_refresh_not_lost_during_read(hass):
     entry = configured_entry()
     unit = Unit()
     sub = next(iter(entry.subentries.values()))
-    coordinator = UnitCoordinator(
-        hass, entry, sub, unit, asyncio.Lock(), logging.getLogger("test")
-    )
+    coordinator = UnitCoordinator(hass, entry, sub, unit, asyncio.Lock(), logging.getLogger("test"))
     coordinator.model = "tm_32ds"
 
     reads = 0
