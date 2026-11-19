@@ -319,34 +319,29 @@
       }
     }
   },
-  "repairs": {
-    "issue": {
-      "rtu_recovery": {
-        "title": "RTU-Bus gesperrt – Wartungsfreigabe erforderlich",
-        "description": "Modbus-RTU-Lesezugriffe sind nach {reason} gesperrt. Vor der Freigabe Bus und Gateway spannungsfrei setzen, einen einzigen Master sicherstellen und die vollständige Leerung aller Gateway-Puffer prüfen. Marker: {marker}."
-      },
-      "poll_exhausted": {
-        "title": "ComWinTop-Abfrage dauerhaft beendet",
-        "description": "Die Modbus-Polling-Aufgabe wurde nach mehrfachen internen Fehlern angehalten. Integration und Protokoll prüfen; nicht ungeprüft als zuverlässige Messwertquelle verwenden."
-      }
-    },
-    "flow": {
-      "confirm": {
+  "issues": {
+    "rtu_recovery": {
+      "title": "RTU-Bus gesperrt – Hardwareprüfung erforderlich",
+      "fix_flow": {
         "step": {
           "confirm": {
-            "title": "RTU-Bus bewusst freigeben",
-            "description": "Nur fortfahren, nachdem alle drei Hardwareprüfungen durchgeführt wurden. Diese Handlung startet keinen automatischen Wiederholversuch.",
+            "title": "RTU-Bus nach Hardwareprüfung freigeben",
+            "description": "Die RTU-Verbindung ist nach einem unklaren Kommunikationszustand gesperrt. Die Häkchen bestätigen tatsächlich durchgeführte Prüfungen; sie führen selbst keine Prüfung aus. Erst fortfahren, wenn Gateway und RTU-Geräte vollständig spannungsfrei waren und keine alten Antworttelegramme mehr im Gateway stehen. Ein reiner Software-Neustart reicht nicht aus.",
             "data": {
-              "bus_power_cycled": "Gateway und RTU-Geräte waren vollständig spannungsfrei",
-              "sole_master_confirmed": "Genau ein Master ist am physischen RS485-Bus angeschlossen",
-              "gateway_queues_cleared": "Gateway-Puffer wurden entsprechend Herstellerangaben geleert"
+              "bus_power_cycled": "Ich habe das Waveshare-Gateway und die angeschlossenen RTU-Geräte vollständig spannungsfrei geschaltet und anschließend neu gestartet.",
+              "sole_master_confirmed": "Ich habe geprüft, dass genau ein Modbus-Master am physischen RS485-Bus angeschlossen ist.",
+              "gateway_queues_cleared": "Ich habe anhand der Gateway-Dokumentation oder eines Mitschnitts sichergestellt, dass keine alten Antworten oder Telegramme mehr gepuffert sind."
             }
           }
         },
         "error": {
-          "incomplete": "Alle drei Hardwareprüfungen bestätigen."
+          "incomplete": "Alle drei Hardwareprüfungen müssen durchgeführt und bestätigt werden, bevor der Bus freigegeben wird."
         }
       }
+    },
+    "poll_exhausted": {
+      "title": "ComWinTop-Abfrage dauerhaft beendet",
+      "description": "Die Modbus-Abfrage wurde nach wiederholten internen Fehlern angehalten. Die Diagnosedaten prüfen; Messwerte könnten veraltet sein."
     }
   }
 }
