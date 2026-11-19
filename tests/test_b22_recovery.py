@@ -32,8 +32,8 @@ async def test_normal_hass_stop_clears_only_clean_rtu_marker(hass):
         await hass.async_stop(force=True)
         # HA's executor is closed after async_stop; verify the persisted
         # envelope directly, not through Store.async_load().
-        envelope = json.loads(  # noqa: ASYNC240 - HA executor is stopped
-            Path(guard._store.path).read_text(encoding="utf-8")
+        envelope = json.loads(
+            Path(guard._store.path).read_text(encoding="utf-8")  # noqa: ASYNC240
         )
         assert envelope["data"] == {"active": False}
     finally:
