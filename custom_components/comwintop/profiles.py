@@ -221,14 +221,21 @@ def finite(value):
     return number
 
 
-def decode_temperature(raw):
-    if type(raw) is not int or not 0 <= raw <= 1250:
+def decode_temperature(raw, allow_negative=False):
+    if type(raw) is not int or not 0 <= raw <= 65535:
         raise InvalidValue("temperature_encoding_unverified")
-    if raw == 850:
+    if raw == 0xFC18:
+        raise InvalidValue("probe_disconnected")
+    signed = raw - 65536 if raw & 0x8000 else raw
+    if signed < 0 and not allow_negative:
+        raise InvalidValue("negative_temperature_unverified")
+    if not -550 <= signed <= 1250:
+        raise InvalidValue("temperature_encoding_unverified")
+    if signed == 850:
         # A real 85 C measurement is indistinguishable from a power-up value
         # until the device's status/sentinel behavior has been measured.
         raise InvalidValue("temperature_85_ambiguous")
-    return raw / 10
+    return signed / 10
 
 
 def analog_physical(raw, mode, output=False):
@@ -281,7 +288,7 @@ def channels(model):
 
 def decode_channel(kind, raw, options):
     if kind == "temperature":
-        return decode_temperature(raw)
+        return decode_temperature(raw, options.get("allow_negative", False))
     if kind in ("di", "do"):
         if type(raw) is not bool:
             raise InvalidValue("invalid_bit")
