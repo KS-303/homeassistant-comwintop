@@ -62,7 +62,8 @@ Testwerte 0,20/0,08/0,35 s sind Simulatordaten und keine Hardwareempfehlung.
 
 Eine RTU-Antwort besitzt keine Transaktionsnummer. Eine beliebig lange
 verzögerte Antwort ist nicht nachweisbar frisch. Die in b20 integrierte
-`RtuSessionGuard`-Schicht stellt daher **keinen automatischen Resync** in
+`RtuSessionGuard`-Schicht für serielles RTU, transparentes RTU-over-TCP
+und TCP-zu-RTU-Gateways stellt daher **keinen automatischen Resync** in
 Aussicht, sondern stoppt ComWinTop-Leseanforderungen nach Timeout,
 Protokollfehler, Abbruch oder Verbindungsverlust. Alle Koordinatoren
 derselben ComWinTop-Verbindung werden sofort ungültig und OFFLINE.
