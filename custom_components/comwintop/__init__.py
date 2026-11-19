@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 from homeassistant.components.modbus import async_get_unit
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HassJob, HomeAssistant
 from homeassistant.exceptions import ConfigEntryError, ConfigEntryNotReady, HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
@@ -133,6 +133,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
         for coordinator in coordinators.values():
             await coordinator.start()
+        # HA stops background tasks at shutdown without unloading entries.
+        # The shutdown job runs first, stops polls and only then clears a
+        # confirmed clean marker; crashes leave the active marker intact.
+        async def clean_shutdown():
+            for coordinator in coordinators.values():
+                await coordinator.stop()
+            await rtu_guard.close()
+
+        entry.async_on_unload(
+            hass.async_add_shutdown_job(
+                HassJob(clean_shutdown, f"comwintop_clean_shutdown_{entry.entry_id}")
+            )
+        )
     except (Exception, asyncio.CancelledError) as err:
         for coordinator in coordinators.values():
             with suppress(Exception):
@@ -151,7 +164,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             raise
         if isinstance(err, (ConfigEntryError, ConfigEntryNotReady)):
             raise
-        if isinstance(err, (InvalidValue, ValueError, KeyError, TypeError)):
+        if isinstance(err, (InvalidValue, ValueError, KeyError)):
             raise ConfigEntryError("Invalid ComWinTop configuration") from err
         if isinstance(
             err, (ModbusError, TimeoutError, ConnectionError, OSError, HomeAssistantError)
