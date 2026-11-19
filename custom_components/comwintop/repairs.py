@@ -23,14 +23,20 @@ class RtuRecoveryFlow(RepairsFlow):
 
     async def async_step_confirm(self, user_input=None):
         fields = {
-            vol.Required("bus_power_cycled"): vol.IsTrue(),
-            vol.Required("sole_master_confirmed"): vol.IsTrue(),
-            vol.Required("gateway_queues_cleared"): vol.IsTrue(),
+            vol.Required("bus_power_cycled"): bool,
+            vol.Required("sole_master_confirmed"): bool,
+            vol.Required("gateway_queues_cleared"): bool,
         }
         if user_input is None:
             return self.async_show_form(step_id="confirm", data_schema=vol.Schema(fields))
         try:
             vol.Schema(fields)(user_input)
+            if not all(user_input.get(field) is True for field in (
+                "bus_power_cycled",
+                "sole_master_confirmed",
+                "gateway_queues_cleared",
+            )):
+                raise vol.Invalid("incomplete")
         except vol.Invalid:
             return self.async_show_form(
                 step_id="confirm", data_schema=vol.Schema(fields), errors={"base": "incomplete"}
