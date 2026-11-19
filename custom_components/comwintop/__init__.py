@@ -133,6 +133,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
         for coordinator in coordinators.values():
             await coordinator.start()
+
         # HA stops background tasks at shutdown without unloading entries.
         # The shutdown job runs first, stops polls and only then clears a
         # confirmed clean marker; crashes leave the active marker intact.
