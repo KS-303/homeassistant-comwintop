@@ -237,8 +237,16 @@ def detected_tm32ds_channels(frames):
                 raise InvalidValue("ambiguous_zero")
             decode_temperature(second)
             decode_temperature(third)
-        except InvalidValue:
-            disabled[f"temperature_{index}"] = {"enabled": False}
+        except InvalidValue as error:
+            reason = str(error)
+            disabled[f"temperature_{index}"] = {
+                "enabled": False,
+                "detection_state": (
+                    "ambiguous"
+                    if reason in ("ambiguous_zero", "temperature_85_ambiguous")
+                    else "invalid"
+                ),
+            }
     return disabled
 
 
@@ -711,6 +719,10 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                 vol.Range(min=CONFIGURABLE_MIN_INTERVALS[kind], max=3600),
             ),
         }
+        if kind == "temperature":
+            fields[
+                vol.Required("allow_negative", default=options.get("allow_negative", False))
+            ] = bool
         if kind == "di":
             fields[vol.Required("nc", default=options.get("nc", False))] = bool
         if kind in ("ai", "ao"):
