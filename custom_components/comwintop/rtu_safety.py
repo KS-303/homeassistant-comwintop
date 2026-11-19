@@ -81,9 +81,7 @@ class RtuSessionGuard:
                 )
             previous_id = sha256(previous_endpoint.encode("utf-8")).hexdigest()[:32]
             if previous_id != fingerprint:
-                self._legacy_store = Store(
-                    hass, 1, f"comwintop.rtu_session.{previous_id}"
-                )
+                self._legacy_store = Store(hass, 1, f"comwintop.rtu_session.{previous_id}")
         self._armed = False
         self.marker_key = self._store.key if self._store else None
         self.issue_id = f"rtu_{self.marker_key.rsplit('.', 1)[-1]}" if self._store else None
@@ -134,9 +132,7 @@ class RtuSessionGuard:
         self._require_clean_marker(saved, marker_exists)
         if self._legacy_store is not None:
             legacy_exists = (
-                await self._hass.async_add_executor_job(
-                    os.path.exists, self._legacy_store.path
-                )
+                await self._hass.async_add_executor_job(os.path.exists, self._legacy_store.path)
                 if self._hass is not None
                 else False
             )
