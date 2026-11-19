@@ -48,6 +48,7 @@ class RtuSessionGuard:
         self._hass = hass
         self.enabled = entry.data["transport"] in RTU_TRANSPORTS
         self.unsafe = False
+        self.expected_unload = False
         self.inflight = 0
         self.reason = None
         self.reason_at = None
