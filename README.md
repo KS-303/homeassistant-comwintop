@@ -1,6 +1,6 @@
 # ComWinTop for Home Assistant
 
-> **Entwicklungsstand 0.1.0b18 (b17-Stabilisierung, noch kein Release):**
+> **Entwicklungsstand 0.1.0b19 (Registry-Korrektur, noch kein Release):**
 > Basis ist b17. Das Installationspaket enthält nur fest freigegebene
 > Integrationsdateien; der ungenutzte Schreibmanager bleibt außerhalb des ZIP.
 > Die experimentelle Slave-ID-Schreibfunktion (FC06) sowie DO/AO-Schreiben
@@ -19,7 +19,7 @@
 
 ComWinTop verbindet CWT-I/O-Geräte lokal über Modbus mit Home Assistant.
 Der veröffentlichte Stand ist **v0.1.0b1 (lesende Beta)**. Das
-**0.1.0b18-Testpaket** baut auf b17 auf und ist kein GitHub-Release.
+**0.1.0b19-Testpaket** baut auf b18 auf und ist kein GitHub-Release.
 Die Integration ist
 herstellerunabhängig beim Gateway,
 aber für die mitgelieferten Registerprofile gerätespezifisch. Sie ist kein
@@ -112,8 +112,9 @@ Abfrageintervall** wählt man „Standard (Gruppenintervall übernehmen)“ oder
 „Individuell“ samt Sekundenwert. Das Zahlenfeld wird bei „Standard“ ignoriert.
 Neu einstellbar: 5–3600 s je Kanalart. Neu angelegte MB-308N starten mit
 DI/DO 8 s und AI/AO 20 s. Bereits gespeicherte kürzere Gruppen- und
-Einzelintervalle werden unverändert geladen; im Dialog sind neu eingegebene
-Werte unter 5 s nicht mehr zulässig. Lokal definierte Profile übernehmen die
+Einzelintervalle werden unverändert geladen. Im Dialog lassen sich bestehende
+kurze Gruppenwerte über einen Haken und einzelne Kanalwerte über eine eigene
+Auswahl beibehalten. Neue Werte unter 5 s sind nicht zulässig. Lokal definierte Profile übernehmen die
 neuen Eingabegrenzen. Bei vielen Geräten oder getrennt fälligen Einzelkanälen
 garantiert selbst 5 s nicht, dass die gemeinsame Buskapazität reicht.
 Die Diagnose `minimum_read_rate_hz` zeigt eine optimistische Untergrenze je
@@ -172,6 +173,9 @@ drei gültig beantworteten Telegrammen mit dem nachgewiesenen Fehlerwert `0xFC18
 möglichen internen Pause. `latency_ms` ist bewusst leer: Die öffentliche
 HA-Modbus-API liefert keinen tatsächlichen Sendezeitpunkt. Die Antwortzeit
 des Geräts ist nur mit unabhängigem Busmitschnitt zu messen.
+Die [RTU-Timeout-Untersuchung](docs/rtu_timeout_solution.md) beschreibt die
+nachgewiesene Gefahr verspäteter Antworten und die noch offene Lösung im
+gemeinsamen Transport. Der bestehende Reset ist keine Verfügbarkeitsgarantie.
 
 ### Update und vollständige Entfernung
 
@@ -182,8 +186,10 @@ Wenn das ZIP unter `/config` liegt, lautet der Update-Befehl im HA-Terminal:
 
 ```bash
 cd /config
-mv custom_components/comwintop custom_components/comwintop.backup
-unzip comwintop-0.1.0b18-install.zip
+mkdir -p /config/backup
+test ! -e /config/backup/comwintop-previous && \
+  mv custom_components/comwintop /config/backup/comwintop-previous && \
+  unzip comwintop-0.1.0b19-install.zip
 ```
 
 Das Archiv legt ausschließlich `/config/custom_components/comwintop/` an.

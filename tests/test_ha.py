@@ -253,7 +253,7 @@ async def test_old_disabled_channel_registry_preserves_id_and_user_choice(hass, 
     assert registry.async_get(first).disabled_by == er.RegistryEntryDisabler.INTEGRATION
     assert registry.async_get(second).disabled_by == er.RegistryEntryDisabler.USER
     c = next(iter(entry.runtime_data.units.values()))
-    assert c.status == "INITIALIZING"  # Other channels are still enabled.
+    assert c.status == "INITIALIZING"
     sub = entry.subentries[sub.subentry_id]
     data = dict(sub.data) | {"channels": {key: {"enabled": False} for key in c.samples}}
     hass.config_entries.async_update_subentry(entry, sub, data=data)
@@ -261,6 +261,39 @@ async def test_old_disabled_channel_registry_preserves_id_and_user_choice(hass, 
     assert next(iter(entry.runtime_data.units.values())).status == "INACTIVE"
     assert registry.async_get_entity_id("sensor", DOMAIN, "device-id_temperature_1") == first
     assert registry.async_get(second).disabled_by == er.RegistryEntryDisabler.USER
+
+
+async def test_raw_opt_in_survives_reload_and_channel_disable(hass, sim):
+    entry = make_entry(sim)
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+    registry = er.async_get(hass)
+    raw1 = registry.async_get_entity_id("sensor", DOMAIN, "device-id_temperature_1_raw")
+    raw2 = registry.async_get_entity_id("sensor", DOMAIN, "device-id_temperature_2_raw")
+    assert registry.async_get(raw1).disabled_by == er.RegistryEntryDisabler.INTEGRATION
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert registry.async_get(raw1).disabled_by == er.RegistryEntryDisabler.INTEGRATION
+    registry.async_update_entity(raw1, disabled_by=None)
+    await hass.async_block_till_done()
+    sub = next(iter(entry.subentries.values()))
+    data = dict(sub.data) | {
+        "channels": {"temperature_1": {"enabled": False}, "temperature_2": {"enabled": False}}
+    }
+    hass.config_entries.async_update_subentry(entry, sub, data=data)
+    await hass.async_block_till_done()
+    assert registry.async_get(raw1).disabled_by == er.RegistryEntryDisabler.INTEGRATION
+    assert registry.async_get(raw2).disabled_by == er.RegistryEntryDisabler.INTEGRATION
+    sub = entry.subentries[sub.subentry_id]
+    data = dict(sub.data) | {"channels": {}}
+    hass.config_entries.async_update_subentry(entry, sub, data=data)
+    await hass.async_block_till_done()
+    assert registry.async_get(raw1).disabled_by is None
+    assert registry.async_get(raw2).disabled_by == er.RegistryEntryDisabler.INTEGRATION
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert registry.async_get(raw1).disabled_by is None
+    assert registry.async_get(raw2).disabled_by == er.RegistryEntryDisabler.INTEGRATION
 
 
 async def test_reconfigure_address_preserves_entities(hass, sim):

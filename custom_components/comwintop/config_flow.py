@@ -527,38 +527,45 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
     async def async_step_intervals(self, user_input=None):
         sub = self._get_reconfigure_subentry()
         kinds = [g.kind for g in PROFILES[sub.data["model"]]]
+        old_intervals = sub.data.get("intervals", {})
+        legacy = {
+            kind: old_intervals.get(kind, DEFAULT_INTERVALS[kind])
+            for kind in kinds
+            if old_intervals.get(kind, DEFAULT_INTERVALS[kind]) < CONFIGURABLE_MIN_INTERVALS[kind]
+        }
         errors = {}
         if user_input is not None:
-            data = dict(sub.data) | {"intervals": dict(sub.data.get("intervals", {})) | user_input}
+            selected = dict(user_input)
+            for kind, value in legacy.items():
+                if selected.pop(f"keep_{kind}", False):
+                    selected[kind] = value
+            data = dict(sub.data) | {"intervals": dict(old_intervals) | selected}
             try:
                 validate_device(data, previous=sub.data)
             except (ValueError, KeyError):
                 errors["base"] = "invalid_interval"
             else:
                 return self.async_update_and_abort(self._get_entry(), sub, data=data)
+        fields = {}
+        for kind in kinds:
+            if kind in legacy:
+                fields[vol.Required(f"keep_{kind}", default=True)] = bool
+            fields[
+                vol.Required(
+                    kind,
+                    default=max(
+                        CONFIGURABLE_MIN_INTERVALS[kind],
+                        old_intervals.get(kind, DEFAULT_INTERVALS[kind]),
+                    ),
+                )
+            ] = vol.All(vol.Coerce(int), vol.Range(min=CONFIGURABLE_MIN_INTERVALS[kind], max=3600))
         return self.async_show_form(
             step_id="intervals",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(
-                        kind,
-                        default=sub.data.get("intervals", {}).get(kind, DEFAULT_INTERVALS[kind]),
-                    ): vol.All(
-                        vol.Coerce(int),
-                        vol.Range(
-                            min=min(
-                                CONFIGURABLE_MIN_INTERVALS[kind],
-                                sub.data.get("intervals", {}).get(
-                                    kind, CONFIGURABLE_MIN_INTERVALS[kind]
-                                ),
-                            ),
-                            max=3600,
-                        ),
-                    )
-                    for kind in kinds
-                }
-            ),
+            data_schema=vol.Schema(fields),
             errors=errors,
+            description_placeholders={
+                "legacy_intervals": ", ".join(f"{k}: {v} s" for k, v in legacy.items()) or "—"
+            },
         )
 
     async def async_step_channel(self, user_input=None):
@@ -583,6 +590,8 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
         key = self._channel
         kind = key.rsplit("_", 1)[0]
         options = sub.data.get("channels", {}).get(key, {})
+        old_interval = options.get("poll_interval")
+        has_legacy = old_interval is not None and old_interval < CONFIGURABLE_MIN_INTERVALS[kind]
         errors = {}
         if user_input is not None:
             data = deepcopy(dict(sub.data))
@@ -591,6 +600,9 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                 "poll_interval_mode",
                 "individual" if "poll_interval" in selected else "standard",
             )
+            if mode == "legacy" and has_legacy:
+                mode = "individual"
+                selected["poll_interval"] = old_interval
             if mode == "standard":
                 if "poll_interval" in selected and options.get("poll_interval") is None:
                     errors["base"] = "choose_individual_interval"
@@ -626,29 +638,42 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
             "de": {
                 "standard": "Standard (Gruppenintervall übernehmen)",
                 "individual": "Individuell",
+                "legacy": f"Bisherigen Wert beibehalten ({old_interval} Sekunden)",
             },
-            "en": {"standard": "Default (inherit group interval)", "individual": "Individual"},
+            "en": {
+                "standard": "Default (inherit group interval)",
+                "individual": "Individual",
+                "legacy": f"Keep existing value ({old_interval} seconds)",
+            },
         }
         fields = {
             vol.Optional("name", default=options.get("name", "")): str,
             vol.Required("enabled", default=options.get("enabled", True)): bool,
             vol.Required(
                 "poll_interval_mode",
-                default="individual" if options.get("poll_interval") is not None else "standard",
-            ): select(labeled_options(("standard", "individual"), labels[ui_language(self.hass)])),
+                default="legacy"
+                if has_legacy
+                else "individual"
+                if old_interval is not None
+                else "standard",
+            ): select(
+                labeled_options(
+                    ("standard", "individual", "legacy")
+                    if has_legacy
+                    else ("standard", "individual"),
+                    labels[ui_language(self.hass)],
+                )
+            ),
             vol.Optional(
                 "poll_interval",
                 **(
                     {"default": options["poll_interval"]}
-                    if options.get("poll_interval") is not None
+                    if options.get("poll_interval") is not None and not has_legacy
                     else {}
                 ),
             ): vol.All(
                 vol.Coerce(float),
-                vol.Range(
-                    min=min(CONFIGURABLE_MIN_INTERVALS[kind], options.get("poll_interval", 3600)),
-                    max=3600,
-                ),
+                vol.Range(min=CONFIGURABLE_MIN_INTERVALS[kind], max=3600),
             ),
         }
         if kind == "di":

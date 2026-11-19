@@ -118,7 +118,7 @@ class UnitCoordinator(DataUpdateCoordinator):
     def connection_lost(self):
         if self._stopping:
             return
-        self.status = "OFFLINE"
+        self.status = "OFFLINE" if any(self.enabled(key) for key in self.samples) else "INACTIVE"
         self.counters["transport_errors"] += 1
         self.communication_values = None
         self.communication_received = None
