@@ -65,10 +65,25 @@ class RtuSessionGuard:
         # entry must not erase an unresolved bus fault. Do not expose
         # usernames, serial paths or gateway addresses in storage filenames.
         self._store = None
+        self._legacy_store = None
         if self.enabled:
             endpoint = endpoint_key(dict(entry.data))
             fingerprint = sha256(endpoint.encode("utf-8")).hexdigest()[:32]
             self._store = Store(hass, 1, f"comwintop.rtu_session.{fingerprint}")
+            # b21 used a different filename fingerprint. Check the previous
+            # marker before any read, otherwise upgrading could silently
+            # forget an unresolved b21 latch.
+            if entry.data["transport"] == "serial":
+                previous_endpoint = os.path.realpath(entry.data["device"])
+            else:
+                previous_endpoint = (
+                    f"{entry.data['host'].strip().lower()}:{int(entry.data['port'])}"
+                )
+            previous_id = sha256(previous_endpoint.encode("utf-8")).hexdigest()[:32]
+            if previous_id != fingerprint:
+                self._legacy_store = Store(
+                    hass, 1, f"comwintop.rtu_session.{previous_id}"
+                )
         self._armed = False
         self.marker_key = self._store.key if self._store else None
         self.issue_id = f"rtu_{self.marker_key.rsplit('.', 1)[-1]}" if self._store else None
@@ -115,6 +130,21 @@ class RtuSessionGuard:
         )
         saved = await self._store.async_load()
         self._require_clean_marker(saved, marker_exists)
+        if self._legacy_store is not None:
+            legacy_exists = (
+                await self._hass.async_add_executor_job(
+                    os.path.exists, self._legacy_store.path
+                )
+                if self._hass is not None
+                else False
+            )
+            previous = await self._legacy_store.async_load()
+            if legacy_exists and previous != {"active": False}:
+                self._issue("legacy_b21_marker_unresolved")
+                raise ConfigEntryError(
+                    "Legacy b21 RTU safety marker remains active or unreadable. "
+                    "Physical recovery is required before upgrading."
+                )
         # Persist before any task can transmit. Failure to persist fails setup.
         await self._store.async_save({"active": True})
         # HA's Store logs filesystem WriteError instead of propagating it.
