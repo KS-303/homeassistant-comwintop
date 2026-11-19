@@ -193,6 +193,8 @@ class UnitCoordinator(DataUpdateCoordinator):
                         async with asyncio.timeout(READ_DEADLINE):
                             raw_values = await self.unit.read_holding_registers(16, 1)
             if len(raw_values) != 1:
+                if self.rtu_guard is not None:
+                    self.rtu_guard.latch("invalid_communication_register_length")
                 raise ValueError("invalid_communication_register_length")
             result = inspect_tm32ds(raw_values[0], self.settings["unit_id"])
         except asyncio.CancelledError:
@@ -410,6 +412,8 @@ class UnitCoordinator(DataUpdateCoordinator):
         except (TimeoutError, ModbusProtocolError) as err:
             self.failures += 1
             code = "timeout" if isinstance(err, TimeoutError) else "protocol_error"
+            if code == "protocol_error" and self.rtu_guard is not None:
+                self.rtu_guard.latch("protocol_error")
             self.counters[code] += 1
             for key in keys:
                 self.samples[key].read_failed(code)
