@@ -81,7 +81,7 @@ async def test_isolated_timeout_is_transient_and_next_read_restores_session():
     # persistent marker, even though this was only one missed reply.
     await first.close()
     assert FakeStore.persisted == {"active": True}
-    with pytest.raises(Exception, match="Unclean or uncertain"):
+    with pytest.raises(Exception, match="RTU session unsafe"):
         await guard().arm()
     # The existing live session can recover after observing a new reply.
     with first.reading():
@@ -107,7 +107,7 @@ async def test_second_unanswered_read_latches_bus_and_blocks_reconnect():
             raise AssertionError("never sent")
     await first.close()
     assert FakeStore.persisted == {"active": True}
-    with pytest.raises(Exception, match="Unclean or uncertain"):
+    with pytest.raises(Exception, match="RTU session unsafe"):
         await guard().arm()
 
 
@@ -154,7 +154,7 @@ async def test_inflight_session_marker_survives_simulated_process_crash():
     first = guard()
     await first.arm()
     assert FakeStore.persisted == {"active": True}
-    with pytest.raises(Exception, match="Unclean or uncertain"):
+    with pytest.raises(Exception, match="RTU session unsafe"):
         await guard().arm()
 
 
