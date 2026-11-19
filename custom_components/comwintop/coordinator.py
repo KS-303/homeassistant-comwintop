@@ -5,6 +5,7 @@ import time
 from collections import Counter, deque
 from contextlib import suppress
 
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from modbus_connection.exceptions import (
     IllegalDataAddressError,
@@ -162,7 +163,13 @@ class UnitCoordinator(DataUpdateCoordinator):
                 self.hass, self._communication_poll(), f"comwintop_comm_{self.uid}"
             )
 
+    @property
+    def poll_running(self):
+        return bool(self._poll_task and not self._poll_task.done())
+
     async def stop(self):
+        if self._stopping:
+            return
         self._stopping = True
         self._unsubscribe()
         tasks = [t for t in (self._poll_task, self._age_task, self._communication_task) if t]
@@ -260,6 +267,12 @@ class UnitCoordinator(DataUpdateCoordinator):
                 crashes.append(now)
                 if len(crashes) >= 3:
                     self.counters["poll_task_exhausted"] += 1
+                    ir.async_create_issue(
+                        self.hass, "comwintop", f"poll_exhausted_{self.uid}",
+                        is_fixable=False, is_persistent=True,
+                        severity=ir.IssueSeverity.ERROR,
+                        translation_key="poll_exhausted",
+                    )
                     self._logger.critical("ComWinTop polling exhausted its restart budget")
                     self.async_set_updated_data(self.samples)
                     return
