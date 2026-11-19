@@ -1,5 +1,8 @@
 """b22 lifecycle and HA Repairs regression tests."""
 
+import json
+from pathlib import Path
+
 import pytest
 from homeassistant.helpers.storage import Store
 
@@ -27,7 +30,10 @@ async def test_normal_hass_stop_clears_only_clean_rtu_marker(hass):
         )
         assert (await guard._store.async_load()) == {"active": True}
         await hass.async_stop(force=True)
-        assert (await guard._store.async_load()) == {"active": False}
+        # HA's executor is closed after async_stop; verify the persisted
+        # envelope directly, not through Store.async_load().
+        envelope = json.loads(Path(guard._store.path).read_text(encoding="utf-8"))
+        assert envelope["data"] == {"active": False}
     finally:
         await simulator.close()
 
