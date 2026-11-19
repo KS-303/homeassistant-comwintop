@@ -60,7 +60,16 @@ class RtuSessionGuard:
     async def arm(self):
         if not self.enabled:
             return
+        # An existing but corrupt/unreadable marker is *not* a clean bus.
+        # HA Store may return None for a malformed file.
+        marker_exists = (
+            await self._hass.async_add_executor_job(os.path.exists, self._store.path)
+            if self._hass is not None
+            else False
+        )
         saved = await self._store.async_load()
+        if marker_exists and saved is None:
+            raise ConfigEntryError("RTU session marker corrupt; reads blocked")
         if saved not in (None, {"active": False}):
             raise ConfigEntryError(
                 "Unclean or uncertain RTU session: stop competing masters, "
