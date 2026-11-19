@@ -9,6 +9,7 @@ reads after an ambiguous exchange and survives unclean HA restarts.
 import asyncio
 import json
 import os
+import time
 from contextlib import contextmanager
 from hashlib import sha256
 from pathlib import Path
@@ -22,6 +23,8 @@ from modbus_connection.exceptions import (
 
 # A Modbus TCP gateway can still misassociate late RTU replies on its serial side.
 RTU_TRANSPORTS = frozenset(("serial", "rtu_tcp", "tcp_gateway"))
+RTU_READ_QUIET_SECONDS = 8.0
+RTU_CONSECUTIVE_TIMEOUT_LIMIT = 2
 
 
 class RtuBusUnsafe(RuntimeError):
@@ -44,6 +47,14 @@ class RtuSessionGuard:
         self.inflight = 0
         self.reason = None
         self.units = []
+        # b17 hardware evidence: isolated missed responses (two in ~7.5 h)
+        # recovered on the very next 15-second poll without sensor loss.
+        # Only read-only traffic may use this bounded, best-effort recovery.
+        self.consecutive_timeouts = 0
+        self.transient_timeouts = 0
+        self.recovered_timeouts = 0
+        self.unverified_after_timeout = False
+        self.quiet_until = 0.0
         # Stable per-endpoint key: removing and re-adding an integration
         # entry must not erase an unresolved bus fault. Do not expose
         # usernames, serial paths or gateway addresses in storage filenames.
@@ -114,12 +125,37 @@ class RtuSessionGuard:
         for coordinator in self.units:
             coordinator.mark_bus_unsafe()
 
+    async def settle(self):
+        """Keep all ComWinTop requests off the wire during a quiet period.
+
+        This is *not* a protocol guarantee against unbounded gateway latency.
+        The shared HA backend must still implement full RTU frame quarantine.
+        """
+        self.require_safe()
+        if self.enabled:
+            remaining = self.quiet_until - time.monotonic()
+            if remaining > 0:
+                await asyncio.sleep(remaining)
+        self.require_safe()
+
+    def _complete_read(self):
+        if self.unverified_after_timeout:
+            self.recovered_timeouts += 1
+        self.unverified_after_timeout = False
+        self.consecutive_timeouts = 0
+        self.quiet_until = 0.0
+        if not self.unsafe:
+            self.reason = None
+
     @contextmanager
     def reading(self):
         """Called while holding the per-connection ComWinTop bus lock.
 
-        A Modbus exception frame is a complete response; any other failure
-        might follow a transmitted request and must latch the whole RTU bus.
+        A complete Modbus exception frame is a valid reply. Only the first
+        isolated *read* timeout is treated as provisional loss: preserve the
+        last good samples, wait for bus quiet and demand a new successful read.
+        Repeated timeouts or protocol/cancellation/transport failures latch.
+        Writes are never permitted by this read-only integration.
         """
         if not self.enabled:
             yield
@@ -129,10 +165,23 @@ class RtuSessionGuard:
         try:
             yield
         except (IllegalDataAddressError, ModbusExceptionError):
+            self._complete_read()
+            raise
+        except TimeoutError:
+            self.consecutive_timeouts += 1
+            self.transient_timeouts += 1
+            self.unverified_after_timeout = True
+            self.reason = "transient_read_timeout"
+            if self.consecutive_timeouts >= RTU_CONSECUTIVE_TIMEOUT_LIMIT:
+                self.latch("repeated_read_timeout")
+            else:
+                self.quiet_until = time.monotonic() + RTU_READ_QUIET_SECONDS
             raise
         except (Exception, asyncio.CancelledError) as exc:
             self.latch(type(exc).__name__)
             raise
+        else:
+            self._complete_read()
         finally:
             self.inflight -= 1
 
@@ -140,7 +189,7 @@ class RtuSessionGuard:
         if not self.enabled or not self._armed:
             return
         # Task cancellation during an outstanding request latches via reading().
-        if self.unsafe or self.inflight:
+        if self.unsafe or self.inflight or self.unverified_after_timeout:
             return
         # Explicit clean unload allows a subsequent normal HA setup. A sudden
         # process death leaves the active marker and requires manual recovery.
