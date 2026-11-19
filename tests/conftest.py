@@ -6,7 +6,7 @@ import pytest
 from homeassistant import loader
 from homeassistant.bootstrap import async_load_base_functionality
 from homeassistant.config_entries import ConfigEntries
-from homeassistant.core import HomeAssistant
+from homeassistant.core import CoreState, HomeAssistant
 from homeassistant.helpers import frame
 
 
@@ -20,8 +20,9 @@ async def hass(tmp_path):
     h.config_entries = ConfigEntries(h, {})
     await async_load_base_functionality(h)
     yield h
-    for entry in h.config_entries.async_entries("comwintop"):
-        await h.config_entries.async_unload(entry.entry_id)
-    async with asyncio.timeout(10):
-        await h.async_stop(force=True)
+    if h.state is not CoreState.stopped:
+        for entry in h.config_entries.async_entries("comwintop"):
+            await h.config_entries.async_unload(entry.entry_id)
+        async with asyncio.timeout(10):
+            await h.async_stop(force=True)
     await h.async_block_till_done()

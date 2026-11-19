@@ -2,7 +2,9 @@
 
 import asyncio
 import math
+from contextlib import asynccontextmanager
 from copy import deepcopy
+from types import SimpleNamespace
 from uuid import uuid4
 
 import voluptuous as vol
@@ -33,6 +35,7 @@ from .profiles import (
     load_local_profiles,
     publish_local_profiles,
 )
+from .rtu_safety import RtuSessionGuard
 from .transport import MODES as TRANSPORTS
 from .transport import endpoint_key, params_from
 
@@ -179,15 +182,69 @@ def connection_schema(mode, defaults=None, language="en"):
     return vol.Schema(fields)
 
 
+@asynccontextmanager
+async def guarded_temporary_unit(hass, connection, unit_id):
+    """Serialize configuration probes with every loaded ComWinTop poll.
+
+    Temporary units still use HA's common Modbus backend. This guard prevents
+    our own probes from bypassing an already-latched bus or interleaving with
+    another ComWinTop read. It does not protect independent HA users of the
+    same physical RS485 bus (an upstream limitation).
+    """
+    identity = endpoint_key(connection)
+    matches = []
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if endpoint_key(entry.data) != identity:
+            continue
+        runtime = getattr(entry, "runtime_data", None)
+        if runtime is not None:
+            matches.append(runtime)
+    temporary_guard = None
+    if not matches:
+        # A connection reconfiguration probes the *new* endpoint before the
+        # running entry has been moved. It needs an independent destination
+        # marker and the original entry's fairness lock.
+        sources = [
+            getattr(entry, "runtime_data", None)
+            for entry in hass.config_entries.async_entries(DOMAIN)
+            if entry.data.get("connection_uid") == connection.get("connection_uid")
+        ]
+        sources = [source for source in sources if source is not None]
+        if len(sources) != 1:
+            raise HomeAssistantError("ComWinTop connection must be loaded before probing")
+        runtime = sources[0]
+        if runtime.rtu_guard.unsafe:
+            raise HomeAssistantError("rtu_bus_unsynchronized")
+        temporary_guard = RtuSessionGuard(hass, SimpleNamespace(data=connection))
+        await temporary_guard.arm()
+        guard = temporary_guard
+    else:
+        if len(matches) != 1:
+            raise HomeAssistantError("multiple_comwintop_hubs_on_same_bus")
+        runtime = matches[0]
+        guard = runtime.rtu_guard
+        if guard.unsafe:
+            raise HomeAssistantError("rtu_bus_unsynchronized")
+    params = await hass.async_add_executor_job(params_from, dict(connection))
+    try:
+        async with runtime.bus_lock:
+            await guard.settle()
+            async with async_get_temporary_unit(hass, params, unit_id) as unit:
+                yield unit, guard
+    finally:
+        if temporary_guard is not None:
+            await temporary_guard.close()
+
+
 async def probe(hass, connection, device):
     """Known safe read only. Success does NOT identify a model."""
-    params = await hass.async_add_executor_job(params_from, dict(connection))
     group = PROFILES[device["model"]][0]
-    async with async_get_temporary_unit(hass, params, device["unit_id"]) as unit:
-        async with asyncio.timeout(READ_DEADLINE):
-            values = await getattr(unit, group.method)(group.start, 1)
-        if len(values) != 1:
-            raise ValueError("invalid_length")
+    async with guarded_temporary_unit(hass, connection, device["unit_id"]) as (unit, guard):
+        with guard.reading():
+            async with asyncio.timeout(READ_DEADLINE):
+                values = await getattr(unit, group.method)(group.start, 1)
+            if len(values) != 1:
+                raise ValueError("invalid_length")
 
 
 def detected_tm32ds_channels(frames):
@@ -203,21 +260,30 @@ def detected_tm32ds_channels(frames):
                 raise InvalidValue("ambiguous_zero")
             decode_temperature(second)
             decode_temperature(third)
-        except InvalidValue:
-            disabled[f"temperature_{index}"] = {"enabled": False}
+        except InvalidValue as error:
+            reason = str(error)
+            disabled[f"temperature_{index}"] = {
+                "enabled": False,
+                "detection_state": (
+                    "ambiguous"
+                    if reason in ("ambiguous_zero", "temperature_85_ambiguous")
+                    else "invalid"
+                ),
+            }
     return disabled
 
 
 async def scan_tm32ds_channels(hass, connection, unit_id):
     """Read FC03/32..63 through HA's shared transport; never scan slave IDs."""
-    params = await hass.async_add_executor_job(params_from, dict(connection))
     frames = []
-    async with async_get_temporary_unit(hass, params, unit_id) as unit:
+    async with guarded_temporary_unit(hass, connection, unit_id) as (unit, guard):
         for attempt in range(3):
-            async with asyncio.timeout(READ_DEADLINE):
-                values = await unit.read_holding_registers(32, 32)
-            if len(values) != 32:
-                raise HomeAssistantError("incomplete_temperature_scan")
+            await guard.settle()
+            with guard.reading():
+                async with asyncio.timeout(READ_DEADLINE):
+                    values = await unit.read_holding_registers(32, 32)
+                if len(values) != 32:
+                    raise HomeAssistantError("incomplete_temperature_scan")
             frames.append(values)
             if attempt < 2:
                 await asyncio.sleep(BUS_MESSAGE_SPACING)
@@ -676,6 +742,10 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                 vol.Range(min=CONFIGURABLE_MIN_INTERVALS[kind], max=3600),
             ),
         }
+        if kind == "temperature":
+            fields[vol.Required("allow_negative", default=options.get("allow_negative", False))] = (
+                bool
+            )
         if kind == "di":
             fields[vol.Required("nc", default=options.get("nc", False))] = bool
         if kind in ("ai", "ao"):

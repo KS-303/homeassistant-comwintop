@@ -318,5 +318,35 @@
         "scaled": "Scaled measurement"
       }
     }
+  },
+  "repairs": {
+    "issue": {
+      "rtu_recovery": {
+        "title": "RTU bus requires verified recovery",
+        "description": "Modbus RTU reads stopped after {reason}. Before acknowledging this repair, disconnect the physical bus and gateway from power, verify only one master is connected, and confirm all pending frames and gateway buffers are cleared. Marker: {marker}."
+      },
+      "poll_exhausted": {
+        "title": "ComWinTop polling stopped",
+        "description": "The Modbus polling task exhausted its recovery attempts after repeated internal exceptions. Check integration diagnostics; do not treat readings as reliable until resolved."
+      }
+    },
+    "flow": {
+      "confirm": {
+        "step": {
+          "confirm": {
+            "title": "Manually release the RTU bus",
+            "description": "Only proceed after all three physical checks are complete. This operation is not an automatic retry.",
+            "data": {
+              "bus_power_cycled": "Gateway and RTU devices were fully power-cycled",
+              "sole_master_confirmed": "There is exactly one master for this physical RS485 bus",
+              "gateway_queues_cleared": "Gateway queues were cleared according to its manual"
+            }
+          }
+        },
+        "error": {
+          "incomplete": "Confirm all three physical checks."
+        }
+      }
+    }
   }
 }

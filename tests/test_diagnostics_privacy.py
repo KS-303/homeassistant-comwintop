@@ -48,7 +48,7 @@ async def test_diagnostics_redact_connection_identity_and_measurements():
         bus_lock_wait_ms=0.0,
         read_call_ms=37.1,
         minimum_read_rate_hz=0.067,
-        _poll_task=None,
+        poll_running=False,
         last_response=time.monotonic() - 2,
         intervals={"temperature": 15},
         samples={"temperature_1": good_sample, "temperature_2": bad_sample},

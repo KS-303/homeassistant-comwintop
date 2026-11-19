@@ -1,25 +1,22 @@
 # ComWinTop for Home Assistant
 
-> **Entwicklungsstand 0.1.0b19 (Registry-Korrektur, noch kein Release):**
-> Basis ist b17. Das Installationspaket enthält nur fest freigegebene
-> Integrationsdateien; der ungenutzte Schreibmanager bleibt außerhalb des ZIP.
-> Die experimentelle Slave-ID-Schreibfunktion (FC06) sowie DO/AO-Schreiben
-> bleiben vollständig gesperrt. Die Slave-ID und Diagnose sind lesbar.
-> Unterstützter und getesteter HA-Zielstand: **Home Assistant Core 2026.11.x,
-> Python 3.14**. Python-3.13-Syntax wird geprüft, aber ältere HA-Modbus-APIs
-> sind **nicht** als kompatibel zugesichert.
->
-> Negative Temperaturen und der mehrdeutige 85,0-°C-Rohwert bleiben bis zu
-> einem hardwarevalidierten TM-32DS-Registertest bewusst `unavailable`.
-> Bitte dieses Testpaket nicht als Anlagen- oder Personenschutzsteuerung
-> verwenden. Ein früheres als b8 beschriftetes Paket enthielt tatsächlich
-> neuere Dateien und ist kein verlässlicher Rückfallstand.
-> [Befundliste und Korrekturstatus](docs/b13_security_audit.md).
+> **Entwicklungsstand 0.1.0b22 (Draft – kein Release, nicht hardwarevalidiert).**
+> Gegenüber b21: sauberer HA-Shutdown, kontrollierte RTU-Reparaturfreigabe,
+> geschützt ausgeführte Geräte-Probes, erweiterte Bus-/Fehlerdiagnose und
+> optionale vorzeichenbehaftete TM-32DS-Temperaturwerte. Negative Temperaturen
+> bleiben ohne ausdrückliche Kanaloption gesperrt. 85,0 °C bleibt mehrdeutig.
+> Nur lesende FC01/02/03/04-Zugriffe; DO/AO, FC05/06/15/16 und
+> Anlagensteuerung sind technisch gesperrt.
+> **Wichtig:** Eine achtsekündige Ruhephase ist keine Frischegarantie für
+> beliebig verspätete RTU-Gateway-Antworten. Andere HA-Modbus-Nutzer derselben
+> physikalischen Leitung werden nicht durch den ComWinTop-Guard gesperrt.
+> Erforderlich sind Labor-Hardwaretests und dokumentierte Freigaben.
+> [Laborplan](docs/ha_test_plan.md), [Grenzen](docs/known_limits.md).
 
 
 ComWinTop verbindet CWT-I/O-Geräte lokal über Modbus mit Home Assistant.
 Der veröffentlichte Stand ist **v0.1.0b1 (lesende Beta)**. Das
-**0.1.0b19-Testpaket** baut auf b18 auf und ist kein GitHub-Release.
+**0.1.0b22-Entwicklungsstand** baut auf b21 auf und ist kein GitHub-Release.
 Die Integration ist
 herstellerunabhängig beim Gateway,
 aber für die mitgelieferten Registerprofile gerätespezifisch. Sie ist kein
@@ -177,38 +174,32 @@ Die [RTU-Timeout-Untersuchung](docs/rtu_timeout_solution.md) beschreibt die
 nachgewiesene Gefahr verspäteter Antworten und die noch offene Lösung im
 gemeinsamen Transport. Der bestehende Reset ist keine Verfügbarkeitsgarantie.
 
-### Update und vollständige Entfernung
+### Update über HACS (eigene Repositoryquelle)
 
-Vor einem Update HA-Backup erstellen, Integrationsversion und Paket-SHA-256
-prüfen, nur `/config/custom_components/comwintop` aus dem gewünschten
-**geprüften** Installationspaket ersetzen und Home Assistant neu starten.
-Wenn das ZIP unter `/config` liegt, lautet der Update-Befehl im HA-Terminal:
+Zuerst ein vollständiges Home-Assistant-Backup erstellen. Bestehende
+Geräte-IDs, individuelle Kanalnamen und Intervalle bleiben beim Update
+erhalten. Für eine gezielte Testversion wird in **Entwicklerwerkzeuge →
+Aktionen** `update.install` auf die tatsächliche HACS-Update-Entität
+aufgerufen und als `version` der **vollständige, CI-geprüfte GitHub-Commit**
+angegeben. Der jeweilige Commit steht nur im zugehörigen CI-Nachweis und
+wird nicht aus einer veralteten Paketdatei abgeleitet. Danach HA vollständig
+neu starten. Ein `homeassistant.reload_config_entry` allein installiert
+keinen neuen Python-Code.
 
-```bash
-cd /config
-mkdir -p /config/backup
-test ! -e /config/backup/comwintop-previous && \
-  mv custom_components/comwintop /config/backup/comwintop-previous && \
-  unzip comwintop-0.1.0b19-install.zip
-```
+**RTU-Sitzungsmarker:** Normaler HA-Shutdown beendet zuerst die
+ComWinTop-Abfragen; nur ein vollständig geklärter Buszustand erlaubt das
+Zurücksetzen des aktiven Markers. Bei unklarem Timeout, Crash oder
+Transportfehler bleibt der Marker aus Sicherheitsgründen bestehen.
+In **Einstellungen → System → Reparaturen** müssen vor der manuellen
+Wiederfreigabe drei physische Prüfungen bestätigt werden. Das Entfernen oder
+erneute Hinzufügen der Integration hebt eine bestehende RTU-Sperre nicht auf.
+Bei unbekanntem Gateway-Pufferverhalten keine automatische Wiederfreigabe
+als Beleg für frische Messwerte betrachten.
 
-Das Archiv legt ausschließlich `/config/custom_components/comwintop/` an.
-Keine Entwicklungszweig-Dateien und keine Upstream-Patches direkt in die
-produktive Installation kopieren. Danach Verbindung, Entitätskennungen,
-Kanalnamen und ausschließlich lesende Daten prüfen; bei Problemen Backup
-wiederherstellen. Bereits angelegte Geräte- und Kanaloptionen liegen in HA,
-nicht im Integrationsordner.
-Nach erfolgreichem Neustart und Datenprüfung kann ausschließlich der
-Backup-Ordner entfernt werden. Durch das Ersetzen des ganzen Ordners bleiben
-keine alten Python-Dateien wie `write_manager.py` zurück. Wer über eine
-HA-Update-Entität aktualisiert, prüft deren angezeigte Zielversion und Quelle.
-
-Zur Entfernung in **Einstellungen → Geräte & Dienste** die ComWinTop-
-Verbindungseinträge entfernen, Home Assistant stoppen, nur
-`/config/custom_components/comwintop` löschen und HA erneut starten.
-Bei Bedarf lokale Profile unter `/config/comwintop/profiles` und deren
-Sicherungen unter `/config/comwintop/last_valid` nach eigener Prüfung separat
-entfernen. Den gesamten Ordner `custom_components` nicht löschen.
+Zur vollständigen Entfernung zuerst den Eintrag über Geräte & Dienste
+entfernen und nur das eigene HACS-Repository deinstallieren. Der
+RTU-Sicherheitsmarker bleibt absichtlich erhalten; ein neuer Eintrag darf
+keinen unsicheren Buszustand stillschweigend zurücksetzen.
 
 ### Diagnose und Fehlerberichte
 

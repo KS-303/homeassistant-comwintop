@@ -13,6 +13,9 @@ async def async_get_config_entry_diagnostics(hass, entry):
         "hardware_validated": False,
         "writes": "locked",
         "rtu_guard_enabled": guard.enabled if guard is not None else False,
+        "shared_minimum_read_rate_hz": round(
+            sum(u.minimum_read_rate_hz for u in entry.runtime_data.units.values()), 3
+        ),
         "rtu_bus_unsafe": guard.unsafe if guard is not None else False,
         "rtu_bus_unsafe_reason": guard.reason if guard is not None else None,
         "rtu_transient_timeouts": guard.transient_timeouts if guard is not None else 0,
@@ -24,11 +27,10 @@ async def async_get_config_entry_diagnostics(hass, entry):
                 "model": unit.model,
                 "status": unit.status,
                 "counters": dict(unit.counters),
-                "latency_ms": unit.latency_ms,
                 "bus_lock_wait_ms": unit.bus_lock_wait_ms,
                 "read_call_ms": unit.read_call_ms,
                 "minimum_read_rate_hz": unit.minimum_read_rate_hz,
-                "poll_task_running": bool(unit._poll_task and not unit._poll_task.done()),
+                "poll_task_running": unit.poll_running,
                 "seconds_since_last_response": (
                     round(time.monotonic() - unit.last_response, 1)
                     if unit.last_response is not None
@@ -53,6 +55,7 @@ async def async_get_config_entry_diagnostics(hass, entry):
                         ),
                         "available": unit.available(key),
                         "error": sample.error,
+                        "detection_state": unit.options(key).get("detection_state"),
                         "age_seconds": round(time.monotonic() - sample.received, 1)
                         if sample.received is not None
                         else None,

@@ -1,3 +1,27 @@
+## 0.1.0b22 (Hardening – Draft, nicht hardwarevalidiert)
+
+- Home-Assistant-Shutdown-Job beendet die ComWinTop-Poller vor dem
+  Bereinigen eines geklärten RTU-Sitzungsmarkers. Crash, unsichere
+  Antwort und Transportverlust bleiben fail-closed.
+- RTU-Reparaturhinweis und Bestätigungsdialog mit drei getrennten
+  Hardware-Prüfungen. Dateireadback muss die manuelle Freigabe belegen.
+- TM-32DS-/MB308N-Konfigurations-Probes und TM-32DS-Initialscan nehmen
+  am selben ComWinTop-Buslock und RTU-Guard teil.
+- Pro-Kanal-Option für negative Temperaturwerte mit vorzeichenbehafteter
+  16-Bit-Dekodierung. 0xFC18 bleibt Fühlerfehler; 85 °C bleibt unbestätigt.
+  Mehrdeutige Kanal-Scanwerte werden diagnostisch gekennzeichnet.
+- Gemeinsame minimale Buslastdiagnose, Polling-Reparaturhinweis,
+  korrigierte Kommunikations-Refresh-Ereignisse, saubere Polling-Stop-Idempotenz.
+- Endpunkt-Normalisierung (DNS-Punkt, IP-Adressen), verwaiste Kanal-Registry
+  bei endgültiger Entfernung löschen, RTU-Sicherheitsmarker behalten.
+- Wiederholbarer, unkomprimierter interner CI-Paket-Build; lokale
+  private Daten und WriteManager werden nicht installiert.
+- Laborplan, Berichtsvorlage und datensparsamer RTU-Protokollanalysator.
+- Weiterhin keine aktiven FC05/06/15/16- oder DO/AO-Schreibfunktionen.
+- RTU-Quarantäne ist noch keine gemeinsam genutzte Upstream-Sperre:
+  8 s Ruhe sind keine garantierte Frischegrenze. Nur Laborversuche,
+  kein produktiver Pumpen- oder Heizungsbetrieb.
+
 ## 0.1.0b19 (Registry-Korrektur; Testpaket)
 
 - Rohwertdiagnosen bleiben beim Neuladen standardmäßig deaktiviert. Die Integration merkt sich, welche zuvor aktiven Entitäten sie beim Deaktivieren eines Kanals abgeschaltet hat.

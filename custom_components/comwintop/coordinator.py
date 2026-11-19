@@ -5,6 +5,7 @@ import time
 from collections import Counter, deque
 from contextlib import suppress
 
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from modbus_connection.exceptions import (
     IllegalDataAddressError,
@@ -133,6 +134,10 @@ class UnitCoordinator(DataUpdateCoordinator):
         if self._stopping:
             return
         if self.rtu_guard is not None and self.rtu_guard.enabled:
+            if self.rtu_guard.expected_unload and self.rtu_guard.inflight == 0:
+                # Unloading the HA platforms may briefly close the shared
+                # connection before coordinators finish their stop calls.
+                return
             self.rtu_guard.latch("transport_lost")
             return
         self.status = "OFFLINE" if any(self.enabled(key) for key in self.samples) else "INACTIVE"
@@ -162,7 +167,13 @@ class UnitCoordinator(DataUpdateCoordinator):
                 self.hass, self._communication_poll(), f"comwintop_comm_{self.uid}"
             )
 
+    @property
+    def poll_running(self):
+        return bool(self._poll_task and not self._poll_task.done())
+
     async def stop(self):
+        if self._stopping:
+            return
         self._stopping = True
         self._unsubscribe()
         tasks = [t for t in (self._poll_task, self._age_task, self._communication_task) if t]
@@ -219,8 +230,10 @@ class UnitCoordinator(DataUpdateCoordinator):
         while True:
             if self.rtu_guard is not None and self.rtu_guard.unsafe:
                 return
-            await self.read_communication()
+            # Clear before reading: an event raised while the request is in
+            # flight must be observed by the next loop, not silently lost.
             self._communication_refresh.clear()
+            await self.read_communication()
             try:
                 async with asyncio.timeout(300):
                     await self._communication_refresh.wait()
@@ -258,6 +271,15 @@ class UnitCoordinator(DataUpdateCoordinator):
                 crashes.append(now)
                 if len(crashes) >= 3:
                     self.counters["poll_task_exhausted"] += 1
+                    ir.async_create_issue(
+                        self.hass,
+                        "comwintop",
+                        f"poll_exhausted_{self.uid}",
+                        is_fixable=False,
+                        is_persistent=True,
+                        severity=ir.IssueSeverity.ERROR,
+                        translation_key="poll_exhausted",
+                    )
                     self._logger.critical("ComWinTop polling exhausted its restart budget")
                     self.async_set_updated_data(self.samples)
                     return

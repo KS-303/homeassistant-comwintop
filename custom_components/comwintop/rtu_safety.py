@@ -11,15 +11,19 @@ import json
 import os
 import time
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
 
-from homeassistant.exceptions import ConfigEntryError
+from homeassistant.exceptions import ConfigEntryError, HomeAssistantError
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.storage import Store
 from modbus_connection.exceptions import (
     IllegalDataAddressError,
     ModbusExceptionError,
 )
+
+from .transport import endpoint_key
 
 # A Modbus TCP gateway can still misassociate late RTU replies on its serial side.
 RTU_TRANSPORTS = frozenset(("serial", "rtu_tcp", "tcp_gateway"))
@@ -27,7 +31,7 @@ RTU_READ_QUIET_SECONDS = 8.0
 RTU_CONSECUTIVE_TIMEOUT_LIMIT = 2
 
 
-class RtuBusUnsafe(RuntimeError):
+class RtuBusUnsafe(HomeAssistantError):
     """A previously uncertain RTU exchange requires physical bus recovery."""
 
 
@@ -44,8 +48,10 @@ class RtuSessionGuard:
         self._hass = hass
         self.enabled = entry.data["transport"] in RTU_TRANSPORTS
         self.unsafe = False
+        self.expected_unload = False
         self.inflight = 0
         self.reason = None
+        self.reason_at = None
         self.units = []
         # b17 hardware evidence: isolated missed responses (two in ~7.5 h)
         # recovered on the very next 15-second poll without sensor loss.
@@ -59,14 +65,58 @@ class RtuSessionGuard:
         # entry must not erase an unresolved bus fault. Do not expose
         # usernames, serial paths or gateway addresses in storage filenames.
         self._store = None
+        self._legacy_store = None
         if self.enabled:
-            if entry.data["transport"] == "serial":
-                endpoint = os.path.realpath(entry.data["device"])
-            else:
-                endpoint = f"{entry.data['host'].strip().lower()}:{int(entry.data['port'])}"
+            endpoint = endpoint_key(dict(entry.data))
             fingerprint = sha256(endpoint.encode("utf-8")).hexdigest()[:32]
             self._store = Store(hass, 1, f"comwintop.rtu_session.{fingerprint}")
+            # b21 used a different filename fingerprint. Check the previous
+            # marker before any read, otherwise upgrading could silently
+            # forget an unresolved b21 latch.
+            if entry.data["transport"] == "serial":
+                previous_endpoint = os.path.realpath(entry.data["device"])
+            else:
+                previous_endpoint = (
+                    f"{entry.data['host'].strip().lower()}:{int(entry.data['port'])}"
+                )
+            previous_id = sha256(previous_endpoint.encode("utf-8")).hexdigest()[:32]
+            if previous_id != fingerprint:
+                self._legacy_store = Store(hass, 1, f"comwintop.rtu_session.{previous_id}")
         self._armed = False
+        self.marker_key = self._store.key if self._store else None
+        self.issue_id = f"rtu_{self.marker_key.rsplit('.', 1)[-1]}" if self._store else None
+
+    def _issue(self, reason, marker_key=None):
+        if self._hass is None or not self.enabled:
+            return
+        key = marker_key or self.marker_key
+        issue_id = f"rtu_{key.rsplit('.', 1)[-1]}"
+        ir.async_create_issue(
+            self._hass,
+            "comwintop",
+            issue_id,
+            is_fixable=True,
+            is_persistent=True,
+            severity=ir.IssueSeverity.ERROR,
+            translation_key="rtu_recovery",
+            data={"marker_key": key, "reason": reason},
+            translation_placeholders={"reason": reason, "marker": key},
+        )
+
+    def _require_clean_marker(self, saved, exists):
+        if exists and saved is None:
+            self._issue("corrupt_marker")
+            raise ConfigEntryError(f"RTU session marker corrupt: {self.marker_key}")
+        if saved not in (None, {"active": False}):
+            self._issue(
+                str(saved.get("reason", "unclean_restart"))
+                if isinstance(saved, dict)
+                else "unclean_restart"
+            )
+            raise ConfigEntryError(
+                f"RTU session unsafe: {self.marker_key}. Use the Repairs dialog; "
+                "automatic recovery is forbidden."
+            )
 
     async def arm(self):
         if not self.enabled:
@@ -79,15 +129,20 @@ class RtuSessionGuard:
             else False
         )
         saved = await self._store.async_load()
-        if marker_exists and saved is None:
-            raise ConfigEntryError("RTU session marker corrupt; reads blocked")
-        if saved not in (None, {"active": False}):
-            raise ConfigEntryError(
-                "Unclean or uncertain RTU session: stop competing masters, "
-                "power-cycle the gateway and RTU devices, then explicitly "
-                "clear the comwintop.rtu_session entry in HA storage while "
-                "Home Assistant is shut down. Automatic recovery is unsafe."
+        self._require_clean_marker(saved, marker_exists)
+        if self._legacy_store is not None:
+            legacy_exists = (
+                await self._hass.async_add_executor_job(os.path.exists, self._legacy_store.path)
+                if self._hass is not None
+                else False
             )
+            previous = await self._legacy_store.async_load()
+            if legacy_exists and previous != {"active": False}:
+                self._issue("legacy_b21_marker_unresolved", self._legacy_store.key)
+                raise ConfigEntryError(
+                    "Legacy b21 RTU safety marker remains active or unreadable. "
+                    "Physical recovery is required before upgrading."
+                )
         # Persist before any task can transmit. Failure to persist fails setup.
         await self._store.async_save({"active": True})
         # HA's Store logs filesystem WriteError instead of propagating it.
@@ -121,6 +176,13 @@ class RtuSessionGuard:
             return
         self.unsafe = True
         self.reason = reason
+        self.reason_at = datetime.now(UTC).isoformat()
+        self._issue(reason)
+        if self._hass is not None:
+            self._hass.async_create_task(
+                self._store.async_save({"active": True, "reason": reason, "since": self.reason_at}),
+                "ComWinTop RTU fault persistence",
+            )
         # The on-disk active marker is intentionally not cleared on errors.
         for coordinator in self.units:
             coordinator.mark_bus_unsafe()
@@ -184,6 +246,24 @@ class RtuSessionGuard:
             self._complete_read()
         finally:
             self.inflight -= 1
+
+    async def manual_reset(self):
+        """Only callable after all physical checks were confirmed in Repairs."""
+        if not self.enabled or self.inflight:
+            raise RtuBusUnsafe("RTU request still running")
+        await self._store.async_save({"active": False})
+        if self._hass is not None:
+
+            def verified():
+                try:
+                    value = json.loads(Path(self._store.path).read_text(encoding="utf-8"))
+                    return value.get("data") == {"active": False}
+                except (OSError, ValueError, AttributeError):
+                    return False
+
+            if not await self._hass.async_add_executor_job(verified):
+                raise RtuBusUnsafe("Cannot verify RTU marker reset")
+        self._armed = False
 
     async def close(self):
         if not self.enabled or not self._armed:

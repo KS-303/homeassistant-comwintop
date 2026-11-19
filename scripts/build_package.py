@@ -3,7 +3,7 @@
 import ast
 import hashlib
 import json
-from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
+from zipfile import ZIP_STORED, ZipFile, ZipInfo
 
 if __package__:
     from .check_package import COMPONENT, ROOT, check
@@ -23,6 +23,7 @@ INSTALL_FILES = (
     "model.py",
     "number.py",
     "profiles.py",
+    "repairs.py",
     "rtu_safety.py",
     "sensor.py",
     "strings.json",
@@ -63,10 +64,10 @@ def build():
                     assert dependency in included, (
                         f"{path.name} imports missing install dependency {dependency}"
                     )
-    with ZipFile(output, "w", compression=ZIP_DEFLATED) as archive:
+    with ZipFile(output, "w", compression=ZIP_STORED) as archive:
         for path in files:
             info = ZipInfo(path.relative_to(ROOT).as_posix(), (2026, 11, 15, 0, 0, 0))
-            info.compress_type = ZIP_DEFLATED
+            info.compress_type = ZIP_STORED
             info.external_attr = 0o100644 << 16
             archive.writestr(info, path.read_bytes())
     with ZipFile(output) as archive:
