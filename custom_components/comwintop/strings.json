@@ -324,6 +324,10 @@
       "rtu_recovery": {
         "title": "RTU bus requires verified recovery",
         "description": "Modbus RTU reads stopped after {reason}. Before acknowledging this repair, disconnect the physical bus and gateway from power, verify only one master is connected, and confirm all pending frames and gateway buffers are cleared. Marker: {marker}."
+      },
+      "poll_exhausted": {
+        "title": "ComWinTop polling stopped",
+        "description": "The Modbus polling task exhausted its recovery attempts after repeated internal exceptions. Check integration diagnostics; do not treat readings as reliable until resolved."
       }
     },
     "flow": {
