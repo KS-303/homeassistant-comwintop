@@ -317,3 +317,27 @@ async def test_b17_single_missing_response_keeps_last_temperature_available(hass
     finally:
         await coordinator.stop()
         await gate.close()
+
+
+async def test_unresolved_b21_marker_cannot_be_bypassed_by_b22_upgrade(hass, monkeypatch):
+    """A changed endpoint fingerprint must not silently clear an old latch."""
+    from homeassistant.exceptions import ConfigEntryError
+
+    from .test_l50 import configured_entry
+
+    gate = RtuSessionGuard(hass, configured_entry(transport="rtu_tcp", port=15022))
+    assert gate._legacy_store is not None
+    previous_key = gate._legacy_store.key
+    old_load = FakeStore.async_load
+
+    async def load(self):
+        if self.key == previous_key:
+            return {"active": True}
+        return await old_load(self)
+
+    monkeypatch.setattr(FakeStore, "async_load", load)
+    gate._legacy_store.path.parent.mkdir(parents=True, exist_ok=True)
+    gate._legacy_store.path.write_text("{}", encoding="utf-8")
+    with pytest.raises(ConfigEntryError, match="Legacy b21 RTU safety marker"):
+        await gate.arm()
+    assert not gate._armed
