@@ -17,6 +17,7 @@ from .const import PLATFORMS
 from .coordinator import UnitCoordinator
 from .model import validate_device
 from .profiles import InvalidValue, channels, load_local_profiles, publish_local_profiles
+from .rtu_safety import RtuSessionGuard
 from .transport import params_from
 
 _LOGGER = logging.getLogger(__name__)
@@ -26,6 +27,7 @@ _LOGGER = logging.getLogger(__name__)
 class Runtime:
     units: dict[str, UnitCoordinator]
     bus_lock: asyncio.Lock
+    rtu_guard: RtuSessionGuard
 
 
 async def _sync_disabled_channel_registry(hass, entry, coordinators):
@@ -88,6 +90,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Build a read-only runtime; preserve HA retries for temporary failures."""
     coordinators: dict[str, UnitCoordinator] = {}
     forwarding_attempted = False
+    rtu_guard = None
     try:
         local, failures = await hass.async_add_executor_job(
             load_local_profiles, hass.config.path("comwintop")
@@ -96,6 +99,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         for filename, reason in failures.items():
             _LOGGER.warning("Local ComWinTop profile %s rejected: %s", filename, reason)
         params = await hass.async_add_executor_job(params_from, dict(entry.data))
+        rtu_guard = RtuSessionGuard(hass, entry)
+        await rtu_guard.arm()
         lock = asyncio.Lock()
         ids: set[int] = set()
 
@@ -107,7 +112,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             ids.add(unit_id)
             unit = async_get_unit(hass, entry, params, unit_id)
             try:
-                coordinator = UnitCoordinator(hass, entry, sub, unit, lock, _LOGGER)
+                coordinator = UnitCoordinator(hass, entry, sub, unit, lock, _LOGGER, rtu_guard)
             except (Exception, asyncio.CancelledError):
                 # The unit is a handle on HA's shared Modbus connection: never
                 # disconnect/close it just because this constructor failed.
@@ -120,8 +125,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     unit.require_connect_delay(None)
                 raise
             coordinators[sub.subentry_id] = coordinator
+            rtu_guard.attach(coordinator)
 
-        entry.runtime_data = Runtime(coordinators, lock)
+        entry.runtime_data = Runtime(coordinators, lock, rtu_guard)
         await _sync_disabled_channel_registry(hass, entry, coordinators)
         forwarding_attempted = True
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -134,6 +140,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if forwarding_attempted:
             with suppress(Exception):
                 await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+        # A failed startup must not strand an armed marker if no transmission
+        # was uncertain. close() retains it whenever the RTU guard latched.
+        if rtu_guard is not None:
+            with suppress(Exception):
+                await rtu_guard.close()
         entry.runtime_data = None
 
         if isinstance(err, asyncio.CancelledError):
@@ -166,4 +177,5 @@ async def async_unload_entry(hass, entry):
         return False
     for coordinator in entry.runtime_data.units.values():
         await coordinator.stop()
+    await entry.runtime_data.rtu_guard.close()
     return True

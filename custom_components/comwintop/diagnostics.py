@@ -6,11 +6,18 @@ from .const import VERSION
 
 
 async def async_get_config_entry_diagnostics(hass, entry):
+    guard = getattr(entry.runtime_data, "rtu_guard", None)
     return {
         "integration_version": VERSION,
         "transport": entry.data["transport"],
         "hardware_validated": False,
         "writes": "locked",
+        "rtu_guard_enabled": guard.enabled if guard is not None else False,
+        "rtu_bus_unsafe": guard.unsafe if guard is not None else False,
+        "rtu_bus_unsafe_reason": guard.reason if guard is not None else None,
+        "rtu_transient_timeouts": guard.transient_timeouts if guard is not None else 0,
+        "rtu_recovered_timeouts": guard.recovered_timeouts if guard is not None else 0,
+        "rtu_timeout_unverified": (guard.unverified_after_timeout if guard is not None else False),
         "experimental_fc06_address_write": "disabled",
         "devices": [
             {

@@ -1,5 +1,6 @@
 """Produce a reproducible installation ZIP and verify every archived byte."""
 
+import ast
 import hashlib
 import json
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
@@ -22,6 +23,7 @@ INSTALL_FILES = (
     "model.py",
     "number.py",
     "profiles.py",
+    "rtu_safety.py",
     "sensor.py",
     "strings.json",
     "switch.py",
@@ -46,6 +48,21 @@ def build():
         assert path.is_file() and not any(
             candidate.is_symlink() for candidate in (COMPONENT, path.parent, path)
         ), path
+    # Any package-local module imported by an installed Python module must be
+    # present in the release archive. CI used to pass while rtu_safety.py was
+    # accidentally omitted, causing an ImportError only after installation.
+    included = set(INSTALL_FILES)
+    for path in files:
+        if path.suffix != ".py":
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.level == 1 and node.module:
+                dependency = f"{node.module.split('.')[0]}.py"
+                if (COMPONENT / dependency).is_file():
+                    assert dependency in included, (
+                        f"{path.name} imports missing install dependency {dependency}"
+                    )
     with ZipFile(output, "w", compression=ZIP_DEFLATED) as archive:
         for path in files:
             info = ZipInfo(path.relative_to(ROOT).as_posix(), (2026, 11, 15, 0, 0, 0))
