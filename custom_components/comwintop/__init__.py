@@ -111,9 +111,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             ids.add(unit_id)
             unit = async_get_unit(hass, entry, params, unit_id)
             try:
-                coordinator = UnitCoordinator(
-                    hass, entry, sub, unit, lock, _LOGGER, rtu_guard
-                )
+                coordinator = UnitCoordinator(hass, entry, sub, unit, lock, _LOGGER, rtu_guard)
             except (Exception, asyncio.CancelledError):
                 # The unit is a handle on HA's shared Modbus connection: never
                 # disconnect/close it just because this constructor failed.
