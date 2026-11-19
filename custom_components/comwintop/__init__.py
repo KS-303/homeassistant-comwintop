@@ -191,22 +191,26 @@ async def async_update_entry(hass, entry):
 
 
 async def async_unload_entry(hass, entry):
-    # Keep polling alive if the platforms cannot be unloaded. A successful
-    # platform unload is followed by stopping every coordinator and listener.
-    guard = entry.runtime_data.rtu_guard
-    guard.expected_unload = True
-    try:
-        unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    except BaseException:
-        guard.expected_unload = False
-        raise
-    if not unloaded:
-        guard.expected_unload = False
-        return False
-    for coordinator in entry.runtime_data.units.values():
-        await coordinator.stop()
-    await entry.runtime_data.rtu_guard.close()
-    return True
+    """Finish any active ComWinTop frame before unloading its platforms.
+
+    Waiting on the existing hub lock does not cancel a legitimate RTU read.
+    If HA rejects platform unload, the still-running pollers resume without
+    resetting the bus marker or discarding the coordinator runtime.
+    """
+    runtime = entry.runtime_data
+    guard = runtime.rtu_guard
+    async with runtime.bus_lock:
+        guard.expected_unload = True
+        try:
+            unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+            if not unloaded:
+                return False
+            for coordinator in runtime.units.values():
+                await coordinator.stop()
+            await guard.close()
+            return True
+        finally:
+            guard.expected_unload = False
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
