@@ -29,9 +29,10 @@ def failed_poll_delay(interval: float, failures: int) -> float:
 
 
 class UnitCoordinator(DataUpdateCoordinator):
-    def __init__(self, hass, entry, subentry, unit, bus_lock, logger):
+    def __init__(self, hass, entry, subentry, unit, bus_lock, logger, rtu_guard=None):
         super().__init__(hass, logger, config_entry=entry, name=f"comwintop_{subentry.subentry_id}")
         self.subentry, self.unit, self.bus_lock = subentry, unit, bus_lock
+        self.rtu_guard = rtu_guard
         self._logger = logger
         self.settings = dict(subentry.data)
         self.model = self.settings["model"]
@@ -115,8 +116,24 @@ class UnitCoordinator(DataUpdateCoordinator):
         ):
             self.status = "ONLINE"
 
+    def mark_bus_unsafe(self):
+        """Invalidate readings immediately; do not claim an RTU response is fresh."""
+        self.status = "OFFLINE"
+        self.communication_values = None
+        self.communication_received = None
+        self.communication_error = "rtu_bus_unsynchronized"
+        self._pending.clear()
+        for sample in self.samples.values():
+            sample.fail("rtu_bus_unsynchronized", invalidate=True)
+        for key in self._next:
+            self._next[key] = float("inf")
+        self.async_set_updated_data(self.samples)
+
     def connection_lost(self):
         if self._stopping:
+            return
+        if self.rtu_guard is not None and self.rtu_guard.enabled:
+            self.rtu_guard.latch("transport_lost")
             return
         self.status = "OFFLINE" if any(self.enabled(key) for key in self.samples) else "INACTIVE"
         self.counters["transport_errors"] += 1
@@ -166,8 +183,13 @@ class UnitCoordinator(DataUpdateCoordinator):
             return None
         try:
             async with self.bus_lock:
-                async with asyncio.timeout(READ_DEADLINE):
-                    raw_values = await self.unit.read_holding_registers(16, 1)
+                if self.rtu_guard is None:
+                    async with asyncio.timeout(READ_DEADLINE):
+                        raw_values = await self.unit.read_holding_registers(16, 1)
+                else:
+                    with self.rtu_guard.reading():
+                        async with asyncio.timeout(READ_DEADLINE):
+                            raw_values = await self.unit.read_holding_registers(16, 1)
             if len(raw_values) != 1:
                 raise ValueError("invalid_communication_register_length")
             result = inspect_tm32ds(raw_values[0], self.settings["unit_id"])
@@ -191,6 +213,8 @@ class UnitCoordinator(DataUpdateCoordinator):
         """Initial delayed read, then one shared FC03 diagnostic read every 5 min."""
         await asyncio.sleep(5)
         while True:
+            if self.rtu_guard is not None and self.rtu_guard.unsafe:
+                return
             await self.read_communication()
             self._communication_refresh.clear()
             try:
@@ -240,6 +264,9 @@ class UnitCoordinator(DataUpdateCoordinator):
 
     async def _poll(self):
         while True:
+            if self.rtu_guard is not None and self.rtu_guard.unsafe:
+                await asyncio.sleep(1)
+                continue
             now = time.monotonic()
             next_due = min(
                 (deadline for key, deadline in self._next.items() if self.enabled(key)),
@@ -287,6 +314,8 @@ class UnitCoordinator(DataUpdateCoordinator):
                 keys.append(key)
         if not keys:
             return
+        if self.rtu_guard is not None and self.rtu_guard.unsafe:
+            return
         count = len(keys)
         split = False
         recovery = False
@@ -298,10 +327,21 @@ class UnitCoordinator(DataUpdateCoordinator):
             async with self.bus_lock:
                 acquired = time.monotonic()
                 self.bus_lock_wait_ms = round((acquired - waiting_since) * 1000, 1)
-                async with asyncio.timeout(READ_DEADLINE):
-                    called = time.monotonic()
-                    values = await getattr(self.unit, group.method)(group.start + offset, count)
-                    self.read_call_ms = round((time.monotonic() - called) * 1000, 1)
+                if self.rtu_guard is None:
+                    async with asyncio.timeout(READ_DEADLINE):
+                        called = time.monotonic()
+                        values = await getattr(self.unit, group.method)(
+                            group.start + offset, count
+                        )
+                        self.read_call_ms = round((time.monotonic() - called) * 1000, 1)
+                else:
+                    with self.rtu_guard.reading():
+                        async with asyncio.timeout(READ_DEADLINE):
+                            called = time.monotonic()
+                            values = await getattr(self.unit, group.method)(
+                                group.start + offset, count
+                            )
+                            self.read_call_ms = round((time.monotonic() - called) * 1000, 1)
             if len(values) != count:
                 raise ModbusProtocolError("invalid_response_length")
             received = time.monotonic()
