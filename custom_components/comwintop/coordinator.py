@@ -268,8 +268,11 @@ class UnitCoordinator(DataUpdateCoordinator):
                 if len(crashes) >= 3:
                     self.counters["poll_task_exhausted"] += 1
                     ir.async_create_issue(
-                        self.hass, "comwintop", f"poll_exhausted_{self.uid}",
-                        is_fixable=False, is_persistent=True,
+                        self.hass,
+                        "comwintop",
+                        f"poll_exhausted_{self.uid}",
+                        is_fixable=False,
+                        is_persistent=True,
                         severity=ir.IssueSeverity.ERROR,
                         translation_key="poll_exhausted",
                     )
