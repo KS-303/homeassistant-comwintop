@@ -193,8 +193,15 @@ async def async_update_entry(hass, entry):
 async def async_unload_entry(hass, entry):
     # Keep polling alive if the platforms cannot be unloaded. A successful
     # platform unload is followed by stopping every coordinator and listener.
-    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    guard = entry.runtime_data.rtu_guard
+    guard.expected_unload = True
+    try:
+        unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    except BaseException:
+        guard.expected_unload = False
+        raise
     if not unloaded:
+        guard.expected_unload = False
         return False
     for coordinator in entry.runtime_data.units.values():
         await coordinator.stop()
