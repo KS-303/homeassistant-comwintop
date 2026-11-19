@@ -177,7 +177,6 @@ class UnitStatus(CoordinatorEntity, SensorEntity):
         return {
             "write_release": "hardware_validation_required",
             "transport_connected": self.coordinator.unit.connected,
-            "latency_ms": self.coordinator.latency_ms,
             "bus_lock_wait_ms": self.coordinator.bus_lock_wait_ms,
             "read_call_ms": self.coordinator.read_call_ms,
             "minimum_read_rate_hz": self.coordinator.minimum_read_rate_hz,
