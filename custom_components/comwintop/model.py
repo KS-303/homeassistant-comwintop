@@ -112,7 +112,10 @@ def validate_device(data, *, previous=None, legacy=False):
             type(override) is not int or not minimum_for(kind, override, old) <= override <= 3600
         ):
             raise InvalidValue("invalid_interval")
-        if key.startswith("temperature_") and type(options.get("allow_negative", False)) is not bool:
+        if (
+            key.startswith("temperature_")
+            and type(options.get("allow_negative", False)) is not bool
+        ):
             raise InvalidValue("invalid_temperature_option")
         if options.get("mode") not in (None, *MODES):
             raise InvalidValue("invalid_mode")
