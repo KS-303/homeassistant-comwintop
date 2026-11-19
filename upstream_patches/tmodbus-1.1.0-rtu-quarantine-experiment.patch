@@ -1,0 +1,56 @@
+--- a/src/tmodbus/transport/async_rtu.py
++++ b/src/tmodbus/transport/async_rtu.py
+@@ -46,0 +47 @@
++import math
+@@ -389,0 +391,41 @@
++        self._quarantine_policy: tuple[float, float, float] | None = None
++        self._quarantine_until: float | None = None
++        self._quarantine_deadline: float | None = None
++        self._quarantine_last_byte = 0.0
++
++    def configure_timeout_quarantine(self, *, max_late: float, quiet: float, max_wait: float) -> None:
++        """Opt in to bounded recovery; max_late must be established for the whole bus.
++
++        If the bound cannot be justified, this setting cannot guarantee fresh data.
++        A timeout or cancellation after sending starts a bus-wide receive quarantine.
++        Continuous traffic beyond max_wait fails closed and no request is sent.
++        """
++        if not all(math.isfinite(value) for value in (max_late, quiet, max_wait)) or not (
++            0 < quiet <= max_wait and 0 < max_late <= max_wait
++        ):
++            raise ValueError("invalid quarantine limits")
++        self._quarantine_policy = (max_late, quiet, max_wait)
++
++    def _start_timeout_quarantine(self) -> None:
++        if self._quarantine_policy is not None:
++            now = time.monotonic()
++            max_late, _quiet, max_wait = self._quarantine_policy
++            self._quarantine_until = now + max_late
++            self._quarantine_deadline = now + max_wait
++            self._quarantine_last_byte = now
++
++    async def _await_timeout_quarantine(self) -> None:
++        while self._quarantine_until is not None:
++            assert self._quarantine_policy is not None
++            assert self._quarantine_deadline is not None
++            now = time.monotonic()
++            _max_late, quiet, _max_wait = self._quarantine_policy
++            ready_at = max(self._quarantine_until, self._quarantine_last_byte + quiet)
++            if ready_at <= now and ready_at <= self._quarantine_deadline:
++                self._buffer.clear()
++                self._timed_out_requests.clear()
++                self._quarantine_until = self._quarantine_deadline = None
++                return
++            if now >= self._quarantine_deadline or ready_at > self._quarantine_deadline:
++                raise ModbusConnectionError("RTU quarantine exhausted; bus remains locked")
++            await asyncio.sleep(min(ready_at, self._quarantine_deadline) - now)
+@@ -413,0 +456 @@
++            await self._await_timeout_quarantine()
+@@ -457,0 +501 @@
++                self._start_timeout_quarantine()
+@@ -463,0 +508 @@
++                self._start_timeout_quarantine()
+@@ -800,0 +846,3 @@
++        if self._quarantine_until is not None:
++            self._quarantine_last_byte = time.monotonic()
++            return
