@@ -1,7 +1,5 @@
 """b22 lifecycle and HA Repairs regression tests."""
 
-import asyncio
-
 import pytest
 from homeassistant.components.repairs import repairs_flow_manager
 from homeassistant.helpers import issue_registry as ir
