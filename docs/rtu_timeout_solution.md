@@ -104,3 +104,45 @@ Test-/Installationspaket für einen unkontrollierten Multidrop-Bus.
 
 Ein positives CI-Ergebnis beweist nur die von der CI ausgeführten Fälle,
 nicht die maximale physische Gateway-Verzögerung.
+
+ 
+## b20 – Korrektur aufgrund des b17-Hardwarelogs vom 18.11.2026
+
+Aus 10.000 Logzeilen: 1.916 protokollierte FC03-Sendeversuche an Unit 2,
+davon 1.914 mit RTU-Antwort. Zwei einzelne Temperaturreads blieben ohne
+protokollierte Antwort (11:44:04 und 16:42:43); nach jeweils etwa 3,1 s
+lief die normale Abfrage weiter. Bei 15-s-Kanaltakt lagen die jeweils
+nächsten Antworten bei 11:44:22 bzw. 16:43:01. Der Nutzer bestätigt,
+dass beide DS18B20-Entitäten dabei **nicht unavailable** wurden.
+Die einzelnen Antwortzeiten lagen sonst etwa bei 20–41 ms.
+
+Daraus folgt keine Garantie für RTU-Frame-Freshness. Es ist aber ein
+Beleg, dass **eine einzelne Timeout-Ausnahme noch kein defekter Fühler und
+kein dauerhafter Ausfall** ist. Der zuvor eingesetzte b20-Guard sperrte
+nach jedem Timeout für immer und war damit für dieses reale Szenario
+zu streng.
+
+Neuer, ausschließlich **lesender** Recovery-Kompromiss:
+- Erstes isoliertes Timeout: letzten tatsächlich empfangenen Messwert
+  bis zur vorhandenen Stale-Grenze (3 × Kanalintervall) erhalten,
+  Kommunikationsstatus SUSPECT, Timeout zählen, alle ComWinTop-Reads
+  unter demselben Buslock für mindestens acht Sekunden verzögern.
+- Nach dem nächsten vollständigen, validierten Leseergebnis:
+  Timeoutfolge zurücksetzen und diagnostisch als recovered zählen.
+- Zweites Timeout in Folge, Modbus-Protokollfehler, Transportverlust
+  oder Abbruch während einer Übertragung: weiter **fail-closed**.
+- Beim Beenden mit ungelöstem Timeout bleibt der persistente Marker
+  gesperrt. Auf keinem dieser Pfade gibt es einen Schreibzugriff.
+
+**Sicherheitsgrenze:** Acht Sekunden Busruhe sind eine vorsichtige
+Betriebsheuristik, **keine nachgewiesene maximale Gateway-Latenz**.
+Auch eine vollständige plausible FC03-Antwort kann theoretisch verspätet
+sein und einem neuen Read fälschlich zugeordnet werden. Für eine
+verbindliche Frischegarantie bleibt die gemeinsame RTU-Quarantäne
+im HA-Modbus-Unterbau und die Messung/Begrenzung der Gateway-Verzögerung
+erforderlich. Eine reine ComWinTop-Sperre schützt weiterhin keine
+fremden HA-Modbus-Nutzer auf demselben physischen Bus.
+
+Die Hardware muss vor einer Produktivfreigabe prüfen, ob das b17-Verhalten
+(kein Temperatur-unavailable bei einzelnen Aussetzern) mit diesem
+revidierten Stand tatsächlich erhalten bleibt.
