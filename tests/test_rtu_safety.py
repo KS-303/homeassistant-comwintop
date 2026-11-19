@@ -118,3 +118,31 @@ async def test_known_modbus_exception_does_not_latch_bus():
             raise IllegalDataAddressError
     assert not first.unsafe
     await first.close()
+
+
+async def test_real_coordinator_stops_polling_after_rtu_timeout(hass):
+    """After an ambiguous timeout even a forced poll cannot emit another frame."""
+    import logging
+    import time
+    from unittest.mock import AsyncMock
+
+    from custom_components.comwintop.coordinator import UnitCoordinator
+    from .test_l50 import Unit, configured_entry
+
+    entry = configured_entry(transport="rtu_tcp")
+    gate = RtuSessionGuard(hass, entry)
+    await gate.arm()
+    unit = Unit()
+    sub = next(iter(entry.subentries.values()))
+    c = UnitCoordinator(hass, entry, sub, unit, asyncio.Lock(), logging.getLogger("test"), gate)
+    gate.attach(c)
+    unit.read_holding_registers = AsyncMock(side_effect=TimeoutError())
+    await c._poll_one(time.monotonic())
+    assert gate.unsafe
+    assert c.status == "OFFLINE"
+    assert not c.available("temperature_1")
+    assert all(value == float("inf") for value in c._next.values())
+    await c._poll_one(time.monotonic())
+    assert unit.read_holding_registers.await_count == 1
+    await c.stop()
+    await gate.close()
