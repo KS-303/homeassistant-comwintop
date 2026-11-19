@@ -134,6 +134,10 @@ class UnitCoordinator(DataUpdateCoordinator):
         if self._stopping:
             return
         if self.rtu_guard is not None and self.rtu_guard.enabled:
+            if self.rtu_guard.expected_unload and self.rtu_guard.inflight == 0:
+                # Unloading the HA platforms may briefly close the shared
+                # connection before coordinators finish their stop calls.
+                return
             self.rtu_guard.latch("transport_lost")
             return
         self.status = "OFFLINE" if any(self.enabled(key) for key in self.samples) else "INACTIVE"
