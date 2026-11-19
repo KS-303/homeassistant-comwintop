@@ -37,8 +37,12 @@ class Simulator:
     async def close(self):
         self.server.close()
         self.server.close_clients()
-        for writer in tuple(self.writers):
+        writers = tuple(self.writers)
+        for writer in writers:
             writer.close()
+        for writer in writers:
+            with suppress(OSError, ConnectionError, RuntimeError):
+                await writer.wait_closed()
         tasks = tuple(self.tasks)
         for task in tasks:
             task.cancel()
