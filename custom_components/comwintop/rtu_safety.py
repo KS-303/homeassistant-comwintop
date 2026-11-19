@@ -39,9 +39,7 @@ class RtuSessionGuard:
         self.reason = None
         self.units = []
         self._store = (
-            Store(hass, 1, f"comwintop.rtu_session.{entry.entry_id}")
-            if self.enabled
-            else None
+            Store(hass, 1, f"comwintop.rtu_session.{entry.entry_id}") if self.enabled else None
         )
         self._armed = False
 
