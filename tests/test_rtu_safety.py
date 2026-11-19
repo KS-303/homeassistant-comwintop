@@ -38,7 +38,10 @@ def reset_store(monkeypatch):
 
 def guard():
     return RtuSessionGuard(
-        None, SimpleNamespace(data={"transport": "rtu_tcp"}, entry_id="test")
+        None, SimpleNamespace(
+            data={"transport": "rtu_tcp", "host": "127.0.0.1", "port": 502},
+            entry_id="test",
+        )
     )
 
 
@@ -107,7 +110,10 @@ async def test_inflight_session_marker_survives_simulated_process_crash():
 
 def test_tcp_gateway_transport_is_guarded():
     gateway = RtuSessionGuard(
-        None, SimpleNamespace(data={"transport": "tcp_gateway"}, entry_id="gateway")
+        None, SimpleNamespace(
+            data={"transport": "tcp_gateway", "host": "127.0.0.1", "port": 502},
+            entry_id="gateway",
+        )
     )
     assert gateway.enabled
 
