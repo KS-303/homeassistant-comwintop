@@ -13,7 +13,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
 from modbus_connection.exceptions import ModbusError
 
-from .const import PLATFORMS
+from .const import BUS_MESSAGE_SPACING, PLATFORMS
 from .coordinator import UnitCoordinator
 from .model import validate_device
 from .profiles import InvalidValue, channels, load_local_profiles, publish_local_profiles
@@ -127,6 +127,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             coordinators[sub.subentry_id] = coordinator
             rtu_guard.attach(coordinator)
 
+        aggregate_rate = sum(unit.minimum_read_rate_hz for unit in coordinators.values())
+        if aggregate_rate * BUS_MESSAGE_SPACING >= 0.9:
+            _LOGGER.warning(
+                "ComWinTop shared bus load approaches saturation (%.3f requests/s); "
+                "increase polling intervals for one or more devices",
+                aggregate_rate,
+            )
         entry.runtime_data = Runtime(coordinators, lock, rtu_guard)
         await _sync_disabled_channel_registry(hass, entry, coordinators)
         forwarding_attempted = True
