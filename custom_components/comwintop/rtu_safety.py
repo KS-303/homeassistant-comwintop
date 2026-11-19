@@ -7,7 +7,9 @@ reads after an ambiguous exchange and survives unclean HA restarts.
 """
 
 import asyncio
+import os
 from contextlib import contextmanager
+from hashlib import sha256
 
 from homeassistant.exceptions import ConfigEntryError
 from homeassistant.helpers.storage import Store
@@ -39,9 +41,20 @@ class RtuSessionGuard:
         self.inflight = 0
         self.reason = None
         self.units = []
-        self._store = (
-            Store(hass, 1, f"comwintop.rtu_session.{entry.entry_id}") if self.enabled else None
-        )
+        # Stable per-endpoint key: removing and re-adding an integration
+        # entry must not erase an unresolved bus fault. Do not expose
+        # usernames, serial paths or gateway addresses in storage filenames.
+        self._store = None
+        if self.enabled:
+            if entry.data["transport"] == "serial":
+                endpoint = os.path.realpath(entry.data["device"])
+            else:
+                endpoint = (
+                    f"{entry.data['host'].strip().lower()}:"
+                    f"{int(entry.data['port'])}"
+                )
+            fingerprint = sha256(endpoint.encode("utf-8")).hexdigest()[:32]
+            self._store = Store(hass, 1, f"comwintop.rtu_session.{fingerprint}")
         self._armed = False
 
     async def arm(self):
