@@ -2,6 +2,7 @@
 
 import asyncio
 import math
+from contextlib import asynccontextmanager
 from copy import deepcopy
 from uuid import uuid4
 
@@ -179,15 +180,48 @@ def connection_schema(mode, defaults=None, language="en"):
     return vol.Schema(fields)
 
 
+@asynccontextmanager
+async def guarded_temporary_unit(hass, connection, unit_id):
+    """Serialize configuration probes with every loaded ComWinTop poll.
+
+    Temporary units still use HA's common Modbus backend. This guard prevents
+    our own probes from bypassing an already-latched bus or interleaving with
+    another ComWinTop read. It does not protect independent HA users of the
+    same physical RS485 bus (an upstream limitation).
+    """
+    identity = endpoint_key(connection)
+    matches = []
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if endpoint_key(entry.data) != identity:
+            continue
+        runtime = getattr(entry, "runtime_data", None)
+        if runtime is not None:
+            matches.append(runtime)
+    if not matches:
+        raise HomeAssistantError("ComWinTop connection must be loaded before probing")
+    for runtime in matches:
+        if runtime.rtu_guard.unsafe:
+            raise HomeAssistantError("rtu_bus_unsynchronized")
+    # Identical endpoints must not be configured as separate independent hubs.
+    if len(matches) != 1:
+        raise HomeAssistantError("multiple_comwintop_hubs_on_same_bus")
+    runtime = matches[0]
+    params = await hass.async_add_executor_job(params_from, dict(connection))
+    async with runtime.bus_lock:
+        await runtime.rtu_guard.settle()
+        async with async_get_temporary_unit(hass, params, unit_id) as unit:
+            yield unit, runtime.rtu_guard
+
+
 async def probe(hass, connection, device):
     """Known safe read only. Success does NOT identify a model."""
-    params = await hass.async_add_executor_job(params_from, dict(connection))
     group = PROFILES[device["model"]][0]
-    async with async_get_temporary_unit(hass, params, device["unit_id"]) as unit:
-        async with asyncio.timeout(READ_DEADLINE):
-            values = await getattr(unit, group.method)(group.start, 1)
-        if len(values) != 1:
-            raise ValueError("invalid_length")
+    async with guarded_temporary_unit(hass, connection, device["unit_id"]) as (unit, guard):
+        with guard.reading():
+            async with asyncio.timeout(READ_DEADLINE):
+                values = await getattr(unit, group.method)(group.start, 1)
+            if len(values) != 1:
+                raise ValueError("invalid_length")
 
 
 def detected_tm32ds_channels(frames):
@@ -210,14 +244,15 @@ def detected_tm32ds_channels(frames):
 
 async def scan_tm32ds_channels(hass, connection, unit_id):
     """Read FC03/32..63 through HA's shared transport; never scan slave IDs."""
-    params = await hass.async_add_executor_job(params_from, dict(connection))
     frames = []
-    async with async_get_temporary_unit(hass, params, unit_id) as unit:
+    async with guarded_temporary_unit(hass, connection, unit_id) as (unit, guard):
         for attempt in range(3):
-            async with asyncio.timeout(READ_DEADLINE):
-                values = await unit.read_holding_registers(32, 32)
-            if len(values) != 32:
-                raise HomeAssistantError("incomplete_temperature_scan")
+            await guard.settle()
+            with guard.reading():
+                async with asyncio.timeout(READ_DEADLINE):
+                    values = await unit.read_holding_registers(32, 32)
+                if len(values) != 32:
+                    raise HomeAssistantError("incomplete_temperature_scan")
             frames.append(values)
             if attempt < 2:
                 await asyncio.sleep(BUS_MESSAGE_SPACING)
