@@ -170,3 +170,44 @@ async def test_real_coordinator_stops_polling_after_rtu_timeout(hass):
     assert unit.read_holding_registers.await_count == 1
     await c.stop()
     await gate.close()
+
+
+async def test_dropped_storage_write_blocks_first_rtu_request(hass, monkeypatch):
+    from homeassistant.exceptions import ConfigEntryError
+
+    from .test_l50 import configured_entry
+
+    gate = RtuSessionGuard(hass, configured_entry(transport="rtu_tcp"))
+
+    async def write_that_does_not_persist(self, data):
+        FakeStore.persisted = data
+
+    monkeypatch.setattr(FakeStore, "async_save", write_that_does_not_persist)
+    with pytest.raises(ConfigEntryError, match="not durably stored"):
+        await gate.arm()
+    assert not gate._armed
+
+
+async def test_existing_corrupt_marker_fails_closed(hass):
+    from homeassistant.exceptions import ConfigEntryError
+
+    from .test_l50 import configured_entry
+
+    gate = RtuSessionGuard(hass, configured_entry(transport="rtu_tcp"))
+    marker = gate._store.path
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text("not valid json", encoding="utf-8")
+    with pytest.raises(ConfigEntryError, match="marker corrupt"):
+        await gate.arm()
+    assert not gate._armed
+
+
+def test_same_gateway_key_survives_entry_recreation(hass):
+    from .test_l50 import configured_entry
+
+    first = configured_entry(transport="rtu_tcp", port=15555)
+    second = configured_entry(transport="rtu_tcp", port=15555)
+    assert first.entry_id != second.entry_id
+    first_gate = RtuSessionGuard(hass, first)
+    second_gate = RtuSessionGuard(hass, second)
+    assert first_gate._store.key == second_gate._store.key
