@@ -435,6 +435,11 @@ class UnitCoordinator(DataUpdateCoordinator):
             self.status = "SUSPECT"
             for key in keys:
                 self.samples[key].fail(type(err).__name__)
+        if self.rtu_guard is not None and self.rtu_guard.unsafe:
+            # The specific exception handler must not turn a latched RTU
+            # fault back into SUSPECT/ONLINE or re-arm channel deadlines.
+            self.mark_bus_unsafe()
+            return
         if not split and not recovery:
             completed = time.monotonic()
             for key in keys:
