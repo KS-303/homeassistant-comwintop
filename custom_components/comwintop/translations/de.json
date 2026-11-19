@@ -324,6 +324,10 @@
       "rtu_recovery": {
         "title": "RTU-Bus gesperrt – Wartungsfreigabe erforderlich",
         "description": "Modbus-RTU-Lesezugriffe sind nach {reason} gesperrt. Vor der Freigabe Bus und Gateway spannungsfrei setzen, einen einzigen Master sicherstellen und die vollständige Leerung aller Gateway-Puffer prüfen. Marker: {marker}."
+      },
+      "poll_exhausted": {
+        "title": "ComWinTop-Abfrage dauerhaft beendet",
+        "description": "Die Modbus-Polling-Aufgabe wurde nach mehrfachen internen Fehlern angehalten. Integration und Protokoll prüfen; nicht ungeprüft als zuverlässige Messwertquelle verwenden."
       }
     },
     "flow": {
