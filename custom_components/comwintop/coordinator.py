@@ -414,6 +414,12 @@ class UnitCoordinator(DataUpdateCoordinator):
             for key in keys:
                 self.samples[key].read_failed(code)
             self._refresh_read_status()
+            if (
+                self.rtu_guard is not None
+                and self.rtu_guard.unverified_after_timeout
+                and not self.rtu_guard.unsafe
+            ):
+                self.status = "SUSPECT"
             if self.status == "OFFLINE":
                 recovery_at = time.monotonic() + min(30, 2 ** min(self.failures, 5))
                 for key in self._next:
@@ -423,12 +429,22 @@ class UnitCoordinator(DataUpdateCoordinator):
             # Serial late replies must not remain buffered for the next request.
             # This briefly interrupts the shared bus, not just the failed unit.
             if self.config_entry.data["transport"] in ("serial", "rtu_tcp"):
-                # Never close the shared transport while another unit is
-                # actively exchanging a frame on the same ComWinTop bus.
-                async with self.bus_lock:
-                    with suppress(ModbusConnectionError):
-                        await self.unit.disconnect()
-                await asyncio.sleep(0.1)
+                # b17 showed isolated unanswered reads with immediate recovery.
+                # Closing the shared transport after the first read timeout
+                # could defeat the provisional recovery path via connection_lost.
+                # The guarded read-only path instead pauses before any new
+                # ComWinTop request. A second timeout or protocol failure
+                # latches the bus and no further reads will be attempted.
+                provisional = (
+                    self.rtu_guard is not None
+                    and self.rtu_guard.unverified_after_timeout
+                    and not self.rtu_guard.unsafe
+                )
+                if not provisional:
+                    async with self.bus_lock:
+                        with suppress(ModbusConnectionError):
+                            await self.unit.disconnect()
+                    await asyncio.sleep(0.1)
         except asyncio.CancelledError:
             raise
         except Exception as err:
