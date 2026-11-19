@@ -318,5 +318,31 @@
         "scaled": "Skalierter Messwert"
       }
     }
+  },
+  "repairs": {
+    "issue": {
+      "rtu_recovery": {
+        "title": "RTU-Bus gesperrt – Wartungsfreigabe erforderlich",
+        "description": "Modbus-RTU-Lesezugriffe sind nach {reason} gesperrt. Vor der Freigabe Bus und Gateway spannungsfrei setzen, einen einzigen Master sicherstellen und die vollständige Leerung aller Gateway-Puffer prüfen. Marker: {marker}."
+      }
+    },
+    "flow": {
+      "confirm": {
+        "step": {
+          "confirm": {
+            "title": "RTU-Bus bewusst freigeben",
+            "description": "Nur fortfahren, nachdem alle drei Hardwareprüfungen durchgeführt wurden. Diese Handlung startet keinen automatischen Wiederholversuch.",
+            "data": {
+              "bus_power_cycled": "Gateway und RTU-Geräte waren vollständig spannungsfrei",
+              "sole_master_confirmed": "Genau ein Master ist am physischen RS485-Bus angeschlossen",
+              "gateway_queues_cleared": "Gateway-Puffer wurden entsprechend Herstellerangaben geleert"
+            }
+          }
+        },
+        "error": {
+          "incomplete": "Alle drei Hardwareprüfungen bestätigen."
+        }
+      }
+    }
   }
 }
