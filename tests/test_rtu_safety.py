@@ -127,6 +127,7 @@ async def test_real_coordinator_stops_polling_after_rtu_timeout(hass):
     from unittest.mock import AsyncMock
 
     from custom_components.comwintop.coordinator import UnitCoordinator
+
     from .test_l50 import Unit, configured_entry
 
     entry = configured_entry(transport="rtu_tcp")
