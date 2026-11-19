@@ -330,9 +330,7 @@ class UnitCoordinator(DataUpdateCoordinator):
                 if self.rtu_guard is None:
                     async with asyncio.timeout(READ_DEADLINE):
                         called = time.monotonic()
-                        values = await getattr(self.unit, group.method)(
-                            group.start + offset, count
-                        )
+                        values = await getattr(self.unit, group.method)(group.start + offset, count)
                         self.read_call_ms = round((time.monotonic() - called) * 1000, 1)
                 else:
                     with self.rtu_guard.reading():
