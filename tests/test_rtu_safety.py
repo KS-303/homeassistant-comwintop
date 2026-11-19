@@ -186,7 +186,9 @@ async def test_known_modbus_exception_does_not_latch_bus():
     await first.close()
 
 
-async def test_real_coordinator_stops_polling_after_repeated_rtu_timeouts(hass):
+async def test_real_coordinator_stops_polling_after_repeated_rtu_timeouts(
+    hass, monkeypatch
+):
     """After two ambiguous timeouts even a forced poll cannot emit a new frame."""
     import logging
     import time
@@ -196,6 +198,7 @@ async def test_real_coordinator_stops_polling_after_repeated_rtu_timeouts(hass):
 
     from .test_l50 import Unit, configured_entry
 
+    monkeypatch.setattr(rtu_safety, "RTU_READ_QUIET_SECONDS", 0.001)
     entry = configured_entry(transport="rtu_tcp")
     gate = RtuSessionGuard(hass, entry)
     await gate.arm()
@@ -208,6 +211,9 @@ async def test_real_coordinator_stops_polling_after_repeated_rtu_timeouts(hass):
     assert not gate.unsafe
     assert gate.transient_timeouts == 1
     assert c.status == "SUSPECT"
+    for key in c._next:
+        if c.enabled(key):
+            c._next[key] = 0
     await c._poll_one(time.monotonic())
     assert gate.unsafe
     assert c.status == "OFFLINE"
