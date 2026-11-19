@@ -1,5 +1,6 @@
 """Only the HA shared manager owns sockets/serial ports."""
 
+import ipaddress
 import os
 
 from modbus_connection import ModbusSerialParams, ModbusTcpParams
@@ -20,7 +21,13 @@ def params_from(data):
         if not path.startswith("/dev/") or os.path.commonpath(("/dev", path)) != "/dev":
             raise ValueError("invalid_resolved_serial_path")
     else:
-        host = data["host"].strip().lower()
+        host = data["host"].strip().lower().rstrip(".")
+        if host.startswith("[") and host.endswith("]"):
+            host = host[1:-1]
+        try:
+            host = ipaddress.ip_address(host).compressed
+        except ValueError:
+            pass
         if not host or any(c.isspace() for c in host) or any(c in host for c in "/@?#"):
             raise ValueError("invalid_host")
         port = int(data["port"])
