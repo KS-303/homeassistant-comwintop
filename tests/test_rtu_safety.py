@@ -1,6 +1,8 @@
 """RTU uncertain-read gate: pure lifecycle and read-safety regression tests."""
 
 import asyncio
+import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -14,12 +16,16 @@ class FakeStore:
 
     def __init__(self, hass, version, key):
         self.key = key
+        self.path = Path(hass.config.path(".storage", key)) if hass is not None else None
 
     async def async_load(self):
         return self.persisted
 
     async def async_save(self, data):
         type(self).persisted = data
+        if self.path is not None:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self.path.write_text(json.dumps({"key": self.key, "data": data}), encoding="utf-8")
 
 
 class FakeUnit:
