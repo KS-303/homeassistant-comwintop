@@ -9,11 +9,9 @@ from pathlib import Path
 import voluptuous as vol
 from homeassistant.components.repairs import RepairsFlow
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
-from .rtu_safety import RtuSessionGuard
 
 
 class RtuRecoveryFlow(RepairsFlow):
