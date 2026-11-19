@@ -23,6 +23,7 @@ INSTALL_FILES = (
     "model.py",
     "number.py",
     "profiles.py",
+    "repairs.py",
     "rtu_safety.py",
     "sensor.py",
     "strings.json",
