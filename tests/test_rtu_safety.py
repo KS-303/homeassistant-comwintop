@@ -186,9 +186,7 @@ async def test_known_modbus_exception_does_not_latch_bus():
     await first.close()
 
 
-async def test_real_coordinator_stops_polling_after_repeated_rtu_timeouts(
-    hass, monkeypatch
-):
+async def test_real_coordinator_stops_polling_after_repeated_rtu_timeouts(hass, monkeypatch):
     """After two ambiguous timeouts even a forced poll cannot emit a new frame."""
     import logging
     import time
