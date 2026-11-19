@@ -3,6 +3,7 @@
 Only the repair flow can clear the persisted bus marker. This operation does
 not claim to prove that a power cycle drained every possible gateway buffer.
 """
+
 import json
 from pathlib import Path
 
@@ -35,9 +36,7 @@ class RtuRecoveryFlow(RepairsFlow):
                 step_id="confirm", data_schema=vol.Schema(fields), errors={"base": "incomplete"}
             )
         marker_key = (self.data or {}).get("marker_key")
-        if not isinstance(marker_key, str) or not marker_key.startswith(
-            "comwintop.rtu_session."
-        ):
+        if not isinstance(marker_key, str) or not marker_key.startswith("comwintop.rtu_session."):
             raise HomeAssistantError("Missing RTU recovery marker")
         expected_issue = f"rtu_{marker_key.rsplit('.', 1)[-1]}"
         if self.issue_id != expected_issue:
@@ -59,9 +58,7 @@ class RtuRecoveryFlow(RepairsFlow):
         def persisted():
             try:
                 payload = json.loads(Path(store.path).read_text(encoding="utf-8"))
-                return payload.get("key") == marker_key and payload.get("data") == {
-                    "active": False
-                }
+                return payload.get("key") == marker_key and payload.get("data") == {"active": False}
             except (OSError, ValueError, AttributeError):
                 return False
 
