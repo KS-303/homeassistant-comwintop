@@ -57,7 +57,9 @@ def test_zero_and_85_scan_are_explicitly_ambiguous_not_sensor_fault():
 async def test_failed_platform_unload_preserves_runtime_and_guard():
     coordinator = SimpleNamespace(stop=AsyncMock())
     guard = SimpleNamespace(close=AsyncMock())
-    entry = SimpleNamespace(runtime_data=SimpleNamespace(units={"a": coordinator}, rtu_guard=guard))
+    entry = SimpleNamespace(runtime_data=SimpleNamespace(
+            units={"a": coordinator}, rtu_guard=guard, bus_lock=asyncio.Lock()
+        ))
     hass = SimpleNamespace(
         config_entries=SimpleNamespace(async_unload_platforms=AsyncMock(return_value=False))
     )
