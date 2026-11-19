@@ -96,3 +96,28 @@ async def test_repairs_rejects_partial_confirmation_and_allows_explicit_reset(ha
     )
     assert completed["type"] == "create_entry"
     assert (await store.async_load()) == {"active": False}
+
+
+@pytest.mark.asyncio
+async def test_config_scan_uses_same_guard_and_rejects_latched_bus(hass):
+    from homeassistant.exceptions import HomeAssistantError
+
+    from custom_components.comwintop.config_flow import scan_tm32ds_channels
+
+    simulator = await Simulator("rtu").start()
+    try:
+        entry = configured_entry(transport="rtu_tcp", port=simulator.port)
+        await hass.config_entries.async_add(entry)
+        await hass.async_block_till_done()
+        assert entry.state.value == "loaded", entry.reason
+        disabled = await scan_tm32ds_channels(hass, entry.data, 1)
+        assert isinstance(disabled, dict)
+        guard = entry.runtime_data.rtu_guard
+        guard.latch("test_latched")
+        count = len(simulator.trace)
+        with pytest.raises(HomeAssistantError, match="rtu_bus_unsynchronized"):
+            await scan_tm32ds_channels(hass, entry.data, 1)
+        assert len(simulator.trace) == count
+    finally:
+        await hass.config_entries.async_unload(entry.entry_id)
+        await simulator.close()
