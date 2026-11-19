@@ -49,10 +49,7 @@ class RtuSessionGuard:
             if entry.data["transport"] == "serial":
                 endpoint = os.path.realpath(entry.data["device"])
             else:
-                endpoint = (
-                    f"{entry.data['host'].strip().lower()}:"
-                    f"{int(entry.data['port'])}"
-                )
+                endpoint = f"{entry.data['host'].strip().lower()}:{int(entry.data['port'])}"
             fingerprint = sha256(endpoint.encode("utf-8")).hexdigest()[:32]
             self._store = Store(hass, 1, f"comwintop.rtu_session.{fingerprint}")
         self._armed = False
