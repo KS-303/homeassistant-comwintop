@@ -16,7 +16,8 @@ from modbus_connection.exceptions import (
     ModbusExceptionError,
 )
 
-RTU_TRANSPORTS = frozenset(("serial", "rtu_tcp"))
+# A Modbus TCP gateway can still misassociate late RTU replies on its serial side.
+RTU_TRANSPORTS = frozenset(("serial", "rtu_tcp", "tcp_gateway"))
 
 
 class RtuBusUnsafe(RuntimeError):
