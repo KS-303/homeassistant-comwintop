@@ -56,3 +56,50 @@ dieser Fälle muss in einer langlebigen gemeinsamen Verbindung erfolgen und
 getestet werden, bevor ComWinTop den Reset ersetzen darf. Eine unzureichende
 Annahme für `max_late` kann weiterhin falsche Zuordnungen erlauben. Die
 Testwerte 0,20/0,08/0,35 s sind Simulatordaten und keine Hardwareempfehlung.
+
+
+## b20 – zusätzlicher ComWinTop-Leseschutz (keine Upstream-Freigabe)
+
+Eine RTU-Antwort besitzt keine Transaktionsnummer. Eine beliebig lange
+verzögerte Antwort ist nicht nachweisbar frisch. Die in b20 integrierte
+`RtuSessionGuard`-Schicht stellt daher **keinen automatischen Resync** in
+Aussicht, sondern stoppt ComWinTop-Leseanforderungen nach Timeout,
+Protokollfehler, Abbruch oder Verbindungsverlust. Alle Koordinatoren
+derselben ComWinTop-Verbindung werden sofort ungültig und OFFLINE.
+Die Kommunikation wird auch bei Reconnect nicht stillschweigend freigegeben.
+
+Die Guard-Schicht speichert vor dem ersten Lesezugriff ein aktives
+Sitzungskennzeichen in der HA-Storage-Datenbank. Nur ein sauberer Unload
+ohne unklaren Request deaktiviert es. Ein ungeplanter Prozessabbruch
+erfordert dagegen eine kontrollierte manuelle Wiederinbetriebnahme;
+ein automatischer Neustart darf die Sperre nicht umgehen.
+Die Sperre wird nicht durch ein gewöhnliches Reload nach Fehler gelöscht.
+
+**Wichtige Grenze:** Dies sperrt nur *ComWinTop-eigene* Aufrufe.
+Andere Integrationen, die den öffentlichen HA-Modbus-Manager auf derselben
+Leitung nutzen, werden dadurch nicht gesperrt. Für verbindliche
+systemweite Sicherheit bleibt eine öffentlich unterstützte,
+gemeinsam genutzte Upstream-Sperre bzw. Transport-Eigentümerschaft
+erforderlich. Auch Konfigurations-Probes verwenden noch eine temporäre Unit.
+Deshalb ist b20 ein Entwicklungsstand und **kein freigegebenes**
+Test-/Installationspaket für einen unkontrollierten Multidrop-Bus.
+
+### Physische Freigabebedingungen
+
+1. Jeder physische RS485-Bus ist eindeutig einem HA-Modbus-Verbindungsmanager
+   zugeordnet; weder zweiter Master noch Alias-Verbindungen dürfen still
+   an der Bus-Sperre vorbeigehen.
+2. Nach einer unsicheren Antwort Bus und Gateway physisch vollständig
+   spannungsfrei zurücksetzen und die Geräte-/Gateway-Ausgangspuffer nach
+   Herstellerangabe als leer nachweisen; andernfalls **keine Wiederfreigabe**.
+3. HA vor Eingriffen in die lokalen Sitzungsmarker vollständig herunterfahren.
+   Ein Zurücksetzen der Marker ist *kein* Ersatz für den physisch belegten Reset.
+   Der Ablauf muss als eigener, bestätigter Wartungsdialog geprüft werden;
+   bis dahin keine automatische Freigabe.
+4. Verspätete/fragmentierte Frames, Busunterbrechung, Neustart, weitere
+   Teilnehmer und fremde HA-Nutzer am Draht erfassen. Die verschärfte
+   Python-Warnungsprüfung und 72-h-Hardware-Dauerprüfung nachholen.
+5. DO/AO, FC05/06/15/16 und Anlagensteuerung bleiben gesperrt.
+
+Ein positives CI-Ergebnis beweist nur die von der CI ausgeführten Fälle,
+nicht die maximale physische Gateway-Verzögerung.
