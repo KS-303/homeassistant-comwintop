@@ -53,6 +53,7 @@ async def async_get_config_entry_diagnostics(hass, entry):
                         ),
                         "available": unit.available(key),
                         "error": sample.error,
+                        "detection_state": unit.options(key).get("detection_state"),
                         "age_seconds": round(time.monotonic() - sample.received, 1)
                         if sample.received is not None
                         else None,
