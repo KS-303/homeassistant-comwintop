@@ -11,6 +11,9 @@ async def async_get_config_entry_diagnostics(hass, entry):
         "transport": entry.data["transport"],
         "hardware_validated": False,
         "writes": "locked",
+        "rtu_guard_enabled": entry.runtime_data.rtu_guard.enabled,
+        "rtu_bus_unsafe": entry.runtime_data.rtu_guard.unsafe,
+        "rtu_bus_unsafe_reason": entry.runtime_data.rtu_guard.reason,
         "experimental_fc06_address_write": "disabled",
         "devices": [
             {
