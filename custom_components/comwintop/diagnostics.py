@@ -27,7 +27,6 @@ async def async_get_config_entry_diagnostics(hass, entry):
                 "model": unit.model,
                 "status": unit.status,
                 "counters": dict(unit.counters),
-                "latency_ms": unit.latency_ms,
                 "bus_lock_wait_ms": unit.bus_lock_wait_ms,
                 "read_call_ms": unit.read_call_ms,
                 "minimum_read_rate_hz": unit.minimum_read_rate_hz,
