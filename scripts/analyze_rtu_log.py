@@ -3,6 +3,7 @@
 The output is aggregate-only. A missing captured RTU recv line is *not* proof
 that a device never transmitted; logger resets can also hide frame records.
 """
+
 import argparse
 import json
 import re
