@@ -219,8 +219,10 @@ class UnitCoordinator(DataUpdateCoordinator):
         while True:
             if self.rtu_guard is not None and self.rtu_guard.unsafe:
                 return
-            await self.read_communication()
+            # Clear before reading: an event raised while the request is in
+            # flight must be observed by the next loop, not silently lost.
             self._communication_refresh.clear()
+            await self.read_communication()
             try:
                 async with asyncio.timeout(300):
                     await self._communication_refresh.wait()
