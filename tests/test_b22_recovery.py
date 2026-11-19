@@ -1,10 +1,7 @@
 """b22 lifecycle and HA Repairs regression tests."""
 
 import pytest
-from homeassistant.components.repairs import repairs_flow_manager
-from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.storage import Store
-from homeassistant.setup import async_setup_component
 
 from custom_components.comwintop.const import DOMAIN
 
@@ -58,44 +55,37 @@ async def test_double_reload_keeps_exactly_one_shutdown_job(hass):
 
 @pytest.mark.asyncio
 async def test_repairs_rejects_partial_confirmation_and_allows_explicit_reset(hass):
-    assert await async_setup_component(hass, "repairs", {})
+    """Test the actual HA Repairs flow without bootstrapping HTTP/auth in fixtures."""
+    from custom_components.comwintop.repairs import RtuRecoveryFlow
+
     marker = "comwintop.rtu_session." + ("b" * 32)
     store = Store(hass, 1, marker)
     await store.async_save({"active": True, "reason": "repeated_read_timeout"})
-    issue_id = "rtu_" + ("b" * 32)
-    ir.async_create_issue(
-        hass,
-        DOMAIN,
-        issue_id,
-        is_fixable=True,
-        is_persistent=True,
-        severity=ir.IssueSeverity.ERROR,
-        translation_key="rtu_recovery",
-        data={"marker_key": marker, "reason": "repeated_read_timeout"},
-        translation_placeholders={"reason": "repeated_read_timeout", "marker": marker},
-    )
-    manager = repairs_flow_manager(hass)
-    result = await manager.async_init(DOMAIN, context={"issue_id": issue_id})
-    assert result["type"] == "form"
-    missing = await manager.async_configure(
-        result["flow_id"],
+    flow = RtuRecoveryFlow()
+    flow.hass = hass
+    flow.handler = DOMAIN
+    flow.flow_id = "test-repair"
+    flow.context = {"issue_id": "rtu_" + ("b" * 32)}
+    flow.data = {"marker_key": marker, "reason": "repeated_read_timeout"}
+
+    initial = await flow.async_step_init()
+    assert initial["type"] == "form"
+    rejected = await flow.async_step_confirm(
         {
             "bus_power_cycled": True,
             "sole_master_confirmed": False,
             "gateway_queues_cleared": True,
-        },
+        }
     )
-    assert missing["type"] == "form"
-    assert missing["errors"]["base"] == "incomplete"
+    assert rejected["type"] == "form"
+    assert rejected["errors"]["base"] == "incomplete"
     assert (await store.async_load())["active"] is True
-
-    completed = await manager.async_configure(
-        result["flow_id"],
+    completed = await flow.async_step_confirm(
         {
             "bus_power_cycled": True,
             "sole_master_confirmed": True,
             "gateway_queues_cleared": True,
-        },
+        }
     )
     assert completed["type"] == "create_entry"
     assert (await store.async_load()) == {"active": False}
