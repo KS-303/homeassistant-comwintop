@@ -38,10 +38,11 @@ def reset_store(monkeypatch):
 
 def guard():
     return RtuSessionGuard(
-        None, SimpleNamespace(
+        None,
+        SimpleNamespace(
             data={"transport": "rtu_tcp", "host": "127.0.0.1", "port": 502},
             entry_id="test",
-        )
+        ),
     )
 
 
@@ -110,18 +111,17 @@ async def test_inflight_session_marker_survives_simulated_process_crash():
 
 def test_tcp_gateway_transport_is_guarded():
     gateway = RtuSessionGuard(
-        None, SimpleNamespace(
+        None,
+        SimpleNamespace(
             data={"transport": "tcp_gateway", "host": "127.0.0.1", "port": 502},
             entry_id="gateway",
-        )
+        ),
     )
     assert gateway.enabled
 
 
 def test_tcp_transport_has_no_rtu_guard():
-    first = RtuSessionGuard(
-        None, SimpleNamespace(data={"transport": "tcp"}, entry_id="test")
-    )
+    first = RtuSessionGuard(None, SimpleNamespace(data={"transport": "tcp"}, entry_id="test"))
     assert not first.enabled
 
 
@@ -152,9 +152,7 @@ async def test_real_coordinator_stops_polling_after_rtu_timeout(hass):
     await gate.arm()
     unit = Unit()
     sub = next(iter(entry.subentries.values()))
-    c = UnitCoordinator(
-        hass, entry, sub, unit, asyncio.Lock(), logging.getLogger("test"), gate
-    )
+    c = UnitCoordinator(hass, entry, sub, unit, asyncio.Lock(), logging.getLogger("test"), gate)
     gate.attach(c)
     unit.read_holding_registers = AsyncMock(side_effect=TimeoutError())
     await c._poll_one(time.monotonic())
