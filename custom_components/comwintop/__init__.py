@@ -90,7 +90,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Build a read-only runtime; preserve HA retries for temporary failures."""
     coordinators: dict[str, UnitCoordinator] = {}
     forwarding_attempted = False
-    rtu_guard = RtuSessionGuard(hass, entry)
+    rtu_guard = None
     try:
         local, failures = await hass.async_add_executor_job(
             load_local_profiles, hass.config.path("comwintop")
@@ -99,6 +99,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         for filename, reason in failures.items():
             _LOGGER.warning("Local ComWinTop profile %s rejected: %s", filename, reason)
         params = await hass.async_add_executor_job(params_from, dict(entry.data))
+        rtu_guard = RtuSessionGuard(hass, entry)
         await rtu_guard.arm()
         lock = asyncio.Lock()
         ids: set[int] = set()
@@ -141,8 +142,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
         # A failed startup must not strand an armed marker if no transmission
         # was uncertain. close() retains it whenever the RTU guard latched.
-        with suppress(Exception):
-            await rtu_guard.close()
+        if rtu_guard is not None:
+            with suppress(Exception):
+                await rtu_guard.close()
         entry.runtime_data = None
 
         if isinstance(err, asyncio.CancelledError):
