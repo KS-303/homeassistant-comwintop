@@ -1,3 +1,17 @@
+## 0.1.0b23 (Labor-Beta – sichtbarer RTU-Reparaturdialog)
+
+- Reparatur-Übersetzungen in das von Home Assistant erwartete Schema
+  `issues.rtu_recovery.fix_flow.step.confirm` verschoben; bisher verwendetes
+  `repairs` wurde ignoriert. Deshalb fehlten im realen b22-Test die
+  Überschrift, Sicherheitsbeschreibung und sämtliche drei Checkboxtexte.
+- Deutsche und englische Texte mit klaren Hardwareanforderungen (Gateway
+  und RTU-Geräte spannungsfrei, nur ein Master, keine alten Pufferframes).
+- Drei Regressionstests prüfen die Übersetzungspfade, sichtbare Texte
+  und die Übereinstimmung der Formularfelder mit dem Code.
+- Die bestätigungspflichtige RTU-Sperre und die rein lesende Modbus-Grenze
+  bleiben unverändert. Keine automatische Entsperrung; nicht
+  hardwarevalidiert für Steuer- oder Sicherheitsanwendungen.
+
 ## 0.1.0b22 (Hardening – Draft, nicht hardwarevalidiert)
 
 - Home-Assistant-Shutdown-Job beendet die ComWinTop-Poller vor dem

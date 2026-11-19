@@ -319,34 +319,29 @@
       }
     }
   },
-  "repairs": {
-    "issue": {
-      "rtu_recovery": {
-        "title": "RTU bus requires verified recovery",
-        "description": "Modbus RTU reads stopped after {reason}. Before acknowledging this repair, disconnect the physical bus and gateway from power, verify only one master is connected, and confirm all pending frames and gateway buffers are cleared. Marker: {marker}."
-      },
-      "poll_exhausted": {
-        "title": "ComWinTop polling stopped",
-        "description": "The Modbus polling task exhausted its recovery attempts after repeated internal exceptions. Check integration diagnostics; do not treat readings as reliable until resolved."
-      }
-    },
-    "flow": {
-      "confirm": {
+  "issues": {
+    "rtu_recovery": {
+      "title": "RTU bus blocked: physical recovery required",
+      "fix_flow": {
         "step": {
           "confirm": {
-            "title": "Manually release the RTU bus",
-            "description": "Only proceed after all three physical checks are complete. This operation is not an automatic retry.",
+            "title": "Verify the RTU bus before unlocking",
+            "description": "The RTU connection is blocked after an uncertain communication state. The checkboxes are mandatory safety acknowledgements, not automatic checks. Do not continue until the gateway and devices were powered down and the gateway has no pending serial replies. A software reset alone does not make the bus safe.",
             "data": {
-              "bus_power_cycled": "Gateway and RTU devices were fully power-cycled",
-              "sole_master_confirmed": "There is exactly one master for this physical RS485 bus",
-              "gateway_queues_cleared": "Gateway queues were cleared according to its manual"
+              "bus_power_cycled": "I have disconnected and restarted both the gateway and RTU devices after their power was fully removed.",
+              "sole_master_confirmed": "I have verified that exactly one Modbus master is connected to this physical RS485 bus.",
+              "gateway_queues_cleared": "I have verified from the gateway manual or a captured trace that delayed replies and queued frames are cleared."
             }
           }
         },
         "error": {
-          "incomplete": "Confirm all three physical checks."
+          "incomplete": "You must complete and confirm all three physical checks before unlocking."
         }
       }
+    },
+    "poll_exhausted": {
+      "title": "ComWinTop polling has stopped",
+      "description": "The Modbus polling task stopped after repeated internal errors. Check the integration diagnostics; the reported values may be stale."
     }
   }
 }
