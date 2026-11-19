@@ -720,9 +720,9 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
             ),
         }
         if kind == "temperature":
-            fields[
-                vol.Required("allow_negative", default=options.get("allow_negative", False))
-            ] = bool
+            fields[vol.Required("allow_negative", default=options.get("allow_negative", False))] = (
+                bool
+            )
         if kind == "di":
             fields[vol.Required("nc", default=options.get("nc", False))] = bool
         if kind in ("ai", "ao"):
