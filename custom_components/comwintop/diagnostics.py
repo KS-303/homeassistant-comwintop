@@ -17,9 +17,7 @@ async def async_get_config_entry_diagnostics(hass, entry):
         "rtu_bus_unsafe_reason": guard.reason if guard is not None else None,
         "rtu_transient_timeouts": guard.transient_timeouts if guard is not None else 0,
         "rtu_recovered_timeouts": guard.recovered_timeouts if guard is not None else 0,
-        "rtu_timeout_unverified": (
-            guard.unverified_after_timeout if guard is not None else False
-        ),
+        "rtu_timeout_unverified": (guard.unverified_after_timeout if guard is not None else False),
         "experimental_fc06_address_write": "disabled",
         "devices": [
             {
