@@ -91,7 +91,11 @@ def validate_device(data, *, previous=None, legacy=False):
     if type(data["unit_id"]) is not int or not 1 <= data["unit_id"] <= 247:
         raise InvalidValue("invalid_unit")
     for kind, interval in data.get("intervals", {}).items():
-        old = previous.get("intervals", {}).get(kind) if previous is not None else None
+        old = (
+            previous.get("intervals", {}).get(kind, DEFAULT_INTERVALS.get(kind))
+            if previous is not None
+            else None
+        )
         if not minimum_for(kind, interval, old) <= finite(interval) <= 3600:
             raise InvalidValue("invalid_interval")
     for key, options in data.get("channels", {}).items():

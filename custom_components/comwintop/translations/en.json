@@ -107,9 +107,14 @@
             "di": "Digital input interval (seconds)",
             "do": "Digital output interval (seconds)",
             "ai": "Analog input interval (seconds)",
-            "ao": "Analog output interval (seconds)"
+            "ao": "Analog output interval (seconds)",
+            "keep_di": "Digital inputs: keep previous value",
+            "keep_do": "Digital outputs: keep previous value",
+            "keep_ai": "Analog inputs: keep previous value",
+            "keep_ao": "Analog outputs: keep previous value",
+            "keep_temperature": "Temperatures: keep previous value"
           },
-          "description": "Previously saved intervals below 5 seconds can only be retained unchanged; new values must be at least 5 seconds."
+          "description": "Previous short intervals: {legacy_intervals}. To change, clear the checkbox and enter at least 5 seconds."
         },
         "profile_preview": {
           "title": "Review local device profile",

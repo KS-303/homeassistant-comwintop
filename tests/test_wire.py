@@ -65,6 +65,89 @@ async def test_unit_failure_does_not_poison_other_unit(sim):
         await c.close()
 
 
+async def test_late_rtu_same_shape_can_be_misattributed_without_quarantine():
+    """Prove why simply removing the shared reset can accept an old reading."""
+    import struct
+
+    from .wire import crc
+
+    requests = []
+    release = asyncio.Event()
+
+    async def serve(reader, writer):
+        try:
+            await reader.readexactly(8)
+            requests.append(1)
+            await reader.readexactly(8)
+            requests.append(2)
+            # Same unit, FC03 and response length; only register address differs.
+            stale = bytes([1, 3, 2]) + struct.pack(">H", 111)
+            writer.write(stale + crc(stale))
+            await writer.drain()
+            await release.wait()
+        except (asyncio.IncompleteReadError, ConnectionError):
+            pass
+        finally:
+            writer.close()
+            await writer.wait_closed()
+
+    server = await asyncio.start_server(serve, "127.0.0.1", 0)
+    port = server.sockets[0].getsockname()[1]
+    connection = ModbusConnection(
+        ModbusSerialParams(device=f"socket://127.0.0.1:{port}", baudrate=9600), timeout=0.1
+    )
+    try:
+        unit = connection.for_unit(1)
+        with pytest.raises(ModbusError):
+            await unit.read_holding_registers(32, 1)
+        value = await unit.read_holding_registers(33, 1)
+        assert requests == [1, 2]
+        assert value == [111]  # Old address 32 response was accepted for address 33.
+    finally:
+        release.set()
+        await connection.close()
+        server.close()
+        await server.wait_closed()
+
+
+async def test_late_rtu_reply_from_other_unit_is_not_used():
+    import struct
+
+    from .wire import crc
+
+    release = asyncio.Event()
+
+    async def serve(reader, writer):
+        try:
+            await reader.readexactly(8)
+            await reader.readexactly(8)
+            for unit_id, value in ((1, 111), (2, 222)):
+                response = bytes([unit_id, 3, 2]) + struct.pack(">H", value)
+                writer.write(response + crc(response))
+                await writer.drain()
+            await release.wait()
+        except (asyncio.IncompleteReadError, ConnectionError):
+            pass
+        finally:
+            writer.close()
+            await writer.wait_closed()
+
+    server = await asyncio.start_server(serve, "127.0.0.1", 0)
+    port = server.sockets[0].getsockname()[1]
+    connection = ModbusConnection(
+        ModbusSerialParams(device=f"socket://127.0.0.1:{port}", baudrate=9600), timeout=0.1
+    )
+    try:
+        with pytest.raises(ModbusError):
+            await connection.for_unit(1).read_holding_registers(32, 1)
+        assert await connection.for_unit(2).read_holding_registers(32, 1) == [222]
+    finally:
+        release.set()
+        await connection.close()
+        server.close()
+        await server.wait_closed()
+
+
 @pytest.mark.parametrize("mode", ["tcp", "rtu"])
 async def test_shared_link_waits_one_second_after_reply_across_units(mode):
     """Measure actual received-to-next-sent gap, not only configured timeout."""

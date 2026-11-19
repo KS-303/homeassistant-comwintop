@@ -168,6 +168,9 @@ def test_old_short_mb_intervals_load_but_new_short_intervals_are_rejected():
 
 
 async def test_legacy_short_mb_interval_form_remains_editable(hass, sim):
+    from homeassistant.helpers import config_validation as cv
+    from probatio.codecs.fields import to_field_list
+
     entry = configured_entry(
         second=True,
         port=sim.port,
@@ -189,12 +192,48 @@ async def test_legacy_short_mb_interval_form_remains_editable(hass, sim):
     )
     form = await mgr.async_configure(flow["flow_id"], {"next_step_id": "intervals"})
     assert form["step_id"] == "intervals"
-    rejected = await mgr.async_configure(flow["flow_id"], {"di": 1, "do": 3, "ai": 10, "ao": 10})
-    assert rejected["type"] == "form" and rejected["errors"]["base"] == "invalid_interval"
-    accepted = await mgr.async_configure(flow["flow_id"], {"di": 1, "do": 5, "ai": 10, "ao": 10})
+    to_field_list(form["data_schema"], custom_serializer=cv.custom_serializer)
+    fields = {key.schema: value for key, value in form["data_schema"].schema.items()}
+    assert {"keep_di", "keep_do"} <= fields.keys()
+    with pytest.raises(vol.Invalid):
+        fields["do"](3)
+    accepted = await mgr.async_configure(
+        flow["flow_id"], {"keep_di": True, "di": 5, "keep_do": False, "do": 5, "ai": 10, "ao": 10}
+    )
     assert accepted["type"] == "abort"
     await hass.async_block_till_done()
     assert entry.subentries[mb.subentry_id].data["intervals"]["di"] == 1
+
+
+async def test_legacy_individual_interval_form_preserves_or_replaces(hass, sim):
+    from homeassistant.helpers import config_validation as cv
+    from probatio.codecs.fields import to_field_list
+
+    entry = configured_entry(second=True, port=sim.port)
+    await hass.config_entries.async_add(entry)
+    await hass.async_block_till_done()
+    mb = next(s for s in entry.subentries.values() if s.data["model"] == "mb_308n")
+    data = dict(mb.data) | {"channels": {"di_1": {"poll_interval": 1}}}
+    hass.config_entries.async_update_subentry(entry, mb, data=data)
+    await hass.async_block_till_done()
+    mb = entry.subentries[mb.subentry_id]
+    mgr = hass.config_entries.subentries
+    flow = await mgr.async_init(
+        (entry.entry_id, "device"),
+        context={"source": "reconfigure", "subentry_id": mb.subentry_id},
+    )
+    flow = await mgr.async_configure(flow["flow_id"], {"next_step_id": "channel"})
+    form = await mgr.async_configure(flow["flow_id"], {"channel": "di_1"})
+    to_field_list(form["data_schema"], custom_serializer=cv.custom_serializer)
+    fields = {key.schema: value for key, value in form["data_schema"].schema.items()}
+    with pytest.raises(vol.Invalid):
+        fields["poll_interval"](3)
+    result = await mgr.async_configure(
+        flow["flow_id"], {"name": "", "enabled": True, "poll_interval_mode": "legacy", "nc": False}
+    )
+    assert result["type"] == "abort"
+    await hass.async_block_till_done()
+    assert entry.subentries[mb.subentry_id].data["channels"]["di_1"]["poll_interval"] == 1
 
 
 async def test_mixed_due_blocks_and_no_fast_neighbor_refresh(hass):

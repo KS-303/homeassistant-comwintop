@@ -107,9 +107,14 @@
             "di": "Digitale Eingänge (Sekunden)",
             "do": "Digitale Ausgänge (Sekunden)",
             "ai": "Analoge Eingänge (Sekunden)",
-            "ao": "Analoge Ausgänge (Sekunden)"
+            "ao": "Analoge Ausgänge (Sekunden)",
+            "keep_di": "Digitale Eingänge: bisherigen Wert beibehalten",
+            "keep_do": "Digitale Ausgänge: bisherigen Wert beibehalten",
+            "keep_ai": "Analoge Eingänge: bisherigen Wert beibehalten",
+            "keep_ao": "Analoge Ausgänge: bisherigen Wert beibehalten",
+            "keep_temperature": "Temperaturen: bisherigen Wert beibehalten"
           },
-          "description": "Bereits gespeicherte Intervalle unter 5 Sekunden können nur unverändert beibehalten werden. Neue Werte müssen mindestens 5 Sekunden betragen."
+          "description": "Bisherige kurze Intervalle: {legacy_intervals}. Zum Ändern den Haken entfernen und einen Wert ab 5 Sekunden eingeben."
         },
         "profile_preview": {
           "title": "Lokales Geräteprofil prüfen",
