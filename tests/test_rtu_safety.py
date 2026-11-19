@@ -264,3 +264,58 @@ def test_same_gateway_key_survives_entry_recreation(hass):
     first_gate = RtuSessionGuard(hass, first)
     second_gate = RtuSessionGuard(hass, second)
     assert first_gate._store.key == second_gate._store.key
+
+
+async def test_b17_single_missing_response_keeps_last_temperature_available(hass, monkeypatch):
+    """b17 observed two isolated missed responses without any sensor outage."""
+    import logging
+    import time
+    from unittest.mock import AsyncMock
+
+    from custom_components.comwintop.coordinator import UnitCoordinator
+
+    from .test_l50 import Unit, configured_entry
+
+    monkeypatch.setattr(rtu_safety, "RTU_READ_QUIET_SECONDS", 0.001)
+    entry = configured_entry(transport="rtu_tcp")
+    gate = RtuSessionGuard(hass, entry)
+    await gate.arm()
+    unit = Unit()
+    sub = next(iter(entry.subentries.values()))
+    coordinator = UnitCoordinator(
+        hass, entry, sub, unit, asyncio.Lock(), logging.getLogger("test"), gate
+    )
+    gate.attach(coordinator)
+    calls = 0
+
+    async def read(start, count):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise TimeoutError
+        return [220] * count
+
+    unit.read_holding_registers = AsyncMock(side_effect=read)
+    try:
+        await coordinator._poll_one(time.monotonic())
+        assert coordinator.available("temperature_1")
+        previous = coordinator.samples["temperature_1"].value
+        for key in coordinator._next:
+            if coordinator.enabled(key):
+                coordinator._next[key] = 0
+        await coordinator._poll_one(time.monotonic())
+        assert coordinator.available("temperature_1")
+        assert coordinator.samples["temperature_1"].value == previous
+        assert coordinator.status == "SUSPECT"
+        assert not gate.unsafe and gate.unverified_after_timeout
+        for key in coordinator._next:
+            if coordinator.enabled(key):
+                coordinator._next[key] = 0
+        await coordinator._poll_one(time.monotonic())
+        assert coordinator.available("temperature_1")
+        assert coordinator.status == "ONLINE"
+        assert gate.recovered_timeouts == 1 and gate.consecutive_timeouts == 0
+        assert unit.read_holding_registers.await_count == 3
+    finally:
+        await coordinator.stop()
+        await gate.close()
