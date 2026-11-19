@@ -23,7 +23,11 @@ async def test_normal_hass_stop_clears_only_clean_rtu_marker(hass):
         assert entry.state.value == "loaded", entry.reason
         guard = entry.runtime_data.rtu_guard
         assert guard._armed
-        await wait_for(lambda: any(x.samples["temperature_1"].received for x in entry.runtime_data.units.values()))
+        await wait_for(
+            lambda: any(
+                x.samples["temperature_1"].received for x in entry.runtime_data.units.values()
+            )
+        )
         assert (await guard._store.async_load()) == {"active": True}
         await hass.async_stop(force=True)
         assert (await guard._store.async_load()) == {"active": False}
@@ -42,7 +46,8 @@ async def test_double_reload_keeps_exactly_one_shutdown_job(hass):
             assert await hass.config_entries.async_reload(entry.entry_id)
             await hass.async_block_till_done()
             jobs = [
-                job for job in hass._shutdown_jobs
+                job
+                for job in hass._shutdown_jobs
                 if job.job.name == f"comwintop_clean_shutdown_{entry.entry_id}"
             ]
             assert len(jobs) == 1
