@@ -200,3 +200,13 @@ async def async_unload_entry(hass, entry):
         await coordinator.stop()
     await entry.runtime_data.rtu_guard.close()
     return True
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Forget only entry-specific channel registry; preserve RTU fault marker.
+
+    A bus safety latch is tied to the physical endpoint and survives deleting
+    and re-adding an entry, preventing an accidental reset.
+    """
+    store = Store(hass, 1, f"comwintop.channel_registry.{entry.entry_id}")
+    await store.async_remove()
