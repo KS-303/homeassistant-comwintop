@@ -31,11 +31,14 @@ class RtuRecoveryFlow(RepairsFlow):
             return self.async_show_form(step_id="confirm", data_schema=vol.Schema(fields))
         try:
             vol.Schema(fields)(user_input)
-            if not all(user_input.get(field) is True for field in (
-                "bus_power_cycled",
-                "sole_master_confirmed",
-                "gateway_queues_cleared",
-            )):
+            if not all(
+                user_input.get(field) is True
+                for field in (
+                    "bus_power_cycled",
+                    "sole_master_confirmed",
+                    "gateway_queues_cleared",
+                )
+            ):
                 raise vol.Invalid("incomplete")
         except vol.Invalid:
             return self.async_show_form(
