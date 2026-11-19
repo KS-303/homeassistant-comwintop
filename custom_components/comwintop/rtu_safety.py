@@ -82,6 +82,7 @@ class RtuSessionGuard:
         # HA's Store logs filesystem WriteError instead of propagating it.
         # Verify actual on-disk persistence before allowing *any* RTU frame.
         if hass := self._hass:
+
             def persisted():
                 try:
                     data = json.loads(Path(self._store.path).read_text(encoding="utf-8"))
