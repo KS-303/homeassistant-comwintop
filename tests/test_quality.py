@@ -182,7 +182,7 @@ async def test_short_response_not_accepted(quality):
     c, u = quality
     u.read_holding_registers.return_value = [220]
     await c.poll_group(PROFILES["tm_32ds"][0])
-    assert c.status == "INITIALIZING" and c.counters["protocol_error"] == 1
+    assert c.status == "SUSPECT" and c.counters["protocol_error"] == 1
     assert all(s.received is None for s in c.samples.values())
 
 
