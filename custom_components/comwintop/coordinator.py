@@ -118,7 +118,9 @@ class UnitCoordinator(DataUpdateCoordinator):
             self.status = "INACTIVE"
         elif self.rtu_guard is not None and self.rtu_guard.unsafe:
             self.status = "OFFLINE"
-        elif self.counters["poll_task_exhausted"]:
+        elif self.counters["poll_task_exhausted"] or any(
+            sample.error == "poll_task_failed" for _, sample in active
+        ):
             self.status = "OFFLINE"
         elif all(sample.consecutive_read_failures >= 3 for _, sample in active):
             self.status = "OFFLINE"
