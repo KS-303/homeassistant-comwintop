@@ -1,5 +1,6 @@
 """b24: timestamped Modbus timeout diagnostics and status debounce."""
 
+import asyncio
 import logging
 import time
 from unittest.mock import AsyncMock
@@ -7,7 +8,6 @@ from unittest.mock import AsyncMock
 import pytest
 
 from custom_components.comwintop.coordinator import UnitCoordinator
-from custom_components.comwintop.profiles import PROFILES
 
 from .test_l50 import Unit, configured_entry
 
@@ -26,7 +26,7 @@ async def unit_pair(hass):
         entry,
         sub,
         unit,
-        __import__("asyncio").Lock(),
+        asyncio.Lock(),
         logging.getLogger("test"),
     )
     yield coordinator, unit
