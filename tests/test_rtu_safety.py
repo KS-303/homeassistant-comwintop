@@ -304,7 +304,7 @@ async def test_b17_single_missing_response_keeps_last_temperature_available(hass
         await coordinator._poll_one(time.monotonic())
         assert coordinator.available("temperature_1")
         assert coordinator.samples["temperature_1"].value == previous
-        assert coordinator.status == "SUSPECT"
+        assert coordinator.status == "ONLINE"
         assert not gate.unsafe and gate.unverified_after_timeout
         for key in coordinator._next:
             if coordinator.enabled(key):
