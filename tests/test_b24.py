@@ -154,3 +154,16 @@ async def test_latched_bus_cannot_be_presented_as_recovered(unit_pair):
     coordinator.complete_timeouts("temperature", 32, 2)
     assert coordinator.status == "OFFLINE"
     assert coordinator.timeout_history[0]["state"] == "bus_latched"
+
+
+async def test_poll_supervisor_crash_cannot_be_hidden_by_aging(unit_pair):
+    coordinator, _unit = unit_pair
+    await coordinator._poll_one(time.monotonic())
+    assert coordinator.status == "ONLINE"
+    sample = coordinator.samples["temperature_1"]
+    sample.fail("poll_task_failed", invalidate=True)
+    coordinator._refresh_read_status()
+    assert coordinator.status == "OFFLINE"
+    sample.accept(22, 220, time.monotonic())
+    coordinator._refresh_read_status()
+    assert coordinator.status == "ONLINE"
