@@ -113,9 +113,7 @@ class UnitCoordinator(DataUpdateCoordinator):
         A fresh previous reply can keep the status ONLINE for a single miss,
         but unavailable/stale samples or repeated failures are never hidden.
         """
-        active = [
-            (key, self.samples[key]) for key in self.samples if self.enabled(key)
-        ]
+        active = [(key, self.samples[key]) for key in self.samples if self.enabled(key)]
         if not active:
             self.status = "INACTIVE"
         elif self.rtu_guard is not None and self.rtu_guard.unsafe:
