@@ -151,9 +151,7 @@ class UnitCoordinator(DataUpdateCoordinator):
             "recovered_at_utc": None,
             "recovery_seconds": None,
             "state": (
-                "bus_latched"
-                if self.rtu_guard is not None and self.rtu_guard.unsafe
-                else "pending"
+                "bus_latched" if self.rtu_guard is not None and self.rtu_guard.unsafe else "pending"
             ),
             "_started_monotonic": time.monotonic(),
         }
