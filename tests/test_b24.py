@@ -14,10 +14,7 @@ from .test_l50 import Unit, configured_entry
 
 @pytest.fixture
 async def unit_pair(hass):
-    channels = {
-        f"temperature_{channel}": {"enabled": channel <= 2}
-        for channel in range(1, 33)
-    }
+    channels = {f"temperature_{channel}": {"enabled": channel <= 2} for channel in range(1, 33)}
     entry = configured_entry(channels=channels, intervals={"temperature": 30})
     unit = Unit()
     sub = next(iter(entry.subentries.values()))
