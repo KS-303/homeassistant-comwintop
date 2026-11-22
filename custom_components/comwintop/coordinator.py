@@ -150,7 +150,11 @@ class UnitCoordinator(DataUpdateCoordinator):
             "error": "timeout",
             "recovered_at_utc": None,
             "recovery_seconds": None,
-            "state": "pending",
+            "state": (
+                "bus_latched"
+                if self.rtu_guard is not None and self.rtu_guard.unsafe
+                else "pending"
+            ),
             "_started_monotonic": time.monotonic(),
         }
         self._timeout_history.append(event)
