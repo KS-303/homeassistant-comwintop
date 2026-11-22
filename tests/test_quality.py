@@ -102,7 +102,8 @@ async def test_two_misses_on_each_channel_do_not_add_up_to_device_fault(quality)
         for _ in range(2):
             c._next[key] = 0.0
             await c._poll_one(0.0)
-    assert c.status == "INITIALIZING"
+    # No valid sample yet: even isolated misses are not shown as healthy.
+    assert c.status == "SUSPECT"
     assert c.samples["temperature_1"].consecutive_read_failures == 2
     assert c.samples["temperature_2"].consecutive_read_failures == 2
 
