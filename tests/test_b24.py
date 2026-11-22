@@ -77,6 +77,7 @@ async def test_stale_sample_forces_suspect_even_after_single_timeout(unit_pair):
     await coordinator._poll_one(time.monotonic())
     sample = coordinator.samples["temperature_1"]
     sample.received -= 91
+    sample.raw_received -= 91
     coordinator._refresh_read_status()
     assert coordinator.status == "SUSPECT"
     assert not coordinator.available("temperature_1")
