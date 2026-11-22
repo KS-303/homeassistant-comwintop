@@ -167,3 +167,15 @@ async def test_poll_supervisor_crash_cannot_be_hidden_by_aging(unit_pair):
     sample.accept(22, 220, time.monotonic())
     coordinator._refresh_read_status()
     assert coordinator.status == "ONLINE"
+
+
+async def test_recent_invalid_probe_response_does_not_claim_bus_outage(unit_pair):
+    coordinator, _unit = unit_pair
+    await coordinator._poll_one(time.monotonic())
+    sample = coordinator.samples["temperature_1"]
+    sample.received -= 100
+    sample.invalid_value("probe_disconnected", 0xFC18, time.monotonic())
+    coordinator._refresh_read_status()
+    assert coordinator.status == "ONLINE"
+    assert not coordinator.available("temperature_1")
+    assert sample.consecutive_probe_fault_values == 1
