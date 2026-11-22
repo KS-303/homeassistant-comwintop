@@ -127,9 +127,12 @@ class UnitCoordinator(DataUpdateCoordinator):
         elif any(sample.consecutive_read_failures >= 3 for _, sample in active):
             self.status = "SUSPECT"
         elif any(
-            (last_reply := (
-                sample.raw_received if sample.raw_received is not None else sample.received
-            )) is not None
+            (
+                last_reply := (
+                    sample.raw_received if sample.raw_received is not None else sample.received
+                )
+            )
+            is not None
             and sample.error != "register_exception"
             and time.monotonic() - last_reply >= 3 * self.interval(key)
             for key, sample in active
