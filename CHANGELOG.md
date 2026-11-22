@@ -1,3 +1,20 @@
+## 0.1.0b24 (Labor-Beta – Timeout-Diagnose und Statusentprellung)
+
+- Eine einzelne erfolglose RTU-Leseabfrage bleibt als Timeout gezählt,
+  führt bei weiterhin frischen Messwerten aber nicht automatisch zu
+  „Kommunikation prüfen“. Ohne jemals gültige Messwerte oder nach
+  Überschreiten der Daten-Frischegrenze wird SUSPECT angezeigt.
+- Die bestehende RTU-Sperre bei zwei aufeinanderfolgenden Timeouts,
+  bei Protokollfehlern oder Transportverlust bleibt unverändert.
+- Bis zu 64 Timeout-Ereignisse je Gerät im Arbeitsspeicher: UTC-Zeitpunkt,
+  Modbus-Slave-Adresse, Registergruppe/-bereich, Fehlerart,
+  zugehörige bestätigte Wiederherstellung und Dauer. Keine IP-Adressen,
+  Sensormesswerte oder Protokollrohframes in der Exporthistorie.
+- Zusätzliche Tests für frische/alte Messdaten, Statuswechsel,
+  Wiederherstellung und weiterhin fail-closed wirkende RTU-Sperre.
+- Noch keine Hardwareabnahme, keine globale Quarantäne anderer
+  Modbus-Master, kein automatischer Schreibzugriff.
+
 ## 0.1.0b23 (Labor-Beta – sichtbarer RTU-Reparaturdialog)
 
 - Reparatur-Übersetzungen in das von Home Assistant erwartete Schema
