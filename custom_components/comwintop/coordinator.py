@@ -4,6 +4,7 @@ import asyncio
 import time
 from collections import Counter, deque
 from contextlib import suppress
+from datetime import UTC, datetime
 
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -43,6 +44,8 @@ class UnitCoordinator(DataUpdateCoordinator):
         self.samples = {key: Sample() for key, _, _ in channels(self.model)}
         self._channel_order = {key: position for position, key in enumerate(self.samples)}
         self.counters = Counter()
+        # Bounded, in-memory history (no addresses of gateways or sensor values).
+        self._timeout_history = deque(maxlen=64)
         self.status = (
             "INITIALIZING" if any(self.enabled(key) for key in self.samples) else "INACTIVE"
         )
@@ -104,21 +107,87 @@ class UnitCoordinator(DataUpdateCoordinator):
         )
 
     def _refresh_read_status(self):
-        """A healthy neighbouring channel cannot clear another channel's fault."""
-        active = [self.samples[key] for key in self.samples if self.enabled(key)]
+        """Report data quality without flashing SUSPECT after one recovered-capable miss.
+
+        An RTU uncertainty stays enforced by its independent fail-closed guard.
+        A fresh previous reply can keep the status ONLINE for a single miss,
+        but unavailable/stale samples or repeated failures are never hidden.
+        """
+        active = [
+            (key, self.samples[key]) for key in self.samples if self.enabled(key)
+        ]
         if not active:
             self.status = "INACTIVE"
-        elif all(sample.consecutive_read_failures >= 3 for sample in active):
+        elif self.rtu_guard is not None and self.rtu_guard.unsafe:
             self.status = "OFFLINE"
-        elif any(sample.consecutive_read_failures >= 3 for sample in active):
+        elif self.counters["poll_task_exhausted"]:
+            self.status = "OFFLINE"
+        elif all(sample.consecutive_read_failures >= 3 for _, sample in active):
+            self.status = "OFFLINE"
+        elif any(sample.consecutive_read_failures >= 3 for _, sample in active):
+            self.status = "SUSPECT"
+        elif any(
+            sample.received is not None
+            and time.monotonic() - sample.received >= 3 * self.interval(key)
+            for key, sample in active
+        ):
             self.status = "SUSPECT"
         elif self.last_response is not None or any(
-            sample.received is not None for sample in active
+            sample.received is not None for _, sample in active
         ):
             self.status = "ONLINE"
+        elif any(sample.consecutive_read_failures for _, sample in active):
+            self.status = "SUSPECT"
+        else:
+            self.status = "INITIALIZING"
+
+    def record_timeout(self, group, start, count):
+        """Keep a bounded history of actual failed Modbus read attempts."""
+        event = {
+            "timestamp_utc": datetime.now(UTC).isoformat(),
+            "modbus_address": int(self.settings["unit_id"]),
+            "register_group": group,
+            "start_register": start,
+            "register_count": count,
+            "error": "timeout",
+            "recovered_at_utc": None,
+            "recovery_seconds": None,
+            "state": "pending",
+            "_started_monotonic": time.monotonic(),
+        }
+        self._timeout_history.append(event)
+
+    def complete_timeouts(self, group, start, count):
+        """Only a matching successful read confirms recovery of a failed range."""
+        now = time.monotonic()
+        for event in self._timeout_history:
+            if (
+                event["state"] == "pending"
+                and event["register_group"] == group
+                and start <= event["start_register"]
+                and start + count >= event["start_register"] + event["register_count"]
+            ):
+                event["state"] = "recovered"
+                event["recovery_seconds"] = round(now - event["_started_monotonic"], 3)
+                event["recovered_at_utc"] = datetime.now(UTC).isoformat()
+
+    def latch_timeout_history(self):
+        """A latched bus is not a recovered bus."""
+        for event in self._timeout_history:
+            if event["state"] == "pending":
+                event["state"] = "bus_latched"
+
+    @property
+    def timeout_history(self):
+        """Public diagnostics omit private monotonic bookkeeping."""
+        return [
+            {key: value for key, value in event.items() if not key.startswith("_")}
+            for event in self._timeout_history
+        ]
 
     def mark_bus_unsafe(self):
         """Invalidate readings immediately; do not claim an RTU response is fresh."""
+        self.latch_timeout_history()
         self.status = "OFFLINE"
         self.communication_values = None
         self.communication_received = None
@@ -215,8 +284,11 @@ class UnitCoordinator(DataUpdateCoordinator):
             self.communication_received = None
             self.communication_error = type(err).__name__
             self._communication_retry_at = time.monotonic() + 30
+            if isinstance(err, TimeoutError):
+                self.record_timeout("communication", 16, 1)
             self.async_set_updated_data(self.samples)
             return None
+        self.complete_timeouts("communication", 16, 1)
         self.communication_values = result
         self.communication_received = time.monotonic()
         self.communication_error = None
@@ -243,7 +315,9 @@ class UnitCoordinator(DataUpdateCoordinator):
     async def _age(self):
         while True:
             current = tuple(self.available(key) for key in self.samples)
-            if current != self._last_available:
+            previous_status = self.status
+            self._refresh_read_status()
+            if current != self._last_available or self.status != previous_status:
                 self._last_available = current
                 self.async_set_updated_data(self.samples)
             await asyncio.sleep(0.5)
@@ -385,6 +459,7 @@ class UnitCoordinator(DataUpdateCoordinator):
                 else:
                     self.samples[key].accept(value, raw, received)
                     self._known_bad.discard(key)
+            self.complete_timeouts(group.kind, group.start + offset, count)
             self.failures = 0
             self.last_response = received
             self._refresh_read_status()
@@ -437,15 +512,13 @@ class UnitCoordinator(DataUpdateCoordinator):
             if code == "protocol_error" and self.rtu_guard is not None:
                 self.rtu_guard.latch("protocol_error")
             self.counters[code] += 1
+            if code == "timeout":
+                self.record_timeout(group.kind, group.start + offset, count)
             for key in keys:
                 self.samples[key].read_failed(code)
             self._refresh_read_status()
-            if (
-                self.rtu_guard is not None
-                and self.rtu_guard.unverified_after_timeout
-                and not self.rtu_guard.unsafe
-            ):
-                self.status = "SUSPECT"
+            # A single provisional RTU timeout is tracked by the guard,
+            # not misrepresented as a persistent communication outage.
             if self.status == "OFFLINE":
                 recovery_at = time.monotonic() + min(30, 2 ** min(self.failures, 5))
                 for key in self._next:
