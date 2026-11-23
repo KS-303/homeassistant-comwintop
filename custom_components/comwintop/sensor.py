@@ -36,9 +36,7 @@ class ValueSensor(ChannelEntity, SensorEntity):
             # The hardware signal modes are not validated; show only integer
             # register counts and make the uncertainty explicit in the name.
             self._attr_translation_key = None
-            self._attr_name = (
-                f"{options.get('name') or f'Analoger Eingang {index + 1}'} – Rohwert"
-            )
+            self._attr_name = f"{options.get('name') or f'Analoger Eingang {index + 1}'} – Rohwert"
             self._attr_native_unit_of_measurement = None
             self._attr_suggested_display_precision = 0
         if group.kind == "temperature":
