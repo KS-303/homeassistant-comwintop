@@ -44,3 +44,45 @@ DO readback is the module's coil bit, **not** a separate physical contact sensor
 
 Automated CI checks cannot substitute for testing timing on the actual
 Waveshare gateway.
+
+## Confirmed behavior in HA, 23 November 2026
+
+During rapid manual clicks, Home Assistant displayed:
+
+> Die Aktion switch/turn_off konnte nicht ausgeführt werden.
+> Schaltvorgang läuft bereits. Bitte erst die Rückmeldung abwarten.
+
+This is the intended `write_in_progress` protection: a second command
+to the same relay is rejected while the first is pending or being
+confirmed. This observation alone does **not** establish the duration
+of the first command, successful FC01 confirmation, or a wire-frame count.
+
+## Binding rule for future Home Assistant automations
+
+**Switching is a transaction, not an instantaneous state assignment.**
+
+1. Check the relay's separate FC01 readback entity and device/bus quality
+   before issuing a command. Skip commands when the confirmed target
+   state is already present.
+2. Send **one** `switch.turn_on` / `switch.turn_off` request per relay.
+   Never use rapid duplicate service calls or delayed blind retries.
+3. Wait for a **fresh FC01 readback matching the requested state**, not
+   merely for the HA service call to return or for a fixed sleep timer.
+   After b29 this readback is normally published immediately once received.
+4. Apply a bounded automation timeout and handle timeout, unavailable,
+   `write_in_progress`, `write_locked`, mismatch, and RTU bus repair
+   states explicitly. On uncertain completion, **do not auto-resend**;
+   check physical relay status before any manual recovery.
+5. Prevent overlapping automation executions controlling the same DO
+   (e.g. HA automation `mode: single` where appropriate). Never use a
+   queued run mode to build up stale opposite relay requests.
+6. Respect one-second message spacing on the shared link and the
+   two-second pre-transmission command TTL. Those are transport bounds,
+   **not** a guarantee of total end-to-end command duration.
+7. FC01 reports the module's coil state, **not independently verified
+   mechanical contact closure**. Safety-critical load feedback needs
+   separate electrical feedback hardware.
+
+This is a design and acceptance requirement for later automation work;
+no automation should be deployed until its sequencing and timeout cases
+have been tested on the physical gateway.
