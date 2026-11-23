@@ -46,12 +46,14 @@ def test_write_permission_only_valid_for_mb307d_digital_outputs():
     with pytest.raises(InvalidValue, match="invalid_write_permission"):
         validate_device(device(channels_config={"do_1": {"write_enabled": 1}}))
     with pytest.raises(InvalidValue, match="unsupported_write_permission"):
-        validate_device({
-            "model": "mb_308n",
-            "unit_id": 1,
-            "device_uid": "mb308n-lab",
-            "channels": {"do_1": {"write_enabled": True}},
-        })
+        validate_device(
+            {
+                "model": "mb_308n",
+                "unit_id": 1,
+                "device_uid": "mb308n-lab",
+                "channels": {"do_1": {"write_enabled": True}},
+            }
+        )
 
 
 def test_move_or_disabling_output_revokes_permission():
