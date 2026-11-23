@@ -35,8 +35,12 @@ def test_discrete_registers_decode_but_analog_scale_is_not_invented():
     assert decode_channel("di", True, {}, model="mb_307d_ii_s") is True
     assert decode_channel("di", True, {"nc": True}, model="mb_307d_ii_s") is False
     assert decode_channel("do", False, {}, model="mb_307d_ii_s") is False
-    with pytest.raises(InvalidValue, match="mb307d_analog_scaling_unverified"):
-        decode_channel("ai", 0, {"mode": "0_10v"}, model="mb_307d_ii_s")
+    assert decode_channel("ai", 0, {"mode": "0_10v"}, model="mb_307d_ii_s") == 0
+    assert decode_channel("ai", 2345, {}, model="mb_307d_ii_s") == 2345
+    assert decode_channel("ai", 65535, {}, model="mb_307d_ii_s") == 65535
+    for raw in (None, -1, 65536, True, 1.1):
+        with pytest.raises(InvalidValue, match="invalid_mb307d_analog_raw"):
+            decode_channel("ai", raw, {}, model="mb_307d_ii_s")
 
 
 def test_write_permission_only_valid_for_mb307d_digital_outputs():
