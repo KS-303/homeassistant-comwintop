@@ -121,7 +121,12 @@ def validate_device(data, *, previous=None, legacy=False):
         if "write_enabled" in options:
             if type(options["write_enabled"]) is not bool:
                 raise InvalidValue("invalid_write_permission")
-            if options["write_enabled"] and (model != "mb_307d_ii_s" or not key.startswith("do_")):
+            # Legacy MB308N AO/DO permissions remain stored for stable
+            # config migration, but neither profile can transmit in b26.
+            if options["write_enabled"] and not (
+                key.startswith(("do_", "ao_"))
+                and model in ("mb_307d_ii_s", "mb_308n")
+            ):
                 raise InvalidValue("unsupported_write_permission")
         if options.get("mode") not in (None, *MODES):
             raise InvalidValue("invalid_mode")
