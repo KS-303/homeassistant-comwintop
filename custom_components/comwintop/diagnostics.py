@@ -32,6 +32,9 @@ async def async_get_config_entry_diagnostics(hass, entry):
                 "read_call_ms": unit.read_call_ms,
                 "minimum_read_rate_hz": unit.minimum_read_rate_hz,
                 "poll_task_running": unit.poll_running,
+                "last_write_phase": getattr(unit, "last_write_phase", None),
+                "last_write_duration_ms": getattr(unit, "last_write_duration_ms", None),
+                "last_write_error": getattr(unit, "last_write_error", None),
                 "seconds_since_last_response": (
                     round(time.monotonic() - unit.last_response, 1)
                     if unit.last_response is not None
