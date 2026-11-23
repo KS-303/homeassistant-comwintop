@@ -11,7 +11,7 @@ async def async_get_config_entry_diagnostics(hass, entry):
         "integration_version": VERSION,
         "transport": entry.data["transport"],
         "hardware_validated": False,
-        "writes": "locked",
+        "writes": "mb307d_rtu_tcp_fc05_lab_only",
         "rtu_guard_enabled": guard.enabled if guard is not None else False,
         "shared_minimum_read_rate_hz": round(
             sum(u.minimum_read_rate_hz for u in entry.runtime_data.units.values()), 3
