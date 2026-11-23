@@ -165,7 +165,11 @@ class UnitCoordinator(DataUpdateCoordinator):
             # Once the FC05 boundary is entered, a failure may be a
             # physically completed but unconfirmed relay change.
             if phase != "waiting_for_bus" and self.rtu_guard is not None:
-                self.rtu_guard.latch("write_unconfirmed")
+                self.rtu_guard.latch(
+                    "write_readback_unconfirmed"
+                    if phase == "fc01_readback"
+                    else "write_fc05_unconfirmed"
+                )
             raise
         finally:
             self.last_write_duration_ms = round((time.monotonic() - started) * 1000, 1)
