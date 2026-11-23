@@ -72,7 +72,7 @@ async def test_diagnostics_redact_connection_identity_and_measurements():
     exported = await async_get_config_entry_diagnostics(None, entry)
 
     assert exported["transport"] == "rtu_tcp"
-    assert exported["writes"] == "locked"
+    assert exported["writes"] == "mb307d_rtu_tcp_fc05_lab_only"
     assert exported["hardware_validated"] is False
     assert len(exported["devices"]) == 1
     device = exported["devices"][0]
