@@ -24,6 +24,7 @@ from .const import (
 )
 from .model import Sample, effective_interval
 from .profiles import PROFILES, InvalidValue, channel_key, channels, decode_channel
+from .single_attempt import fc05_once
 from .write_manager import WriteManager
 
 
@@ -121,17 +122,13 @@ class UnitCoordinator(DataUpdateCoordinator):
         )
 
     async def _execute_do(self, key, value, guard):
-        """Future certified FC05 executor; never used by unpatched b25.
-
-        The low-level send boundary must be certified before any
-        HARDWARE_VALIDATED_WRITES entry is introduced.
-        """
+        """One-shot laboratory FC05 with a separate FC01 readback."""
         address = int(key.removeprefix("do_")) - 1
         async with self.bus_lock:
             if self.rtu_guard is not None:
                 await self.rtu_guard.settle()
-            guard()
-            await self.unit.write_coil(address, bool(value), retry=False)
+            await fc05_once(self.unit, address, bool(value), guard)
+            # FC01 is read-only and may run through the standard HA backend.
             async with asyncio.timeout(READ_DEADLINE):
                 readback = await self.unit.read_coils(address, 1)
             if len(readback) != 1 or type(readback[0]) is not bool:
