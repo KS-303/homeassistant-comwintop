@@ -1,36 +1,12 @@
-# Bekannte Grenzen und Releaseblocker (0.1.0b22)
+# Bekannte Grenzen – ComWinTop 0.1.0b30
 
-**Nicht hardwarevalidiert.** Dieser Entwicklungsstand ist nur für einen
-kontrollierten, isolierten und rein lesenden Laboraufbau gedacht.
+ComWinTop b30 ist eine **experimentelle Beta**, keine vollständig hardwarevalidierte Steuerung.
 
-- RTU-Antworten enthalten keine Transaktionsnummer. Auch nach 8 s Busruhe
-  kann ein Gateway einen noch älteren Frame liefern. ComWinTop sperrt
-  eigene Reads nach wiederholten Timeouts und Transportfehlern. Andere
-  HA-Nutzer auf demselben physikalischen Bus sind nicht über den lokalen
-  Guard geschützt. Erst eine gemeinsam genutzte Upstream-Quarantäne plus
-  Gateway-Nachweis könnte die Zuordnung belastbar sichern.
-- Die neue Repairs-Freigabe prüft bewusste Bestätigungen. Die Software
-  erkennt nicht selbst, ob Gateway und angeschlossene RTU-Geräte physisch
-  spannungsfrei waren oder ob Puffer leer sind.
-- Bei normalen HA-Stops wird der geklärte Marker deaktiviert; bei
-  unsicheren Sitzungen oder unclean Shutdown bleibt er aktiv.
-- Während einer Kommunikationsstörung bleiben Werte höchstens bis
-  3 × ihrem effektiven Abfrageintervall als verfügbar markiert.
-  Ein plausibler, aber falsch zugeordneter RTU-Frame kann dadurch
-  nicht automatisch erkannt werden.
-- Vorzeichenbehaftete negative TM-32DS-Temperaturen sind opt-in und
-  nicht durch Hardwaremessung bestätigt. 0xFC18 ist als abgezogener
-  Fühler beobachtet; der Rohwert 850 ist mehrdeutig.
-- MB308N-Register/Funktionscodes und die physikalischen DO/AO-Zustände
-  sind noch nicht an echter Hardware validiert.
-- Bei mehreren Geräten gelten die Abfrageintervalle je Kanal; ein
-  globaler genauer Bus-Scheduler mit messbarer Drahtzeit fehlt.
-- Reparatur- und Test-Logs können Geräte- oder Benutzerdaten enthalten.
-  Nur anonymisierte Aggregationen öffentlich teilen.
-- Schreibzugriffe FC05, FC06, FC15, FC16 sowie jede Anlagensteuerung
-  bleiben vollständig gesperrt. Die experimentellen Upstream-Patches
-  werden nicht automatisch installiert.
-- Lizenzentscheidung und 24-/72-h-Laborbericht fehlen weiterhin.
+- **Schreiben:** Nur FC05 für das Profil **CWT MB-307D(II)-S** über **RTU-over-TCP** ist nach ausdrücklicher Freigabe pro Relais im Labor möglich. FC06/FC15/FC16, sonstige Geräte-/Transport-Schreibpfade und AO-Schreiben bleiben gesperrt.
+- **Ausgänge:** Eine erfolgreiche FC01-Rücklesung bestätigt nur den gemeldeten Coil-Zustand, nicht die tatsächliche Relaisstellung oder angeschlossene Last. Bei Schreibfehlern und unklaren Antworten wird sicherheitsorientiert gesperrt. Keine automatische Wiederholung von FC05.
+- **Buslast:** Wartende Schreibtransaktionen haben Priorität vor neuen ComWinTop-Polls. Laufende Reads und Anfragen anderer Integrationen können nicht unterbrochen werden; die 2-s-Sendefrist kann deshalb trotzdem ablaufen.
+- **RTU:** Verspätete Gateway-Antworten können ohne Transaktions-ID mehrdeutig bleiben. Die ComWinTop-Sperre ist keine globale Quarantäne für andere Modbus-Master.
+- **Sensorik:** Der TM-32DS-Fehlerwert `0xFC18` wird verworfen. Der Wert 85 °C ist als möglicher DS18B20-Startwert mehrdeutig. Negative Temperaturen erfordern eine ausdrückliche Kanaloption.
+- **Hardwaretests:** Gemischte Kanalintervalle und längere Ausfall-/Wiederanlauftests sind noch offen. Das MB-308N-Profil ist nicht vollständig an realer Hardware abgenommen.
 
-Siehe [Hardwaretest-Vorlage](hardware_test_report_template.md),
-[RTU-Untersuchung](rtu_timeout_solution.md) und [HACS-Update](../README.md).
+Keine Verwendung für sicherheitskritische Steuerungen oder unbeaufsichtigte Lastschaltungen. Der dokumentierte Teststand ersetzt keine reale Geräteabnahme.
