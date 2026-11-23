@@ -31,12 +31,14 @@ def test_full_translation_coverage_and_label_consistency():
     assert _paths(strings) == _paths(english) == _paths(german)
     for i in range(1, 9):
         key = f"do_{i}"
-        assert f"Ausgang {i}" in german["config_subentries"]["device"]["step"][
-            "relay_permissions"
-        ]["data"][key]
-        assert f"Output {i}" in english["config_subentries"]["device"]["step"][
-            "relay_permissions"
-        ]["data"][key]
+        assert (
+            f"Ausgang {i}"
+            in german["config_subentries"]["device"]["step"]["relay_permissions"]["data"][key]
+        )
+        assert (
+            f"Output {i}"
+            in english["config_subentries"]["device"]["step"]["relay_permissions"]["data"][key]
+        )
 
 
 class DummyGuard:
@@ -59,9 +61,7 @@ async def test_expired_before_fc05_does_not_latch_bus(monkeypatch):
     coordinator.unit = object()
     coordinator.samples = {}
     coordinator.async_set_updated_data = lambda _samples: None
-    monkeypatch.setattr(
-        "custom_components.comwintop.coordinator.fc05_once", reject_without_wire
-    )
+    monkeypatch.setattr("custom_components.comwintop.coordinator.fc05_once", reject_without_wire)
     with pytest.raises(WriteRejected, match="expired"):
         await coordinator._execute_do(
             "do_1", True, lambda: (_ for _ in ()).throw(WriteRejected("expired"))
@@ -81,9 +81,7 @@ async def test_incompatible_transport_does_not_latch_bus(monkeypatch):
     coordinator.unit = object()
     coordinator.samples = {}
     coordinator.async_set_updated_data = lambda _samples: None
-    monkeypatch.setattr(
-        "custom_components.comwintop.coordinator.fc05_once", reject_before_wire
-    )
+    monkeypatch.setattr("custom_components.comwintop.coordinator.fc05_once", reject_before_wire)
     with pytest.raises(SingleAttemptUnavailable):
         await coordinator._execute_do("do_1", True, lambda: None)
     assert not guard.latched
