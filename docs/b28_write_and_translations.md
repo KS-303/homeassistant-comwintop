@@ -26,9 +26,9 @@ FC01 readback, a transport callback, or a timeout while waiting on the bus.
 - A potentially transmitted but not confirmed FC05 **still latches**; the
   repair code distinguishes `write_fc05_unconfirmed` from
   `write_readback_unconfirmed`. No automatic retry or replay is introduced.
-- The FC01 readback request has a separate timeout budget allowing one
-  required bus spacing period beyond the request budget. This is not a
-  blanket recovery or guaranteed low latency.
+- The FC01 readback retains the original 4-second request deadline,
+  which already includes pacing; no artificial extra switching delay.
+  This is not a blanket recovery or guaranteed low latency.
 - Privacy-safe diagnostic fields (no register values, names, IPs or
   tokens): `last_write_phase`, `last_write_duration_ms`,
   `last_write_error`. Also exposed as attributes on the control entity.
