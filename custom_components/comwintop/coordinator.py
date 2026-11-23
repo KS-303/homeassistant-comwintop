@@ -133,7 +133,7 @@ class UnitCoordinator(DataUpdateCoordinator):
         self.last_write_duration_ms = None
         self.last_write_error = None
         try:
-            async with self.bus_lock:
+            async with self.bus_lock.writer():
                 if self.rtu_guard is not None:
                     await self.rtu_guard.settle()
                 phase = "fc05_preflight"
