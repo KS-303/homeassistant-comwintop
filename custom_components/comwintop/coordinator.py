@@ -24,8 +24,8 @@ from .const import (
 )
 from .model import Sample, effective_interval
 from .profiles import PROFILES, InvalidValue, channel_key, channels, decode_channel
-from .single_attempt import fc05_once
-from .write_manager import WriteManager
+from .single_attempt import SingleAttemptUnavailable, fc05_once
+from .write_manager import WriteManager, WriteRejected
 
 
 def failed_poll_delay(interval: float, failures: int) -> float:
@@ -70,6 +70,9 @@ class UnitCoordinator(DataUpdateCoordinator):
         self._communication_refresh = asyncio.Event()
         self._communication_retry_at = 0.0
         self._stopping = False
+        self.last_write_phase = None
+        self.last_write_duration_ms = None
+        self.last_write_error = None
         self._next = {key: 0.0 if self.enabled(key) else float("inf") for key in self.samples}
         # Only a failed block is split. Its finite children are tried one at a
         # time; unrelated healthy groups retain their own deadlines.
@@ -122,26 +125,50 @@ class UnitCoordinator(DataUpdateCoordinator):
         )
 
     async def _execute_do(self, key, value, guard):
-        """One-shot laboratory FC05 with a separate FC01 readback."""
+        """One FC05 request and one FC01 readback, no duplicate write attempts."""
         address = int(key.removeprefix("do_")) - 1
-        async with self.bus_lock:
-            if self.rtu_guard is not None:
-                await self.rtu_guard.settle()
-            try:
+        started = time.monotonic()
+        phase = "waiting_for_bus"
+        self.last_write_phase = phase
+        self.last_write_duration_ms = None
+        self.last_write_error = None
+        try:
+            async with self.bus_lock:
+                if self.rtu_guard is not None:
+                    await self.rtu_guard.settle()
+                phase = "fc05_preflight"
+                self.last_write_phase = phase
+                # This may reject BEFORE any frame is sent. Those failures
+                # must NEVER latch the physical RTU bus as unsynchronized.
                 await fc05_once(self.unit, address, bool(value), guard)
-                # FC01 is read-only and may run through the standard HA backend.
-                async with asyncio.timeout(READ_DEADLINE):
+                phase = "fc01_readback"
+                self.last_write_phase = phase
+                # Readbacks run through HA's paced read transport. Allow time
+                # for the required 1 s bus gap plus its own request deadline.
+                async with asyncio.timeout(READ_DEADLINE + BUS_MESSAGE_SPACING + 1):
                     readback = await self.unit.read_coils(address, 1)
                 if len(readback) != 1 or type(readback[0]) is not bool:
                     raise ModbusProtocolError("invalid_do_readback")
+                phase = "confirmed"
+                self.last_write_phase = phase
                 return readback[0]
-            except (Exception, asyncio.CancelledError):
-                # An interrupted FC05 may already have reached the device.
-                # Never repeat it, and never resume automatically after
-                # uncertain RTU state or an unconfirmed readback.
-                if self.rtu_guard is not None:
-                    self.rtu_guard.latch("write_unconfirmed")
-                raise
+        except (WriteRejected, SingleAttemptUnavailable) as err:
+            # Both types are raised only at the pre-transmit guard/boundary.
+            # A refused/stale/expired permission is NOT a hardware fault.
+            self.last_write_phase = "rejected_before_send"
+            self.last_write_error = type(err).__name__
+            raise
+        except (Exception, asyncio.CancelledError) as err:
+            # Actual FC05/FC01 outcome may be unknown: no stale replay and
+            # no silent automatic RTU recovery.
+            self.last_write_phase = phase
+            self.last_write_error = type(err).__name__
+            if self.rtu_guard is not None:
+                self.rtu_guard.latch("write_unconfirmed")
+            raise
+        finally:
+            self.last_write_duration_ms = round((time.monotonic() - started) * 1000, 1)
+            self.async_set_updated_data(self.samples)
 
     async def async_set_output(self, key, value):
         """Fail closed unless a backend is independently certified."""
