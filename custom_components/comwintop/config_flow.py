@@ -500,9 +500,9 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
         fields = {
             vol.Required(
                 f"do_{index}",
-                default=sub.data.get("channels", {}).get(f"do_{index}", {}).get(
-                    "write_enabled", False
-                ),
+                default=sub.data.get("channels", {})
+                .get(f"do_{index}", {})
+                .get("write_enabled", False),
             ): bool
             for index in range(1, 9)
         }
