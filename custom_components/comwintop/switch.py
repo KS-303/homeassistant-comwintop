@@ -31,9 +31,10 @@ class RelaySwitch(ChannelEntity, SwitchEntity):
         super().__init__(coordinator, key, group, index)
         self._attr_unique_id = f"{coordinator.uid}_{key}_control"
         self._attr_translation_key = None
-        self._attr_name = (
-            f"{coordinator.options(key).get('name') or f'Digitaler Ausgang {index + 1}'} – Schalten"
-        )
+        german = coordinator.hass.config.language.lower().startswith("de")
+        default = f"Digitaler Ausgang {index + 1}" if german else f"Digital output {index + 1}"
+        suffix = "Schalten" if german else "Control"
+        self._attr_name = f"{coordinator.options(key).get('name') or default} – {suffix}"
 
     @property
     def available(self):
