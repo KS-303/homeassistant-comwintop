@@ -1,6 +1,5 @@
 """Regression coverage for localized UI and pre-wire safety behavior."""
 
-import asyncio
 import json
 from pathlib import Path
 from types import SimpleNamespace
