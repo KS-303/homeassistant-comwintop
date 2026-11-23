@@ -105,5 +105,5 @@ async def test_unconfirmed_readback_latches_without_write_retry(monkeypatch):
     with pytest.raises(TimeoutError):
         await coordinator._execute_do("do_1", True, lambda: None)
     assert wire_calls == [1]
-    assert guard.latched == ["write_unconfirmed"]
+    assert guard.latched == ["write_readback_unconfirmed"]
     assert coordinator.last_write_phase == "fc01_readback"
