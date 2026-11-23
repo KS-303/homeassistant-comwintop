@@ -493,7 +493,8 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                     if language == "de"
                     else f"Output {index} (DO{index - 1}) – Allow switching",
                     False,
-                ) is True
+                )
+                is True
                 for index in range(1, 9)
             }
             previous = dict(sub.data)
@@ -512,9 +513,11 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
         # These IDs are UI-only: persisted channel keys remain stable do_N.
         language = ui_language(self.hass)
         permission_labels = {
-            (f"Ausgang {index} (DO{index - 1}) – Schalten erlauben"
-             if language == "de"
-             else f"Output {index} (DO{index - 1}) – Allow switching"): f"do_{index}"
+            (
+                f"Ausgang {index} (DO{index - 1}) – Schalten erlauben"
+                if language == "de"
+                else f"Output {index} (DO{index - 1}) – Allow switching"
+            ): f"do_{index}"
             for index in range(1, 9)
         }
         fields = {
