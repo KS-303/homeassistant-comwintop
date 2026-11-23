@@ -29,6 +29,8 @@ INSTALL_FILES = (
     "strings.json",
     "switch.py",
     "transport.py",
+    "single_attempt.py",
+    "write_manager.py",
     "translations/de.json",
     "translations/en.json",
     "brand/icon.png",
@@ -42,8 +44,7 @@ def build():
     destination = ROOT / "dist"
     destination.mkdir(exist_ok=True)
     output = destination / f"comwintop-{version}-install.zip"
-    # A strict allowlist keeps local profiles, untracked files and the dormant
-    # WriteManager prototype out of a read-only HA installation package.
+    # A strict allowlist keeps local profiles and untracked files out of the lab ZIP.
     files = [COMPONENT / relative for relative in INSTALL_FILES]
     for path in files:
         assert path.is_file() and not any(
