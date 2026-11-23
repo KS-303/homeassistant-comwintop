@@ -22,6 +22,12 @@ class Group:
 
 PROFILES = {
     "tm_32ds": (Group("temperature", "read_holding_registers", 32, 32),),
+    "mb_307d_ii_s": (
+        Group("di", "read_discrete_inputs", 0, 8),
+        Group("do", "read_coils", 0, 8),
+        # AI register access confirmed; physical scaling remains unverified.
+        Group("ai", "read_holding_registers", 50, 8),
+    ),
     "mb_308n": (
         Group("di", "read_discrete_inputs", 0, 8),
         Group("do", "read_coils", 0, 8),
@@ -29,7 +35,11 @@ PROFILES = {
         Group("ao", "read_holding_registers", 0, 4),
     ),
 }
-MODEL_NAMES = {"tm_32ds": "CWT-TM-32DS", "mb_308n": "CWT-MB308N"}
+MODEL_NAMES = {
+    "tm_32ds": "CWT-TM-32DS",
+    "mb_308n": "CWT-MB308N",
+    "mb_307d_ii_s": "CWT-MB307D(II)-S",
+}
 BUILTIN_PROFILES = dict(PROFILES)
 BUILTIN_NAMES = dict(MODEL_NAMES)
 READ_METHODS = {
@@ -286,13 +296,18 @@ def channels(model):
             yield channel_key(group.kind, index), group, index
 
 
-def decode_channel(kind, raw, options):
+def decode_channel(kind, raw, options, *, model=None):
     if kind == "temperature":
         return decode_temperature(raw, options.get("allow_negative", False))
     if kind in ("di", "do"):
         if type(raw) is not bool:
             raise InvalidValue("invalid_bit")
         return not raw if kind == "di" and options.get("nc", False) else raw
+    # MB307D AI0–AI7 read correctly on FC03/50–57, but signal range and
+    # engineering units have not been hardware-validated. Keep values
+    # unavailable while retaining the raw reply for diagnostics.
+    if model == "mb_307d_ii_s" and kind == "ai":
+        raise InvalidValue("mb307d_analog_scaling_unverified")
     # Analog channels require an explicit physical-mode selection first.
     mode = options.get("mode")
     physical = analog_physical(raw, mode, output=kind == "ao")
