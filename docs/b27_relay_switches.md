@@ -49,6 +49,22 @@ transparent RTU gateway. Disconnect Registerwerk first.
 The device's last hardware-confirmed slave ID was **1** (change to 3
 is not proven), TM-32DS remains on ID 2.
 
+## AI0–AI7: raw values are now usable
+
+b26 deliberately rejected every MB307D AI sample as
+`mb307d_analog_scaling_unverified`, even when FC03/50–57 returned a
+valid 16-bit register value. The ordinary AI entities consequently
+showed *unavailable*. This was a decoder policy issue, not proof
+of an RTU communication fault.
+
+b27 accepts valid unsigned 16-bit holding-register results (including
+`0`) as **raw counts**, and names the ordinary entity
+`Analoger Eingang N – Rohwert` without V/mA or an assumed scaling.
+Malformed data remains unavailable with a diagnostic error.
+This does not certify electrical conversion: a known injected
+current/voltage and the model's AI mode configuration are still required
+before interpreting engineering units.
+
 ## Acceptance conditions
 
 - Every MB307D DO control is registered without write permission; locked
