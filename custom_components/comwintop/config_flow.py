@@ -103,6 +103,7 @@ DEVICE_MENU_LABELS = {
         "disable_temperature_range": "Temperaturkanäle gesammelt deaktivieren",
         "enable_temperature_range": "Temperaturkanäle gesammelt aktivieren",
         "communication": "Modbus-Kommunikation anzeigen",
+        "relay_permissions": "Relais-Schreibfreigaben (DO1–DO8)",
     },
     "en": {
         "device": "Name / unit address",
@@ -111,6 +112,7 @@ DEVICE_MENU_LABELS = {
         "disable_temperature_range": "Disable temperature channels in bulk",
         "enable_temperature_range": "Enable temperature channels in bulk",
         "communication": "Show Modbus communication",
+        "relay_permissions": "Relay write permissions (DO1–DO8)",
     },
 }
 PARITY_LABELS = {
@@ -465,6 +467,8 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
     async def async_step_reconfigure(self, user_input=None):
         self._sub = self._get_reconfigure_subentry()
         options = ["device", "channel", "intervals"]
+        if self._sub.data["model"] == "mb_307d_ii_s":
+            options.append("relay_permissions")
         if self._sub.data["model"] == "tm_32ds":
             options.extend(("disable_temperature_range", "enable_temperature_range"))
         options.append("communication")
@@ -472,6 +476,40 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
         return self.async_show_menu(
             step_id="reconfigure",
             menu_options={option: labels[option] for option in options},
+        )
+
+    async def async_step_relay_permissions(self, user_input=None):
+        """One-screen explicit per-relay enablement; no Modbus write in this flow."""
+        sub = self._get_reconfigure_subentry()
+        entry = self._get_entry()
+        if sub.data["model"] != "mb_307d_ii_s":
+            return self.async_abort(reason="write_permissions_unavailable")
+        errors = {}
+        if user_input is not None:
+            selected = {f"do_{i}": user_input.get(f"do_{i}", False) is True for i in range(1, 9)}
+            previous = dict(sub.data)
+            updated = deepcopy(previous)
+            for key, permitted in selected.items():
+                updated.setdefault("channels", {}).setdefault(key, {})["write_enabled"] = permitted
+            try:
+                validated = revise_device(previous, updated)
+            except (ValueError, KeyError):
+                errors["base"] = "invalid_channel"
+            else:
+                return self.async_update_and_abort(entry, sub, data=validated)
+        fields = {
+            vol.Required(
+                f"do_{index}",
+                default=sub.data.get("channels", {}).get(f"do_{index}", {}).get(
+                    "write_enabled", False
+                ),
+            ): bool
+            for index in range(1, 9)
+        }
+        return self.async_show_form(
+            step_id="relay_permissions",
+            data_schema=vol.Schema(fields),
+            errors=errors,
         )
 
     async def _temperature_range_form(self, step_id, enabled, user_input):
