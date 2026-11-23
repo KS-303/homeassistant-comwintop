@@ -13,10 +13,12 @@ class ChannelEntity(CoordinatorEntity):
 
     def __init__(self, coordinator, key, group, index):
         super().__init__(coordinator)
-        self.key, self.group, self.index = key, group, index
+        self.key, self.channel_group, self.index = key, group, index
         self._attr_unique_id = f"{coordinator.uid}_{key}"
-        label = f"CH{index + 1}" if group.kind == "temperature" else f"{group.kind.upper()}{index}"
-        self._attr_name = coordinator.options(key).get("name") or label
+        self._attr_translation_key = group.kind
+        self._attr_translation_placeholders = {"channel": str(index + 1)}
+        if custom_name := coordinator.options(key).get("name"):
+            self._attr_name = custom_name
         self._attr_entity_registry_enabled_default = True
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, coordinator.uid)},

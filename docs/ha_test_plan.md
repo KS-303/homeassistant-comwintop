@@ -1,8 +1,42 @@
-# Hardwareabnahme – lesende Beta 0.1.0b1
+# Hardwareabnahme – lesendes 0.1.0b18-Testpaket
 
-Stand: noch **nicht durchgeführt**. Softwaretests sind kein Hardwaretest.
+## L-51 vor jeder Schreibfreigabe
+
+L-51a ist bislang ausschließlich ein Simulator- und Codebefund: Bei Busy
+wiederholt der vorhandene Backendpfad FC06. In b14 sind sämtliche HA-Schreibwege
+gesperrt, auch der frühere b6–b12-Labordialog. Die
+[historische Laboranleitung](l51a_isolated_ha_lab.md) gilt nicht für dieses
+Paket. Nach einem öffentlichen No-Retry-Pfad zuerst TCP und RTU physisch
+auf exakt ein Telegramm je Fehlerfall prüfen; das CWT an einem isolierten Bus
+mit eindeutiger Adresse testen. L-51b (Baudrate/Parität) bleibt ein eigener
+Testblock, einschließlich Gateway- und Multidrop-Verhalten.
+
+Register 16 am TM-32DS zunächst lesend mit Registerwerk vergleichen.
+Originaldokumentation für sämtliche Codes und Bits verifizieren. Für jeden
+Transport und Fehlerpfad eine einzige physische FC06-Übertragung nachweisen,
+einschließlich Busy, Timeout, Abbruch und HA-Neustart. Adresse 1→2,
+Persistenz, Rücklesen und Messwert an neuer Adresse am isolierten Gerät
+prüfen. Danach Multidrop-Bus mit zweitem Slave und Wiederherstellungsplan
+testen. MB308N erst nach eigenem Register- und Hardwarebeleg freigeben.
+
+Stand: vollständige Abnahme **noch nicht durchgeführt**. Softwaretests sind kein Hardwaretest.
+Der separate L-50-Abfragetest steht noch aus. Der TM-32DS wurde zwischenzeitlich
+mit zwei DS18B20 am Waveshare-Gateway lesend geprüft (FC03, Adressen 32/33,
+9600 8N1). Ein abgezogener Fühler lieferte `0xFC18` (−100,0 °C) und erholte
+sich nach Wiederanschluss. Das ersetzt keinen Test gemischter Intervalle.
 Erster Test auf einer Home-Assistant-Testinstanz, zunächst mit TM-32DS;
 MB308N separat ergänzen.
+
+## Einmalige TM-32DS-Kanalerkennung
+
+Beim Anlegen eines neuen TM-32DS die FC03-Lesungen 32–63 prüfen: drei
+Blocktelegramme; erst die letzten beiden gültigen Messwerte zählen.
+Unbeschaltete Fühler (`0xFC18`) bleiben deaktiviert und ohne Entität.
+Stecker ziehen, während der Erkennung wieder anstecken und das Verhalten
+nach Neustart prüfen. Bestehende manuelle Kanalnamen/-freigaben dürfen
+durch ein Softwareupdate nicht überschrieben werden. Ein einzelner
+Kommunikationsfehler darf nicht als Beweis für 32 fehlende Sensoren gelten.
+Nullwerte/85,0 °C manuell nachmessen und bei Bedarf den Kanal aktivieren.
 
 ## Vorbereitung
 
@@ -31,6 +65,32 @@ MB308N separat ergänzen.
 | 11 | MB308N separat: DI NO/NC, AI mit bekanntem Referenzsignal | NO/NC korrekt; Modus passt zu Jumper; AI-Endpunkte/Mitte verifizieren |
 | 12 | MB308N AO/DO ausschließlich rücklesen | Tatsächliche Readbacks sichtbar; kein Switch/Number-Schreibpfad vorhanden |
 | 13 | 72 Stunden protokollierter Hardwarebetrieb | Fehlerzahlen, Latenzen, Ausfälle und Recovery dokumentieren; keine ungeklärten Fehler |
+| 14 | Nach Busabbruch ein nicht vorhandenes MB-308N-Register lesen | Nur betroffener Wert unavailable; Kommunikationszähler dieses Kanals geht nach gültiger Exception auf null; kein dauerhaftes SUSPECT |
+| 15 | Neu angelegtes MB-308N mit vier Lesegruppen, dazu zweites Gerät | Drahtseitige Intervalle, Rückstau und Stale-Status messen; bei gesättigtem Bus keine ausreichende Frische behaupten |
+| 16 | Alle Temperaturkanäle deaktivieren; vorhandene alte Entity-IDs prüfen | Status „Keine aktiven Kanäle“; alte Registry-Einträge durch Integration deaktiviert; Reaktivierung erhält ID und Nutzerwahl |
+
+## L-50: zusätzlich am realen TM-32DS prüfen
+
+1. Zwei bis sieben Kanäle aktivieren; z. B. Gruppenintervall 15 s, Overrides
+   5 s, 10 s, 30 s und 60 s. Zeitstempel und Rohtelegramme über mindestens
+   zwei volle Perioden aufzeichnen; das Referenzgerät nicht parallel als
+   zweiter Master betreiben.
+2. Beim gleichzeitigen ersten Poll FC03/32–63 bzw. bei deaktivierten Kanälen
+   nur die tatsächlich fälligen zusammenhängenden Adressen erwarten. Nach
+   5 s darf der 60-s-Kanal keinen neuen Messzeitstempel erhalten.
+3. Fühler abziehen: `0xFC18` nur am betroffenen Kanal als `unavailable`,
+   andere Kanäle gültig. Fühler wieder anschließen; frische Werte prüfen.
+4. Gruppenintervall ändern und Override erhalten; Override entfernen und
+   Gruppenintervall übernehmen. Konfiguration neu laden und HA neu starten;
+   Namen, Entity-IDs, Unique-IDs und die Schreibsperre vergleichen.
+5. Gateway trennen/wieder verbinden; betroffene Kanäle unmittelbar unavailable,
+   kontrollierte Neueinlesung auch für langsame Kanäle. Zwei Geräte an einem
+   Gateway gleichzeitig betreiben und Antwortzeiten sowie Timeoutzähler prüfen.
+
+Buslast und Simulatordaten stehen im [L-50-Prüfbericht](l50_test_report.md).
+`read_call_ms` enthält interne Buspausen. Die tatsächliche Antwortlatenz und
+späte Bytes auf dem Waveshare müssen unabhängig am Bus erfasst werden. Den
+RTU-Link-Reset nach Timeout mit mehreren Geräten besonders beobachten.
 
 Für 4–20 mA sind 4 / 12 / 20 mA die drei Referenzpunkte. AI und AO haben
 teilweise unterschiedliche Rohwertskalierung. Elektrische Referenzsignale nur
@@ -46,7 +106,7 @@ aus einem einzelnen plausiblen Wert ableiten.
 
 ## Getrennte spätere Schreibabnahme
 
-Noch nicht mit dieser Beta möglich. Voraussetzungen: Busy-Retry nachweislich
+Noch nicht für DO/AO mit dieser Beta möglich. Voraussetzungen: Busy-Retry nachweislich
 ausgeschlossen, 2-s-Frist am tatsächlichen Sendezeitpunkt gewährleistet,
 geeignete Hardwarevalidierung und begrenztes Readback-Verfahren implementiert.
 Anschließend ausschließlich unbelastete Testausgänge, Wertebereichsgrenzen,

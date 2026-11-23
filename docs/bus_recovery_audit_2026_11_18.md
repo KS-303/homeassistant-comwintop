@@ -1,0 +1,102 @@
+# Bus- und Recovery-Audit (18. November 2026)
+
+## Beobachtung und Grenzen
+
+Aus dem vom Anwender exportierten `logs.txt` (17.11. 23:21 bis 18.11. 12:35 MEZ) wurden 3.332 gesendete und 3.326 empfangene RTU-Telegramme gezählt: 3.173 Temperaturabfragen FC03/32 mit zwei Registern und 159 Register-16-Abfragen. Sechs Temperaturabfragen blieben ohne Empfang (18.11. 04:54, 05:04, 05:49, 05:59, 07:24, 11:44). Die jeweils nächste Temperaturabfrage nach etwa 18,1 Sekunden war erfolgreich. Erfolgreiche Antworten kamen median nach 27 ms, maximal 37 ms. Der Export erfasst nur rund 13 Stunden und keine vollständige 24-Stunden-Messung. Der Grund der sechs ausbleibenden Antworten ist damit nicht bewiesen; insbesondere sind weder ein Sensorfehler noch Buskollision, Gateway-Reset oder HA-Last daraus eindeutig ableitbar.
+
+Log-Inhalte und private Konfigurationsdaten werden nicht im Repository gespeichert. Die im Protokoll sichtbaren Diagnose-Lesungen von Register 16 sind **keine** Adressänderungen.
+
+## Vergleich mit Registerwerk
+
+Registerwerk (`renderer/app.js`, `waitBusReady`) überwacht am eigenen RTU-Empfang die letzte Busaktivität und wartet nach Timeout mindestens `max(250 ms, Timeout, Fehlerwartezeit)` auf Ruhe; neue empfangene Bytes verlängern das Fenster. Ein gedeckelter Wartezeitraum verhindert eine Endlosschleife. ComWinTop verwendet den gemeinsam genutzten HA-Modbus-Manager und `bus_lock` pro ComWinTop-Hub sowie 10 ms Nachrichtenabstand. Ein allein durch ComWinTop implementierter Timer sieht weder alle fremden HA-Modbus-Nutzer noch späte Rohbytes auf dem gemeinsamen Link. Eine gleichwertige beobachtete Busruhe wäre deshalb eine öffentliche Erweiterung des gemeinsamen Transport-Unterbaus mit Wire-Tests, nicht ein zusätzlicher TCP-Socket oder Zugriff auf private Bibliotheksobjekte.
+
+## Prüfung und Änderung im Entwicklungsbranch
+
+* Drei **aufeinanderfolgende** fehlgeschlagene Modbus-Abfragen werden pro aktivem Kanal gezählt. Ein anderer erfolgreicher Kanal löscht seinen Fehler nicht. Ein korrekt empfangenes Register setzt den Kommunikationsfehlerzähler dieses Kanals zurück, auch wenn der Messwert selbst einen Sensordefekt anzeigt.
+* Nach ein oder zwei fehlgeschlagenen Abfragen bleibt der sichtbare Kommunikationsstatus bei zuvor erfolgreichen Messungen online. Ab drei Fehlern eines aktiven Kanals wird er verdächtig; erst wenn alle aktiven Kanäle betroffen sind, offline. Ein nachweislicher Link-Abbruch oder ein abgestürzter Poll-Task bleibt sofort offline.
+* Per-Kanal-Stale-Fristen bleiben unverändert. Deshalb kann ein Wert schon **vor** der dritten Fehlantwort `unavailable` werden; dieser Unterschied ist beabsichtigt. Ein bestätigter Verbindungsabbruch invalidiert Werte sofort. Diagnose enthält nun kanalbezogene Fehlerzähler.
+* Der bisherige RTU/RTU-over-TCP-Link-Reset nach *jedem* Timeout bleibt vorerst erhalten: `tmodbus 1.1.0` verwaltet zwar späte Antworten nach Timeout, aber die sichere Behandlung gleichartiger verspäteter Antworten und die Wirkung auf mehrere Slaves müssen vor einer Änderung am Reset-Pfad separat am Draht geprüft werden. Der Reset betrifft die gemeinsame HA-Verbindung und ist eine verbleibende Schwachstelle.
+* Keine FC05/06/15/16-Freigabe. Die Integration selbst kann Pumpen oder Heizungen bei Ausfall von HA, Gateway oder RS485 nicht mit Verfügbarkeit garantieren. Schutz und Rückfall sind lokal vorzusehen.
+
+## Freigabekriterien für eine spätere Installationsversion
+
+1. Mindestens 24 Stunden realer Hardwaretest mit mehreren Slaves und getrenntem Bus-/Gateway-Mitschnitt, inkl. absichtlich verlorener und verspäteter Antworten.
+2. Messen von tatsächlicher Wartezeit, Reconnects, Gesamt-Buslast und Frische jedes Kanals; die sechs bisher beobachteten Aussetzer nicht nur aus HA-Zuständen ableiten.
+3. Regression von Serial, RTU-over-TCP, Modbus TCP, Bus-Scheduler, Kanal-Overrides, Diagnoseabfrage, Reload und Start, einschließlich fremder Nutzer derselben HA-Verbindung.
+4. Bei Änderungen am Timeout-Reset: beobachtete Busruhe im öffentlichen gemeinsamen Backend oder Nachweis einer verlässlichen Frame-Quarantäne durch Wire-Tests. Keine zweite Busverbindung.
+5. Keine produktive DO/AO-Steuerung allein aufgrund dieses lesenden Fixes. Keine 99-%-Garantie ohne Hardware-Nachweis.
+
+## Ergänzung 0.1.0b17
+
+Die öffentliche `modbus-connection`-Methode `unit.set_message_spacing(1.0)`
+verwendet den Pacer der HA-Shared-Verbindung: Er hält den Zugriff auf einen
+physikalischen Link serialisiert, merkt sich den Abschluss der letzten
+Anfrage und berücksichtigt die Pause um den vorherigen und nächsten Slave.
+Der neue Wire-Test misst den Abstand zwischen Antwort/Timeout und folgender
+Sendeoperation an TCP und RTU-over-TCP; der TM-32DS-Einrichtungsscan hält
+zwischen den drei Blocklesungen ebenfalls mindestens eine Sekunde ein.
+Bei der aktuell beobachteten Einzelblockabfrage alle 15 Sekunden führt dies
+zu keiner wesentlichen Änderung der Buslast oder zum nachweislichen Beheben
+fehlender Antworten. Der Link-Reset nach einem RTU-Timeout bleibt erhalten.
+
+Ein eigener Diagnose-Binärsensor je aktiviertem Temperaturkanal meldet einen
+Fühlerfehler nach drei *empfangenen*, aber für diesen Kanal ungültigen
+Registerwerten `0xFC18`. Unbekannte Codes oder die mehrdeutigen 85 °C
+werden nicht als defekter Fühler klassifiziert. Ein solcher Wert bleibt sofort
+`unavailable`. Bei fehlender Blockantwort werden hingegen
+Kommunikationsfehler gezählt; daraus wird kein Fühlerdefekt gefolgert.
+Weitere Ursachenanalyse der sechs isolierten verlorenen Antworten ist
+Gegenstand des 24-Stunden-Hardwaretests.
+
+Der äußere Lesezeitrahmen wurde von drei auf vier Sekunden verlängert, damit
+ein Pacer-Slot von einer Sekunde nicht schon vor dem Senden einen falschen
+Timeout auslöst. Diese Frist schließt weiterhin Wartezeit auf andere Nutzer
+im gemeinsamen HA-Manager ein. Bei größerem Rückstau wäre für eine strikte
+Unterscheidung von „noch nicht gesendet“ und „keine Antwort“ eine öffentliche
+Transport-Metrik erforderlich; die Integration kann das ohne Zugriff auf
+private Verbindungsobjekte nicht beweisen. Beim Entladen wird die per Unit
+angeforderte Pause wieder zurückgesetzt.
+
+## Ergänzung 0.1.0b18: überprüfte Grenzen
+
+Eine Einzelregister-Antwort mit Modbus-Exception 02 belegt eine antwortende
+Slave-Verbindung, aber keinen verwertbaren Kanalwert. Nach einem Link-Abbruch
+setzt sie den Kommunikationsfehlerzähler dieses Kanals zurück und beendet den
+irreführenden Dauerzustand `SUSPECT`; sein Messwert bleibt `unavailable`.
+Für unbekannte MB-308N-Register/Funktionscodes bleibt die Hardwarevalidierung
+offen.
+
+Die frühere `latency_ms`-Messung begann vor der ComWinTop-Sperre und dem
+Backend-Pacer. Sie war deshalb keine Gerätelatenz. Das Feld bleibt aus
+Kompatibilitätsgründen vorhanden, ist aber leer; `bus_lock_wait_ms` und
+`read_call_ms` sind getrennt. Letzteres kann den Pacer und Wartezeit bei
+fremden Nutzern der HA-Verbindung enthalten. Ohne öffentliche Wire-Sendezeit
+in `modbus-connection` ist eine echte Gerätelatenz aus der Integration nicht
+berechenbar. Die 27 ms Median stammen ausschließlich aus dem früheren
+unabhängigen Mitschnitt.
+
+Bei vier MB-Lesegruppen brauchten die alten Standardwerte rechnerisch
+`1/2+1/2+1/10+1/10=1,2` Blockanfragen/s. Ein Sekundenabstand erlaubt
+höchstens knapp eine Anfrage/s, ohne Übertragungsdauer. Neue MB-Geräte
+beginnen bei 8/8/20/20 s (optimistisch 0,35 Anfragen/s). Ein TCP-Wire-Test
+beobachtet vier verschiedene Funktionscodes, mindestens 0,97 s Abstand
+zwischen gesendeten Frames und mindestens 8 s zwischen DI-Abfragen.
+Mehrere Geräte, fremde Teilnehmer und getrennt fällige Einzelkanäle können
+den Bus weiterhin sättigen. Alte kürzere Einstellungen bleiben erhalten;
+für deren Stale-Fristen gibt es keine physikalische Garantie. Eine
+busweite Lastkontrolle für beliebige Konfigurationen braucht weitere
+Aufnahmeprüfungen und Hardwaremessungen.
+Die Diagnose zeigt deshalb `minimum_read_rate_hz` als optimistische
+Untergrenze pro Gerät und warnt ab 0,9 Anfragen/s. Das ist weder eine
+Messung der tatsächlichen Last noch ein busweiter Zulassungsnachweis.
+
+Deaktivierte Legacy-Entitäten werden im HA-Register als durch die Integration
+deaktiviert markiert. IDs und manuelle Benutzersperren bleiben bestehen.
+Nach drei unerwarteten Polling-Abstürzen in fünf Minuten schreibt die
+Aufsicht einen kritischen Logeintrag und `poll_task_exhausted=1`.
+
+**Offen:** Der RTU-Link-Reset nach jedem Timeout unterbricht noch immer die
+gemeinsame HA-Verbindung. Ihn ohne nachgewiesene Behandlung verspäteter
+Antworten zu entfernen wäre riskant. Außerdem fehlt eine 24-Stunden-Abnahme
+mit realer Hardware. Dieses Paket ist keine Freigabe für Pumpen- oder
+Heizungssteuerung; produktive FC05/06/15/16-Schreibfunktionen bleiben gesperrt.

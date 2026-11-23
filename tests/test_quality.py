@@ -9,6 +9,7 @@ from modbus_connection.exceptions import (
     ModbusTimeoutError,
 )
 
+from custom_components.comwintop.binary_sensor import TemperatureProbeFault
 from custom_components.comwintop.coordinator import UnitCoordinator
 from custom_components.comwintop.profiles import PROFILES
 
@@ -54,7 +55,8 @@ async def test_single_timeout_preserves_value_but_three_failures_offline(quality
     stamp = c.samples["temperature_1"].received
     u.read_holding_registers.side_effect = ModbusTimeoutError("timeout")
     await c.poll_group(g)
-    assert c.status == "SUSPECT" and c.available("temperature_1")
+    assert c.status == "ONLINE" and c.available("temperature_1")
+    assert c.samples["temperature_1"].consecutive_read_failures == 1
     assert c.samples["temperature_1"].received == stamp
     await c.poll_group(g)
     await c.poll_group(g)
@@ -62,6 +64,48 @@ async def test_single_timeout_preserves_value_but_three_failures_offline(quality
     u.read_holding_registers.side_effect = None
     await c.poll_group(g)
     assert c.status == "ONLINE" and c.available("temperature_1")
+
+
+async def test_three_misses_are_counted_per_enabled_channel(quality):
+    c, u = quality
+    c.settings["channels"] = {
+        f"temperature_{index}": {"enabled": index <= 2} for index in range(1, 33)
+    }
+    c._next = {key: float("inf") for key in c.samples}
+    c._next["temperature_1"] = c._next["temperature_2"] = 0.0
+    u.read_holding_registers.return_value = [220, 221]
+    await c._poll_one(0.0)
+    assert c.status == "ONLINE"
+    u.read_holding_registers.side_effect = ModbusTimeoutError("timeout")
+    for _ in range(3):
+        c._next["temperature_1"] = 0.0
+        await c._poll_one(0.0)
+    assert c.status == "SUSPECT"
+    assert c.samples["temperature_1"].consecutive_read_failures == 3
+    assert c.samples["temperature_2"].consecutive_read_failures == 0
+    assert not c.available("temperature_1") and c.available("temperature_2")
+    u.read_holding_registers.side_effect = None
+    u.read_holding_registers.return_value = [223]
+    c._next["temperature_1"] = 0.0
+    await c._poll_one(0.0)
+    assert c.status == "ONLINE" and c.available("temperature_1")
+
+
+async def test_two_misses_on_each_channel_do_not_add_up_to_device_fault(quality):
+    c, u = quality
+    c.settings["channels"] = {
+        f"temperature_{index}": {"enabled": index <= 2} for index in range(1, 33)
+    }
+    c._next = {key: float("inf") for key in c.samples}
+    u.read_holding_registers.side_effect = ModbusTimeoutError("timeout")
+    for key in ("temperature_1", "temperature_2"):
+        for _ in range(2):
+            c._next[key] = 0.0
+            await c._poll_one(0.0)
+    # No valid sample yet: even isolated misses are not shown as healthy.
+    assert c.status == "SUSPECT"
+    assert c.samples["temperature_1"].consecutive_read_failures == 2
+    assert c.samples["temperature_2"].consecutive_read_failures == 2
 
 
 async def test_transport_error_invalidates_every_channel_immediately(quality):
@@ -81,13 +125,49 @@ async def test_register_exception_splits_once_per_poll(quality):
     u.read_holding_registers.side_effect = IllegalDataAddressError()
     await c.poll_group(g)
     assert u.read_holding_registers.call_count == 1
-    assert c._blocks["temperature"] == [(0, 16), (16, 16)]
+    assert [(offset, len(keys)) for _, offset, keys in c._pending] == [(0, 16), (16, 16)]
     assert not c.available("temperature_1")
     # One half succeeds; the other half is still invalid. No full-device failure.
     u.read_holding_registers.side_effect = None
     u.read_holding_registers.return_value = [230] * 16
     await c.poll_group(g)
     assert c.available("temperature_1") and not c.available("temperature_32")
+
+
+async def test_single_illegal_register_response_clears_transport_fault(quality):
+    c, u = quality
+    c.settings["channels"] = {key: {"enabled": key == "temperature_1"} for key in c.samples}
+    c.connection_lost()
+    assert c.status == "OFFLINE"
+    u.read_holding_registers.side_effect = IllegalDataAddressError()
+    c._next["temperature_1"] = 0.0
+    await c._poll_one(0.0)
+    sample = c.samples["temperature_1"]
+    assert sample.consecutive_read_failures == 0
+    assert sample.error == "register_exception" and not c.available("temperature_1")
+    assert c.status == "ONLINE" and c.last_response is not None
+
+
+async def test_no_active_channel_is_not_initializing(quality):
+    c, u = quality
+    c.settings["channels"] = {key: {"enabled": False} for key in c.samples}
+    c._refresh_read_status()
+    assert c.status == "INACTIVE"
+    c.connection_lost()
+    assert c.status == "INACTIVE"
+    await c.poll_group(PROFILES["tm_32ds"][0])
+    u.read_holding_registers.assert_not_called()
+
+
+async def test_bus_queue_is_not_misreported_as_device_latency(quality):
+    c, _u = quality
+    async with c.bus_lock:
+        poll = asyncio.create_task(c.poll_group(PROFILES["tm_32ds"][0]))
+        await asyncio.sleep(0.06)
+    await poll
+    assert c.bus_lock_wait_ms >= 50
+    assert c.read_call_ms >= 0
+    assert c.latency_ms is None
 
 
 async def test_disabled_group_never_polled(quality):
@@ -104,6 +184,36 @@ async def test_short_response_not_accepted(quality):
     await c.poll_group(PROFILES["tm_32ds"][0])
     assert c.status == "SUSPECT" and c.counters["protocol_error"] == 1
     assert all(s.received is None for s in c.samples.values())
+
+
+async def test_three_invalid_probe_values_do_not_report_bus_failure(quality):
+    c, u = quality
+    group = PROFILES["tm_32ds"][0]
+    u.read_holding_registers.return_value = [0xFC18, *([220] * 31)]
+    probe = TemperatureProbeFault(c, "temperature_1", group, 0)
+    for attempt in range(3):
+        await c.poll_group(group)
+        assert c.status == "ONLINE"
+        assert not c.available("temperature_1")
+        assert c.available("temperature_2")
+        assert probe.is_on is (attempt == 2)
+        assert probe.available
+    assert c.samples["temperature_1"].consecutive_read_failures == 0
+    u.read_holding_registers.return_value = [225] * 32
+    await c.poll_group(group)
+    assert not probe.is_on and c.available("temperature_1")
+
+
+async def test_ambiguous_85_celsius_never_claims_a_defective_probe(quality):
+    c, u = quality
+    group = PROFILES["tm_32ds"][0]
+    u.read_holding_registers.return_value = [850, *([220] * 31)]
+    probe = TemperatureProbeFault(c, "temperature_1", group, 0)
+    for _ in range(3):
+        await c.poll_group(group)
+    assert c.samples["temperature_1"].consecutive_invalid_values == 3
+    assert c.samples["temperature_1"].consecutive_probe_fault_values == 0
+    assert not probe.is_on
 
 
 async def test_unexpected_error_remains_diagnostic(quality):

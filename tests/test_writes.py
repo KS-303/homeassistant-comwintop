@@ -11,34 +11,55 @@ async def spin():
         await asyncio.sleep(0)
 
 
-def test_production_has_no_write_release():
-    assert not HARDWARE_VALIDATED_WRITES
+def test_only_lab_profile_is_released():
+    assert HARDWARE_VALIDATED_WRITES == frozenset({("mb_307d_ii_s", "rtu_tcp", "fc05")})
 
 
-async def test_latest_pending_wins():
+async def test_rapid_clicks_are_rejected_without_queuing_or_replay():
     ready = asyncio.Event()
     trace = []
 
     async def execute(key, value, guard):
         guard()
         trace.append(value)
-        if len(trace) == 1:
-            await ready.wait()
+        await ready.wait()
         return value
 
     m = WriteManager(execute, lambda key: True)
     first = asyncio.create_task(m.submit("do_1", True))
     await spin()
-    old = asyncio.create_task(m.submit("do_1", False))
-    await spin()
-    new = asyncio.create_task(m.submit("do_1", True))
-    await spin()
-    with pytest.raises(WriteRejected, match="superseded"):
-        await old
+    with pytest.raises(WriteRejected, match="write_in_progress"):
+        await m.submit("do_1", False)
+    with pytest.raises(WriteRejected, match="write_in_progress"):
+        await m.submit("do_1", True)
+    assert trace == [True]
+    assert not m.pending
     ready.set()
     assert await first is True
-    assert await new is True
-    assert trace == [True, True]
+    await spin()
+    assert await m.submit("do_1", False) is False
+    assert trace == [True, False]
+    await m.close()
+
+
+async def test_second_click_rejected_even_when_first_is_still_pending():
+    gate = asyncio.Lock()
+    await gate.acquire()
+
+    async def execute(_key, value, guard):
+        async with gate:
+            guard()
+        return value
+
+    m = WriteManager(execute, lambda _key: True)
+    first = asyncio.create_task(m.submit("do_1", True))
+    await spin()
+    assert "do_1" in m.running or "do_1" in m.pending
+    with pytest.raises(WriteRejected, match="write_in_progress"):
+        await m.submit("do_1", False)
+    assert not m.pending
+    gate.release()
+    assert await first is True
     await m.close()
 
 
@@ -79,11 +100,12 @@ async def test_unknown_write_drops_all_unit_pending_no_replay():
     m = WriteManager(execute, lambda k: True)
     first = asyncio.create_task(m.submit("do_1", True))
     await spin()
-    second = asyncio.create_task(m.submit("do_1", False))
+    with pytest.raises(WriteRejected, match="write_in_progress"):
+        await m.submit("do_1", False)
     neighbor = asyncio.create_task(m.submit("do_2", True))
     await spin()
     gate.set()
-    for t in (first, second, neighbor):
+    for t in (first, neighbor):
         with pytest.raises(WriteRejected):
             await t
     assert sent == [("do_1", True)]

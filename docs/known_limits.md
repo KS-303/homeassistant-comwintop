@@ -1,43 +1,12 @@
-# Bekannte Grenzen und Releaseblocker
+# Bekannte Grenzen – ComWinTop 0.1.0b30
 
-## Nachgewiesenes Busy-Retry im HA-Unterbau
+ComWinTop b30 ist eine **experimentelle Beta**, keine vollständig hardwarevalidierte Steuerung.
 
-Getestete Abhängigkeiten: Home Assistant 2026.11.0, modbus-connection 4.12.7,
-tmodbus 1.1.0. Ein unabhängiger TCP-Server beantwortet FC05 mit Exception 06
-(Server Device Busy). Der Unterbau sendet FC05 erneut. Im ersten ungekürzten
-Versuch wurden zehn Übertragungen innerhalb rund einer Minute beobachtet.
+- **Schreiben:** Nur FC05 für das Profil **CWT MB-307D(II)-S** über **RTU-over-TCP** ist nach ausdrücklicher Freigabe pro Relais im Labor möglich. FC06/FC15/FC16, sonstige Geräte-/Transport-Schreibpfade und AO-Schreiben bleiben gesperrt.
+- **Ausgänge:** Eine erfolgreiche FC01-Rücklesung bestätigt nur den gemeldeten Coil-Zustand, nicht die tatsächliche Relaisstellung oder angeschlossene Last. Bei Schreibfehlern und unklaren Antworten wird sicherheitsorientiert gesperrt. Keine automatische Wiederholung von FC05.
+- **Buslast:** Wartende Schreibtransaktionen haben Priorität vor neuen ComWinTop-Polls. Laufende Reads und Anfragen anderer Integrationen können nicht unterbrochen werden; die 2-s-Sendefrist kann deshalb trotzdem ablaufen.
+- **RTU:** Verspätete Gateway-Antworten können ohne Transaktions-ID mehrdeutig bleiben. Die ComWinTop-Sperre ist keine globale Quarantäne für andere Modbus-Master.
+- **Sensorik:** Der TM-32DS-Fehlerwert `0xFC18` wird verworfen. Der Wert 85 °C ist als möglicher DS18B20-Startwert mehrdeutig. Negative Temperaturen erfordern eine ausdrückliche Kanaloption.
+- **Hardwaretests:** Gemischte Kanalintervalle und längere Ausfall-/Wiederanlauftests sind noch offen. Das MB-308N-Profil ist nicht vollständig an realer Hardware abgenommen.
 
-Ursache aus Quellprüfung: modbus-connection übergibt response_retry_strategy mit
-retry_never und retry_on_device_failure=False. tmodbus AsyncSmartTransport ergänzt
-jedoch den standardmäßig wahren Parameter retry_on_device_busy. Dieser wird vom
-HA-Adapter nicht abgeschaltet. Die Integration verändert weder diese privaten
-Objekte noch globalen HA-Code. Der kurze Regressionstest bestätigt den Fehler
-und die bestehende produktive Schreibsperre; er wird nicht als Write-Freigabe gewertet.
-
-Vor einer schreibenden Beta: passende vorgelagerte Korrektur oder geprüfte,
-öffentliche Steuerungsmöglichkeit erforderlich; sämtliche tatsächlichen
-Sendetraces für Timeout, Busy und Disconnect erneut prüfen.
-
-## Harte 2-Sekunden-Frist
-
-Eine Prüfung vor dem Aufruf einer shared-unit-Methode beweist nicht, dass ein
-Telegramm binnen 2 Sekunden gesendet wird: die Methode kann intern hinter einer
-anderen Integration warten. Die isolierte Write-Engine besitzt deshalb einen
-Sendeguard-Contract. Der aktuelle HA-Unit-Adapter ist noch kein zertifizierter
-Write-Executor. Kein Write-Release ohne nachgewiesenen Guard am realen Sendepunkt.
-
-## Sensor- und Hardwaregrenzen
-
-- Negative TM-32DS-Werte und unbekannte Codes werden nicht als Temperaturen erfunden.
-- 85 °C ist bis Klärung des Startup-Verhaltens mehrdeutig und unavailable.
-- AI/AO-Modi zunächst ungeklärt: physische Interpretation erst nach Konfiguration.
-- AI 0–5 V und AO 0–5 V nutzen laut Ausgangsdokument verschiedene Skalierungen;
-  genau das muss am Gerät geprüft werden.
-- DI/DO-Funktionscodes stammen aus einem noch nicht hardwarebestätigten Profil.
-- RTU hat keine Transaktionskennung. Disconnect/Resync und Busruhe reduzieren
-  Fehlzuordnungen innerhalb geprüfter Grenzen; keine absolute Garantie bei beliebig
-  spät vom Gateway erneut eingespeisten Frames.
-- PTY ist ein serieller Softwaretest, kein Nachweis eines konkreten USB-Adapters.
-- DNS-Aliase/IP-Adressen, die denselben Gateway bezeichnen, sind nicht immer als
-  identisch erkennbar. Nur eine Verbindung je physischem Bus konfigurieren.
-- Keine internen Anlagenverriegelungen, keine Schutzabschaltung, kein Echtzeitbetrieb.
+Keine Verwendung für sicherheitskritische Steuerungen oder unbeaufsichtigte Lastschaltungen. Der dokumentierte Teststand ersetzt keine reale Geräteabnahme.

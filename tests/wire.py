@@ -2,6 +2,7 @@
 
 import asyncio
 import struct
+import time
 from contextlib import suppress
 
 
@@ -18,6 +19,8 @@ class Simulator:
     def __init__(self, mode="tcp"):
         self.mode = mode
         self.trace = []
+        self.trace_times = []
+        self.reply_times = []
         self.writers = set()
         self.tasks = set()
         self.fault = None
@@ -34,8 +37,12 @@ class Simulator:
     async def close(self):
         self.server.close()
         self.server.close_clients()
-        for writer in tuple(self.writers):
+        writers = tuple(self.writers)
+        for writer in writers:
             writer.close()
+        for writer in writers:
+            with suppress(OSError, ConnectionError, RuntimeError):
+                await writer.wait_closed()
         tasks = tuple(self.tasks)
         for task in tasks:
             task.cancel()
@@ -46,6 +53,7 @@ class Simulator:
         fc = data[0]
         address, count = struct.unpack(">HH", data[1:5])
         self.trace.append((unit, fc, address, count))
+        self.trace_times.append(time.monotonic())
         if fc in (3, 4):
             values = [self.registers.get((unit, i), 0) for i in range(address, address + count)]
             return bytes([fc, count * 2]) + struct.pack(">" + "H" * count, *values)
@@ -117,7 +125,8 @@ class Simulator:
                 else:
                     writer.write(packet)
                     await writer.drain()
-        except asyncio.IncompleteReadError, ConnectionError, asyncio.CancelledError:
+                self.reply_times.append(time.monotonic())
+        except (asyncio.IncompleteReadError, ConnectionError, asyncio.CancelledError):
             pass
         finally:
             self.tasks.discard(task)

@@ -2,16 +2,23 @@
 
 import asyncio
 import logging
+from contextlib import suppress
 from dataclasses import dataclass
 
 from homeassistant.components.modbus import async_get_unit
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryError
+from homeassistant.core import HassJob, HomeAssistant
+from homeassistant.exceptions import ConfigEntryError, ConfigEntryNotReady, HomeAssistantError
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.storage import Store
+from modbus_connection.exceptions import ModbusError
 
-from .const import PLATFORMS
+from .bus_priority import PriorityBusLock
+from .const import BUS_MESSAGE_SPACING, PLATFORMS
 from .coordinator import UnitCoordinator
 from .model import validate_device
+from .profiles import InvalidValue, channels, load_local_profiles, publish_local_profiles
+from .rtu_safety import RtuSessionGuard
 from .transport import params_from
 
 _LOGGER = logging.getLogger(__name__)
@@ -20,31 +27,162 @@ _LOGGER = logging.getLogger(__name__)
 @dataclass
 class Runtime:
     units: dict[str, UnitCoordinator]
-    bus_lock: asyncio.Lock
+    bus_lock: PriorityBusLock
+    rtu_guard: RtuSessionGuard
+
+
+async def _sync_disabled_channel_registry(hass, entry, coordinators):
+    """Keep old entity IDs and user choices when channels are turned off/on.
+
+    An old b13 entity must be marked disabled by this integration, otherwise
+    HA lists the orphan as 'no longer provided'. Only our known channel IDs
+    and our own INTEGRATION disabler are ever changed.
+    """
+    registry = er.async_get(hass)
+    store = Store(hass, 1, f"comwintop.channel_registry.{entry.entry_id}")
+    saved = await store.async_load() or {}
+    owned = set(saved.get("disabled", []))
+    entries = {
+        (item.domain, item.unique_id): item
+        for item in er.async_entries_for_config_entry(registry, entry.entry_id)
+        if item.platform == entry.domain
+    }
+    disable = []
+    enable = []
+    for coordinator in coordinators.values():
+        for key, group, _ in channels(coordinator.model):
+            base = f"{coordinator.uid}_{key}"
+            domains = (
+                (("binary_sensor", base), ("sensor", f"{base}_raw"))
+                if group.kind in ("di", "do")
+                else (("sensor", base), ("sensor", f"{base}_raw"))
+            )
+            if group.kind == "temperature":
+                domains += (("binary_sensor", f"{base}_probe_fault"),)
+            for identity in domains:
+                item = entries.get(identity)
+                if item is None:
+                    continue
+                marker = f"{identity[0]}:{identity[1]}"
+                if not coordinator.enabled(key) and item.disabled_by is None:
+                    owned.add(marker)
+                    disable.append(item.entity_id)
+                elif (
+                    coordinator.enabled(key)
+                    and item.disabled_by == er.RegistryEntryDisabler.INTEGRATION
+                    and (marker in owned or not identity[1].endswith("_raw"))
+                ):
+                    enable.append((item.entity_id, marker))
+                elif item.disabled_by not in (None, er.RegistryEntryDisabler.INTEGRATION):
+                    owned.discard(marker)
+                elif coordinator.enabled(key) and item.disabled_by is None:
+                    owned.discard(marker)
+    # Persist ownership first: interrupted reloads can safely repeat the change.
+    await store.async_save({"disabled": sorted(owned)})
+    for entity_id in disable:
+        registry.async_update_entity(entity_id, disabled_by=er.RegistryEntryDisabler.INTEGRATION)
+    for entity_id, marker in enable:
+        registry.async_update_entity(entity_id, disabled_by=None)
+        owned.discard(marker)
+    await store.async_save({"disabled": sorted(owned)})
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    params = await hass.async_add_executor_job(params_from, dict(entry.data))
-    lock = asyncio.Lock()
-    coordinators = {}
-    ids = set()
+    """Build a read-only runtime; preserve HA retries for temporary failures."""
+    coordinators: dict[str, UnitCoordinator] = {}
+    forwarding_attempted = False
+    rtu_guard = None
     try:
+        local, failures = await hass.async_add_executor_job(
+            load_local_profiles, hass.config.path("comwintop")
+        )
+        publish_local_profiles(local)
+        for filename, reason in failures.items():
+            _LOGGER.warning("Local ComWinTop profile %s rejected: %s", filename, reason)
+        params = await hass.async_add_executor_job(params_from, dict(entry.data))
+        rtu_guard = RtuSessionGuard(hass, entry)
+        await rtu_guard.arm()
+        lock = PriorityBusLock()
+        ids: set[int] = set()
+
         for sub in entry.subentries.values():
-            validate_device(sub.data)
+            validate_device(sub.data, legacy=True)
             unit_id = sub.data["unit_id"]
             if unit_id in ids:
                 raise ValueError("duplicate_unit")
             ids.add(unit_id)
             unit = async_get_unit(hass, entry, params, unit_id)
-            coordinators[sub.subentry_id] = UnitCoordinator(hass, entry, sub, unit, lock, _LOGGER)
-    except (KeyError, ValueError) as err:
+            try:
+                coordinator = UnitCoordinator(hass, entry, sub, unit, lock, _LOGGER, rtu_guard)
+            except (Exception, asyncio.CancelledError):
+                # The unit is a handle on HA's shared Modbus connection: never
+                # disconnect/close it just because this constructor failed.
+                # Undo any per-unit requirements set before construction failed.
+                with suppress(Exception):
+                    unit.set_message_spacing(0)
+                with suppress(Exception):
+                    unit.require_timeout(None)
+                with suppress(Exception):
+                    unit.require_connect_delay(None)
+                raise
+            coordinators[sub.subentry_id] = coordinator
+            rtu_guard.attach(coordinator)
+
+        aggregate_rate = sum(unit.minimum_read_rate_hz for unit in coordinators.values())
+        if aggregate_rate * BUS_MESSAGE_SPACING >= 0.9:
+            _LOGGER.warning(
+                "ComWinTop shared bus load approaches saturation (%.3f requests/s); "
+                "increase polling intervals for one or more devices",
+                aggregate_rate,
+            )
+        entry.runtime_data = Runtime(coordinators, lock, rtu_guard)
+        await _sync_disabled_channel_registry(hass, entry, coordinators)
+        forwarding_attempted = True
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
         for coordinator in coordinators.values():
-            await coordinator.stop()
-        raise ConfigEntryError("Invalid ComWinTop device configuration") from err
-    entry.runtime_data = Runtime(coordinators, lock)
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    for coordinator in coordinators.values():
-        await coordinator.start()
+            await coordinator.start()
+
+        # HA stops background tasks at shutdown without unloading entries.
+        # The shutdown job runs first, stops polls and only then clears a
+        # confirmed clean marker; crashes leave the active marker intact.
+        async def clean_shutdown():
+            for coordinator in coordinators.values():
+                await coordinator.stop()
+            await rtu_guard.close()
+
+        entry.async_on_unload(
+            hass.async_add_shutdown_job(
+                HassJob(clean_shutdown, f"comwintop_clean_shutdown_{entry.entry_id}")
+            )
+        )
+    except (Exception, asyncio.CancelledError) as err:
+        for coordinator in coordinators.values():
+            with suppress(Exception):
+                await coordinator.stop()
+        if forwarding_attempted:
+            with suppress(Exception):
+                await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+        # A failed startup must not strand an armed marker if no transmission
+        # was uncertain. close() retains it whenever the RTU guard latched.
+        if rtu_guard is not None:
+            with suppress(Exception):
+                await rtu_guard.close()
+        entry.runtime_data = None
+
+        if isinstance(err, asyncio.CancelledError):
+            raise
+        if isinstance(err, (ConfigEntryError, ConfigEntryNotReady)):
+            raise
+        if isinstance(err, (InvalidValue, ValueError, KeyError)):
+            raise ConfigEntryError("Invalid ComWinTop configuration") from err
+        if isinstance(
+            err, (ModbusError, TimeoutError, ConnectionError, OSError, HomeAssistantError)
+        ):
+            raise ConfigEntryNotReady(
+                "ComWinTop Modbus service is temporarily unavailable"
+            ) from err
+        raise ConfigEntryError("ComWinTop setup failed") from err
+
     entry.async_on_unload(entry.add_update_listener(async_update_entry))
     return True
 
@@ -54,7 +192,33 @@ async def async_update_entry(hass, entry):
 
 
 async def async_unload_entry(hass, entry):
-    # Stop tasks BEFORE unloading entities/releasing shared unit holds.
-    for coordinator in entry.runtime_data.units.values():
-        await coordinator.stop()
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    """Finish any active ComWinTop frame before unloading its platforms.
+
+    Waiting on the existing hub lock does not cancel a legitimate RTU read.
+    If HA rejects platform unload, the still-running pollers resume without
+    resetting the bus marker or discarding the coordinator runtime.
+    """
+    runtime = entry.runtime_data
+    guard = runtime.rtu_guard
+    async with runtime.bus_lock:
+        guard.expected_unload = True
+        try:
+            unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+            if not unloaded:
+                return False
+            for coordinator in runtime.units.values():
+                await coordinator.stop()
+            await guard.close()
+            return True
+        finally:
+            guard.expected_unload = False
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Forget only entry-specific channel registry; preserve RTU fault marker.
+
+    A bus safety latch is tied to the physical endpoint and survives deleting
+    and re-adding an entry, preventing an accidental reset.
+    """
+    store = Store(hass, 1, f"comwintop.channel_registry.{entry.entry_id}")
+    await store.async_remove()

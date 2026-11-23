@@ -1,13 +1,22 @@
-# Betriebsgrenzen
+# Sicherheitsmeldungen und Entwicklungsgrenzen
 
-Experimentelle Integration, kein Herstellerprodukt und keine Sicherheitssteuerung.
-Keine Authentisierung oder Verschlüsselung für normales Modbus TCP/RTU.
-Nur im vorgesehenen lokalen Netz betreiben, keine Modbus-Ports ins Internet öffnen.
+Produktive Modbus-Schreibfunktionen sind gesperrt. Bitte keine Zugangsdaten,
+private Netzwerkadressen oder unveränderten HA-Diagnoseexporte in Issues
+oder Pull Requests posten. Für eine vertrauliche Schwachstelle zunächst den
+[Sicherheitsbereich des Repositorys](https://github.com/KS-303/homeassistant-comwintop/security)
+prüfen. GitHubs private Schwachstellenmeldung ist aktiviert.
 
-Keine Zugangsdaten im Repository speichern. Diagnoseexport enthält keine
-Verbindungsadressen oder Gerätebezeichnungen. Vor dem Weitergeben zusätzlicher
-HA-Protokolle deren Inhalt selbst prüfen.
+Unterstützter veröffentlichter Stand: `v0.1.0b1`, rein lesende Beta.
+Die b22-Entwicklungsversion ist ein ausdrücklich **nicht freigegebener
+Teststand**. Keine Softwareprüfung ersetzt die reale
+Modbus-/Gateway-Abnahme. Veraltete RTU-Antworten können nicht ohne
+Upstream-Quarantäne zuverlässig einer neuen Anfrage zugeordnet werden.
 
-Funktionsfehler ohne persönliche Daten oder Zugangsdaten im Issue-Tracker melden.
-Sicherheitslücken und vertrauliche Diagnosen nicht öffentlich einstellen. Diese Datei
-behauptet weder eine externe Sicherheitsprüfung noch eine Hardwarezertifizierung.
+Eine RTU-Sicherheitssperre darf nur über den von Home Assistant
+angezeigten Reparaturdialog **nach drei Hardwareprüfungen** gelöst werden.
+Das Löschen eines HA-Integrationseintrags darf den Marker nicht löschen.
+Nur die eigene, nachweislich saubere HA-Abschaltung löst eine
+ungeklärte aktive Sitzung gerade **nicht** auf.
+
+Eine Lizenzdatei fehlt bis zur ausdrücklichen Entscheidung des
+Rechteinhabers. Keine implizite öffentliche Nachnutzungslizenz.

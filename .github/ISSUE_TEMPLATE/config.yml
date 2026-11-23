@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Sicherheitsmeldung
+    url: https://github.com/KS-303/homeassistant-comwintop/security
+    about: Vertrauliche Schwachstellen nicht in öffentliche Issues einstellen.

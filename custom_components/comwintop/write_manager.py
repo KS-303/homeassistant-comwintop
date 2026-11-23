@@ -1,8 +1,8 @@
-"""Bounded latest-wins commands; real beta hardware remains write-locked.
+"""One-command-per-relay writer with bounded age and no automatic replay.
 
-The executor must own the bus and call guard() at the actual send boundary.
-HA's generic unit API currently has no such hook. Thus beta transports are NOT
-certified write executors. Tests exercise this engine with an instrumented bus.
+The caller must explicitly request each transition. A second command while
+one is queued or executing is rejected rather than silently queued or merged.
+The executor retains responsibility for guarding the actual wire boundary.
 """
 
 import asyncio
@@ -11,6 +11,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from .const import WRITE_TTL
+from .single_attempt import SingleAttemptUnavailable
 
 
 class WriteRejected(Exception):
@@ -58,6 +59,12 @@ class WriteManager:
 
     async def submit(self, key, value):
         self._check(key)
+        # Do not queue a later toggle behind a physical action that may have
+        # already reached the relay. In particular, do not silently replay an
+        # OFF after an in-flight ON. This check and insertion are atomic in
+        # the HA event loop because they contain no await points.
+        if key in self.pending or key in self.running or key in self.tasks:
+            raise WriteRejected("write_in_progress")
         command = Command(
             key,
             value,
@@ -65,11 +72,8 @@ class WriteManager:
             self.generation,
             asyncio.get_running_loop().create_future(),
         )
-        if previous := self.pending.get(key):
-            self._reject(previous, "superseded")
         self.pending[key] = command
-        if key not in self.tasks:
-            self.tasks[key] = asyncio.create_task(self._worker(key))
+        self.tasks[key] = asyncio.create_task(self._worker(key))
         try:
             return await asyncio.shield(command.future)
         except asyncio.CancelledError:
@@ -114,6 +118,11 @@ class WriteManager:
                     if self.status.get(key) != "MISMATCH":
                         self.status[key] = "REJECTED"
                     self._reject(command, str(err))
+                except SingleAttemptUnavailable:
+                    # Rejection happens BEFORE the low-level frame exchange.
+                    # It must not poison every output on the shared unit.
+                    self.status[key] = "REJECTED"
+                    self._reject(command, "transport_preflight_unavailable")
                 except asyncio.CancelledError:
                     self.status[key] = "UNCONFIRMED" if command.sent else "REJECTED"
                     self._reject(command, "unloaded")

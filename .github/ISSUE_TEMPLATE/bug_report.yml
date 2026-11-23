@@ -1,0 +1,28 @@
+name: Fehlerbericht
+description: Lesende Integration oder Konfiguration funktioniert nicht wie erwartet
+title: 'Bug: '
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: 'Bitte Diagnosen vor dem Hochladen auf Namen, IP-Adressen und Zugangsdaten prüfen. Sicherheitsprobleme privat melden.'
+  - type: input
+    id: versions
+    attributes:
+      label: Versionen
+      description: HA Core, ComWinTop-Stand, Transport und Gerät/Firmware
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduktion und erwartetes Verhalten
+    validations:
+      required: true
+  - type: textarea
+    id: observations
+    attributes:
+      label: Beobachtung und anonymisierte Diagnose
+      description: Betroffene Kanäle, Zeitpunkte, Rohwerte und Logauszug ohne private Daten
+    validations:
+      required: true

@@ -19,7 +19,7 @@
           "parity": "Parität",
           "stopbits": "Stoppbits"
         },
-        "description": "Danach CWT-Geräte einzeln hinzufügen. Bei RTU über TCP gelten die tatsächlichen Leitungsparameter des Gateways."
+        "description": "Füge anschließend jedes ComWinTop-Gerät einzeln hinzu. Bei einer transparenten seriellen Verbindung über Netzwerk gelten die tatsächlichen Leitungsparameter des Gateways."
       },
       "reconfigure": {
         "title": "Verbindung ändern",
@@ -56,16 +56,20 @@
             "name": "Name",
             "model": "Gerätemodell",
             "unit_id": "Modbus-Adresse (1–247)",
-            "acknowledge_beta": "Experimentelle, nur lesende Version verstanden"
+            "acknowledge_beta": "Experimentelle Beta-Version bestätigen"
           },
-          "description": "Schreibzugriffe sind in 0.1.0b1 technisch gesperrt. Ein erfolgreicher Lesetest erkennt nicht das Modell. Analogmodi müssen anschließend je Kanal eingestellt werden."
+          "description": "Diese Beta unterstützt das CWT-MB307D(II)-S mit lesenden DI/DO/AI-Registern und einer einzeln freizugebenden FC05-Laborsteuerung über RTU/TCP. Andere Module bleiben nur lesbar. Die Slave-ID wird nicht geschrieben."
         },
         "reconfigure": {
           "title": "Gerät konfigurieren",
           "menu_options": {
             "device": "Name / Modbus-Adresse",
             "channel": "Kanal konfigurieren",
-            "intervals": "Abfrageintervalle"
+            "intervals": "Abfrageintervalle",
+            "communication": "Modbus-Kommunikation anzeigen",
+            "disable_temperature_range": "Temperaturkanäle gesammelt deaktivieren",
+            "enable_temperature_range": "Temperaturkanäle gesammelt aktivieren",
+            "relay_permissions": "Relais-Schreibfreigaben (DO1–DO8)"
           }
         },
         "device": {
@@ -86,14 +90,17 @@
           "data": {
             "name": "Name",
             "enabled": "Kanal auswerten",
-            "nc": "NC: logischen Eingang invertieren",
+            "nc": "Kontaktart: NC / Öffner (aktiv = EIN, Eingang invertiert; aus = NO / Schließer)",
             "mode": "Tatsächlicher elektrischer Signalbereich",
-            "display": "Anzeige / geplanter AO-Sollwertbereich",
+            "display": "Anzeigeart des Messwerts",
             "scale_min": "Messgröße am unteren Signalwert",
             "scale_max": "Messgröße am oberen Signalwert",
-            "unit": "Einheit der Messgröße"
+            "unit": "Einheit der Messgröße",
+            "poll_interval_mode": "Abfrageintervall",
+            "poll_interval": "Individueller Wert (Sekunden; bei Standard ignoriert)",
+            "write_enabled": "Schreibzugriff für diesen Relaisausgang freigeben"
           },
-          "description": "Deaktivieren schaltet einen Ausgang NICHT aus. Jumper und Verdrahtung müssen zum Signalbereich passen. Schreibzugriff bleibt gesperrt."
+          "description": "DI: NC invertiert nur die logische Anzeige. AI/AO: Signalbereich ändert nur die Dekodierung, nicht die Hardware. MB307D: DO-Schaltfreigabe separat je Ausgang möglich, nur als RTU/TCP-Labortest ohne Last; andere Geräte bleiben nur lesbar. Kanal deaktivieren schaltet keine Last ab. Bisherige Intervalle unter 5 s dürfen unverändert bleiben."
         },
         "intervals": {
           "title": "Abfrageintervalle",
@@ -102,7 +109,66 @@
             "di": "Digitale Eingänge (Sekunden)",
             "do": "Digitale Ausgänge (Sekunden)",
             "ai": "Analoge Eingänge (Sekunden)",
-            "ao": "Analoge Ausgänge (Sekunden)"
+            "ao": "Analoge Ausgänge (Sekunden)",
+            "keep_di": "Digitale Eingänge: bisherigen Wert beibehalten",
+            "keep_do": "Digitale Ausgänge: bisherigen Wert beibehalten",
+            "keep_ai": "Analoge Eingänge: bisherigen Wert beibehalten",
+            "keep_ao": "Analoge Ausgänge: bisherigen Wert beibehalten",
+            "keep_temperature": "Temperaturen: bisherigen Wert beibehalten"
+          },
+          "description": "Bisherige kurze Intervalle: {legacy_intervals}. Zum Ändern den Haken entfernen und einen Wert ab 5 Sekunden eingeben."
+        },
+        "profile_preview": {
+          "title": "Lokales Geräteprofil prüfen",
+          "description": "Modell: {model}. Geplante Lesezugriffe (Adressen ab 0): {reads}. Vergleiche alle Register mit dem Datenblatt. Ein erfolgreicher Lesetest beweist weder Modell noch richtige Werte. Das Profil kann keine Ausgänge schalten.",
+          "data": {
+            "confirm": "Profil prüfen und Gerät hinzufügen"
+          }
+        },
+        "communication": {
+          "title": "Modbus-Kommunikation (nur Lesen)",
+          "description": "Alle Felder werden beim Öffnen nur lesend aus dem TM-32DS abgefragt. Die Diagnoseentität zeigt den zuletzt gelesenen Registerwert. Änderungen der Slave-ID sind in dieser Beta gesperrt.",
+          "data": {
+            "address": "Slave-ID (Gerät)",
+            "configured_address": "Slave-ID (Home Assistant)",
+            "raw": "Register 16 (Rohwert)",
+            "baudrate": "Baudrate",
+            "parity": "Parität",
+            "databits": "Datenbits",
+            "stopbits": "Stoppbits",
+            "status": "Lesestatus"
+          }
+        },
+        "disable_temperature_range": {
+          "title": "Temperaturkanäle gesammelt deaktivieren",
+          "description": "Nur für CWT-TM-32DS. Gewählten Kanalbereich vollständig deaktivieren. Dies ändert nur das Polling und die angelegten Entitäten, nicht die Hardware. Vorhandene Namen und Intervalle bleiben gespeichert.",
+          "data": {
+            "first": "Erster Kanal (1–32)",
+            "last": "Letzter Kanal (1–32)",
+            "confirm": "Ich bestätige die Deaktivierung des gewählten Bereichs"
+          }
+        },
+        "enable_temperature_range": {
+          "title": "Temperaturkanäle gesammelt aktivieren",
+          "description": "Nur für CWT-TM-32DS. Gewählten Kanalbereich zum Lesen und Anzeigen aktivieren, auch wenn dort kein Fühler angeschlossen ist. Ohne gültigen Messwert bleibt der Kanal nicht verfügbar. Vorhandene Namen und Intervalle bleiben gespeichert. Kein Schreibzugriff auf das Gerät.",
+          "data": {
+            "first": "Erster Kanal (1–32)",
+            "last": "Letzter Kanal (1–32)",
+            "confirm": "Ich bestätige die Aktivierung des gewählten Bereichs"
+          }
+        },
+        "relay_permissions": {
+          "title": "Relais-Schreibfreigabe",
+          "description": "Nur die markierten Relais dürfen über FC05 geschaltet werden. Die acht Schalter bleiben sichtbar; nicht freigegebene sind nicht verfügbar. Dies ändert ausschließlich die Home-Assistant-Berechtigung, keine Hardware-Ausgänge. Für die ersten Tests ohne angeschlossene Last nur einen Ausgang freigeben.",
+          "data": {
+            "do_1": "Digitalen Ausgang 1 zum Schalten freigeben (DO0)",
+            "do_2": "Digitalen Ausgang 2 zum Schalten freigeben (DO1)",
+            "do_3": "Digitalen Ausgang 3 zum Schalten freigeben (DO2)",
+            "do_4": "Digitalen Ausgang 4 zum Schalten freigeben (DO3)",
+            "do_5": "Digitalen Ausgang 5 zum Schalten freigeben (DO4)",
+            "do_6": "Digitalen Ausgang 6 zum Schalten freigeben (DO5)",
+            "do_7": "Digitalen Ausgang 7 zum Schalten freigeben (DO6)",
+            "do_8": "Digitalen Ausgang 8 zum Schalten freigeben (DO7)"
           }
         }
       },
@@ -112,12 +178,20 @@
         "duplicate_unit": "Diese Modbus-Adresse ist auf dieser Verbindung bereits eingerichtet.",
         "acknowledge_required": "Bitte den Status der Testversion bestätigen.",
         "invalid_device": "Ungültige Geräteeinstellungen.",
-        "invalid_channel": "Ungültiger Signalbereich oder ungültige Skalierung."
+        "invalid_channel": "Ungültiger Signalbereich oder ungültige Skalierung.",
+        "invalid_interval": "Ungültiges Abfrageintervall. Individuellen Wert innerhalb der Kanalgrenzen eingeben.",
+        "bulk_confirmation_required": "Bitte die Sammeldeaktivierung ausdrücklich bestätigen.",
+        "invalid_channel_range": "Ungültiger Kanalbereich: Beginn darf nicht hinter Ende liegen.",
+        "invalid_scale": "Ungültige Skalierung: Minimum und Maximum müssen verschieden und endlich sein.",
+        "choose_individual_interval": "Ein Wert wurde eingegeben. Bitte „Individuell“ als Abfrageintervall wählen oder das Zahlenfeld leeren."
       },
       "abort": {
-        "reconfigure_successful": "Einstellungen aktualisiert."
+        "reconfigure_successful": "Einstellungen aktualisiert.",
+        "address_test_unavailable": "Die Slave-ID-Änderung ist in dieser Beta gesperrt.",
+        "bulk_disable_unavailable": "Nur für den TM-32DS verfügbar.",
+        "write_permissions_unavailable": "Relais-Schreibfreigabe nur für CWT-MB307D(II)-S verfügbar."
       },
-      "entry_type": "CWT-Gerät",
+      "entry_type": "ComWinTop-Gerät",
       "initiate_flow": {
         "user": "Gerät hinzufügen"
       }
@@ -129,12 +203,162 @@
         "name": "Kommunikation",
         "state": {
           "initializing": "Initialisierung",
+          "inactive": "Keine aktiven Kanäle",
           "online": "Online",
           "suspect": "Kommunikation prüfen",
           "offline": "Offline",
           "recovering": "Wiederherstellung"
         }
+      },
+      "temperature": {
+        "name": "Temperaturkanal {channel}"
+      },
+      "temperature_raw": {
+        "name": "Temperaturkanal {channel} – Rohwert"
+      },
+      "ai": {
+        "name": "Analoger Eingang {channel}"
+      },
+      "ai_raw": {
+        "name": "Analoger Eingang {channel} – Rohwert"
+      },
+      "ao": {
+        "name": "Analoger Ausgang {channel} – Rückmeldung"
+      },
+      "ao_raw": {
+        "name": "Analoger Ausgang {channel} – Rückmeldung – Rohwert"
+      },
+      "di_raw": {
+        "name": "Digitaler Eingang {channel} – Rohwert"
+      },
+      "do_raw": {
+        "name": "Digitaler Ausgang {channel} – Rückmeldung – Rohwert"
+      },
+      "communication_register": {
+        "name": "Modbus-Adresse (Gerät)"
       }
+    },
+    "binary_sensor": {
+      "di": {
+        "name": "Digitaler Eingang {channel}"
+      },
+      "do": {
+        "name": "Digitaler Ausgang {channel} – Rückmeldung"
+      }
+    }
+  },
+  "selector": {
+    "transport": {
+      "options": {
+        "tcp": "Modbus über Netzwerk",
+        "tcp_gateway": "Modbus über Netzwerk-Seriell-Gateway",
+        "rtu_tcp": "Transparente serielle Verbindung über Netzwerk",
+        "serial": "Direkte serielle Verbindung"
+      }
+    },
+    "channel": {
+      "options": {
+        "temperature_1": "Temperaturkanal 1",
+        "temperature_2": "Temperaturkanal 2",
+        "temperature_3": "Temperaturkanal 3",
+        "temperature_4": "Temperaturkanal 4",
+        "temperature_5": "Temperaturkanal 5",
+        "temperature_6": "Temperaturkanal 6",
+        "temperature_7": "Temperaturkanal 7",
+        "temperature_8": "Temperaturkanal 8",
+        "temperature_9": "Temperaturkanal 9",
+        "temperature_10": "Temperaturkanal 10",
+        "temperature_11": "Temperaturkanal 11",
+        "temperature_12": "Temperaturkanal 12",
+        "temperature_13": "Temperaturkanal 13",
+        "temperature_14": "Temperaturkanal 14",
+        "temperature_15": "Temperaturkanal 15",
+        "temperature_16": "Temperaturkanal 16",
+        "temperature_17": "Temperaturkanal 17",
+        "temperature_18": "Temperaturkanal 18",
+        "temperature_19": "Temperaturkanal 19",
+        "temperature_20": "Temperaturkanal 20",
+        "temperature_21": "Temperaturkanal 21",
+        "temperature_22": "Temperaturkanal 22",
+        "temperature_23": "Temperaturkanal 23",
+        "temperature_24": "Temperaturkanal 24",
+        "temperature_25": "Temperaturkanal 25",
+        "temperature_26": "Temperaturkanal 26",
+        "temperature_27": "Temperaturkanal 27",
+        "temperature_28": "Temperaturkanal 28",
+        "temperature_29": "Temperaturkanal 29",
+        "temperature_30": "Temperaturkanal 30",
+        "temperature_31": "Temperaturkanal 31",
+        "temperature_32": "Temperaturkanal 32",
+        "di_1": "Digitaler Eingang 1",
+        "di_2": "Digitaler Eingang 2",
+        "di_3": "Digitaler Eingang 3",
+        "di_4": "Digitaler Eingang 4",
+        "di_5": "Digitaler Eingang 5",
+        "di_6": "Digitaler Eingang 6",
+        "di_7": "Digitaler Eingang 7",
+        "di_8": "Digitaler Eingang 8",
+        "do_1": "Digitaler Ausgang 1 – Rückmeldung",
+        "do_2": "Digitaler Ausgang 2 – Rückmeldung",
+        "do_3": "Digitaler Ausgang 3 – Rückmeldung",
+        "do_4": "Digitaler Ausgang 4 – Rückmeldung",
+        "do_5": "Digitaler Ausgang 5 – Rückmeldung",
+        "do_6": "Digitaler Ausgang 6 – Rückmeldung",
+        "do_7": "Digitaler Ausgang 7 – Rückmeldung",
+        "do_8": "Digitaler Ausgang 8 – Rückmeldung",
+        "ai_1": "Analoger Eingang 1",
+        "ai_2": "Analoger Eingang 2",
+        "ai_3": "Analoger Eingang 3",
+        "ai_4": "Analoger Eingang 4",
+        "ai_5": "Analoger Eingang 5",
+        "ai_6": "Analoger Eingang 6",
+        "ai_7": "Analoger Eingang 7",
+        "ai_8": "Analoger Eingang 8",
+        "ao_1": "Analoger Ausgang 1 – Rückmeldung",
+        "ao_2": "Analoger Ausgang 2 – Rückmeldung",
+        "ao_3": "Analoger Ausgang 3 – Rückmeldung",
+        "ao_4": "Analoger Ausgang 4 – Rückmeldung"
+      }
+    },
+    "signal_mode": {
+      "options": {
+        "0_10v": "0 bis 10 Volt",
+        "0_5v": "0 bis 5 Volt",
+        "0_20ma": "0 bis 20 Milliampere",
+        "4_20ma": "4 bis 20 Milliampere"
+      }
+    },
+    "display_mode": {
+      "options": {
+        "physical": "Physikalischer Messwert",
+        "percent": "Prozentwert",
+        "scaled": "Skalierter Messwert"
+      }
+    }
+  },
+  "issues": {
+    "rtu_recovery": {
+      "title": "RTU-Bus gesperrt – Hardwareprüfung erforderlich",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "RTU-Bus nach Hardwareprüfung freigeben",
+            "description": "Die RTU-Verbindung ist nach einem unklaren Kommunikationszustand gesperrt. Die Häkchen bestätigen tatsächlich durchgeführte Prüfungen; sie führen selbst keine Prüfung aus. Erst fortfahren, wenn Gateway und RTU-Geräte vollständig spannungsfrei waren und keine alten Antworttelegramme mehr im Gateway stehen. Ein reiner Software-Neustart reicht nicht aus.",
+            "data": {
+              "bus_power_cycled": "Ich habe das Waveshare-Gateway und die angeschlossenen RTU-Geräte vollständig spannungsfrei geschaltet und anschließend neu gestartet.",
+              "sole_master_confirmed": "Ich habe geprüft, dass genau ein Modbus-Master am physischen RS485-Bus angeschlossen ist.",
+              "gateway_queues_cleared": "Ich habe anhand der Gateway-Dokumentation oder eines Mitschnitts sichergestellt, dass keine alten Antworten oder Telegramme mehr gepuffert sind."
+            }
+          }
+        },
+        "error": {
+          "incomplete": "Alle drei Hardwareprüfungen müssen durchgeführt und bestätigt werden, bevor der Bus freigegeben wird."
+        }
+      }
+    },
+    "poll_exhausted": {
+      "title": "ComWinTop-Abfrage dauerhaft beendet",
+      "description": "Die Modbus-Abfrage wurde nach wiederholten internen Fehlern angehalten. Die Diagnosedaten prüfen; Messwerte könnten veraltet sein."
     }
   }
 }

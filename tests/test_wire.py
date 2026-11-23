@@ -5,6 +5,8 @@ from modbus_connection import ModbusSerialParams, ModbusTcpParams
 from modbus_connection.exceptions import ModbusError
 from modbus_connection.tmodbus import ModbusConnection
 
+from custom_components.comwintop.const import BUS_MESSAGE_SPACING
+
 from .wire import Simulator
 
 
@@ -63,6 +65,137 @@ async def test_unit_failure_does_not_poison_other_unit(sim):
         await c.close()
 
 
+async def test_late_rtu_same_shape_can_be_misattributed_without_quarantine():
+    """Prove why simply removing the shared reset can accept an old reading."""
+    import struct
+
+    from .wire import crc
+
+    requests = []
+    release = asyncio.Event()
+
+    async def serve(reader, writer):
+        try:
+            await reader.readexactly(8)
+            requests.append(1)
+            await reader.readexactly(8)
+            requests.append(2)
+            # Same unit, FC03 and response length; only register address differs.
+            stale = bytes([1, 3, 2]) + struct.pack(">H", 111)
+            writer.write(stale + crc(stale))
+            await writer.drain()
+            await release.wait()
+        except (asyncio.IncompleteReadError, ConnectionError):
+            pass
+        finally:
+            writer.close()
+            await writer.wait_closed()
+
+    server = await asyncio.start_server(serve, "127.0.0.1", 0)
+    port = server.sockets[0].getsockname()[1]
+    connection = ModbusConnection(
+        ModbusSerialParams(device=f"socket://127.0.0.1:{port}", baudrate=9600), timeout=0.1
+    )
+    try:
+        unit = connection.for_unit(1)
+        with pytest.raises(ModbusError):
+            await unit.read_holding_registers(32, 1)
+        value = await unit.read_holding_registers(33, 1)
+        assert requests == [1, 2]
+        assert value == [111]  # Old address 32 response was accepted for address 33.
+    finally:
+        release.set()
+        await connection.close()
+        server.close()
+        await server.wait_closed()
+
+
+async def test_late_rtu_reply_from_other_unit_is_not_used():
+    import struct
+
+    from .wire import crc
+
+    release = asyncio.Event()
+
+    async def serve(reader, writer):
+        try:
+            await reader.readexactly(8)
+            await reader.readexactly(8)
+            for unit_id, value in ((1, 111), (2, 222)):
+                response = bytes([unit_id, 3, 2]) + struct.pack(">H", value)
+                writer.write(response + crc(response))
+                await writer.drain()
+            await release.wait()
+        except (asyncio.IncompleteReadError, ConnectionError):
+            pass
+        finally:
+            writer.close()
+            await writer.wait_closed()
+
+    server = await asyncio.start_server(serve, "127.0.0.1", 0)
+    port = server.sockets[0].getsockname()[1]
+    connection = ModbusConnection(
+        ModbusSerialParams(device=f"socket://127.0.0.1:{port}", baudrate=9600), timeout=0.1
+    )
+    try:
+        with pytest.raises(ModbusError):
+            await connection.for_unit(1).read_holding_registers(32, 1)
+        assert await connection.for_unit(2).read_holding_registers(32, 1) == [222]
+    finally:
+        release.set()
+        await connection.close()
+        server.close()
+        await server.wait_closed()
+
+
+@pytest.mark.parametrize("mode", ["tcp", "rtu"])
+async def test_shared_link_waits_one_second_after_reply_across_units(mode):
+    """Measure actual received-to-next-sent gap, not only configured timeout."""
+    sim = await Simulator(mode).start()
+    params = (
+        ModbusTcpParams(host="127.0.0.1", port=sim.port)
+        if mode == "tcp"
+        else ModbusSerialParams(device=f"socket://127.0.0.1:{sim.port}", baudrate=9600)
+    )
+    c = ModbusConnection(params, timeout=0.3)
+    try:
+        first, second = c.for_unit(1), c.for_unit(2)
+        first.set_message_spacing(BUS_MESSAGE_SPACING)
+        second.set_message_spacing(BUS_MESSAGE_SPACING)
+        await first.read_holding_registers(32, 2)
+        await second.read_holding_registers(0, 1)
+        assert sim.trace_times[1] - sim.reply_times[0] >= BUS_MESSAGE_SPACING - 0.03
+        assert len(sim.trace) == 2
+    finally:
+        await c.close()
+        await sim.close()
+
+
+@pytest.mark.parametrize("mode", ["tcp", "rtu"])
+async def test_shared_link_waits_after_unanswered_request(mode):
+    sim = await Simulator(mode).start()
+    params = (
+        ModbusTcpParams(host="127.0.0.1", port=sim.port)
+        if mode == "tcp"
+        else ModbusSerialParams(device=f"socket://127.0.0.1:{sim.port}", baudrate=9600)
+    )
+    c = ModbusConnection(params, timeout=0.1)
+    try:
+        first, second = c.for_unit(1), c.for_unit(2)
+        first.set_message_spacing(BUS_MESSAGE_SPACING)
+        second.set_message_spacing(BUS_MESSAGE_SPACING)
+        sim.silent_units.add(1)
+        with pytest.raises(ModbusError):
+            await first.read_holding_registers(32, 1)
+        returned = asyncio.get_running_loop().time()
+        await second.read_holding_registers(0, 1)
+        assert sim.trace_times[1] - returned >= BUS_MESSAGE_SPACING - 0.03
+        assert len(sim.trace) == 2
+    finally:
+        await c.close()
+        await sim.close()
+
+
 @pytest.mark.parametrize("fault", [None, "crc"])
 async def test_actual_rtu_over_tcp_stack(fault):
     s = await Simulator("rtu").start()
@@ -83,7 +216,7 @@ async def test_actual_rtu_over_tcp_stack(fault):
 
 async def test_upstream_busy_retry_hazard_is_blocked_in_beta(sim):
     # Regression evidence: HA's pinned stack repeats FC05 on busy responses.
-    # This is intentionally NOT a write-release test; beta exposes no outputs.
+    # Normal HA write still retries Busy; b26 uses a separate one-shot transport.
     from custom_components.comwintop.const import HARDWARE_VALIDATED_WRITES
 
     sim.fault = "busy"
@@ -93,6 +226,6 @@ async def test_upstream_busy_retry_hazard_is_blocked_in_beta(sim):
             async with asyncio.timeout(1.3):
                 await c.for_unit(2).write_coil(0, True)
         assert len([r for r in sim.trace if r[1] == 5]) >= 2
-        assert not HARDWARE_VALIDATED_WRITES
+        assert HARDWARE_VALIDATED_WRITES == frozenset({("mb_307d_ii_s", "rtu_tcp", "fc05")})
     finally:
         await c.close()
