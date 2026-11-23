@@ -81,9 +81,7 @@ async def test_all_eight_relay_controls_visible_while_locked_then_fc05_after_per
         (entry.entry_id, "device"),
         context={"source": "reconfigure", "subentry_id": sub.subentry_id},
     )
-    flow = await manager.async_configure(
-        flow["flow_id"], {"next_step_id": "relay_permissions"}
-    )
+    flow = await manager.async_configure(flow["flow_id"], {"next_step_id": "relay_permissions"})
     assert flow["step_id"] == "relay_permissions"
     fields = {key.schema: value for key, value in flow["data_schema"].schema.items()}
     assert set(fields) == {f"do_{i}" for i in range(1, 9)}
