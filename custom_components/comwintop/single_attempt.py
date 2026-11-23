@@ -52,7 +52,7 @@ def _existing_connection(unit):
     return conn, client, transport, base
 
 
-async def fc05_once(unit, address: int, value: bool, guard, *, timeout: float = 4.0):
+async def fc05_once(unit, address: int, value: bool, guard):
     """Send FC05 once through the shared backend's *base* RTU transport.
 
     Called with the ComWinTop hub lock already held. The backend's pacer and
@@ -80,7 +80,7 @@ async def fc05_once(unit, address: int, value: bool, guard, *, timeout: float = 
             try:
                 # Unlike AsyncSmartTransport.send_and_receive, this invokes
                 # exactly ONE base RTU request: no Busy/timeout/reconnect retry.
-                async with asyncio.timeout(timeout):
+                async with asyncio.timeout(4.0):
                     result = await base.send_and_receive(
                         unit._unit_id, WriteSingleCoilPDU(address, value)
                     )
