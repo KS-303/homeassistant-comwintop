@@ -71,6 +71,4 @@ def test_move_or_disabling_output_revokes_permission():
 
 
 def test_lab_gate_is_strictly_mb307d_rtu_tcp_fc05():
-    assert HARDWARE_VALIDATED_WRITES == frozenset(
-        {("mb_307d_ii_s", "rtu_tcp", "fc05")}
-    )
+    assert HARDWARE_VALIDATED_WRITES == frozenset({("mb_307d_ii_s", "rtu_tcp", "fc05")})
