@@ -117,6 +117,14 @@ def validate_device(data, *, previous=None, legacy=False):
             and type(options.get("allow_negative", False)) is not bool
         ):
             raise InvalidValue("invalid_temperature_option")
+        # Persist permissions only for hardware-tested MB307D DO channels.
+        if "write_enabled" in options:
+            if type(options["write_enabled"]) is not bool:
+                raise InvalidValue("invalid_write_permission")
+            if options["write_enabled"] and (
+                model != "mb_307d_ii_s" or not key.startswith("do_")
+            ):
+                raise InvalidValue("unsupported_write_permission")
         if options.get("mode") not in (None, *MODES):
             raise InvalidValue("invalid_mode")
         if options.get("display", "physical") not in ("physical", "percent", "scaled"):
@@ -162,7 +170,7 @@ def revise_device(old, updated):
     )
     for key, options in new.get("channels", {}).items():
         before = old.get("channels", {}).get(key, {})
-        changed_output = key.startswith("ao_") and any(
+        changed_output = key.startswith(("do_", "ao_")) and any(
             before.get(field) != options.get(field)
             for field in ("mode", "display", "scale_min", "scale_max")
         )
