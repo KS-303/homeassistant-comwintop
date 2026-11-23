@@ -58,7 +58,7 @@
             "unit_id": "Modbus unit address (1–247)",
             "acknowledge_beta": "Acknowledge experimental beta limitations"
           },
-          "description": "DO/AO writes and slave-ID changes are disabled in this beta. A successful read does not verify the device model or electrical operation. Configure analog signal modes per channel. A new TM-32DS is checked with read-only temperature-register scans; unconfirmed channels start disabled."
+          "description": "This beta supports the MB307D(II)-S with DI/DO/AI reads and explicit per-relay FC05 laboratory output control over RTU/TCP. Other devices remain read-only. Slave-ID writes are unavailable."
         },
         "reconfigure": {
           "title": "Configure device",
@@ -68,7 +68,8 @@
             "intervals": "Polling intervals",
             "communication": "Show Modbus communication",
             "disable_temperature_range": "Disable temperature channels in bulk",
-            "enable_temperature_range": "Enable temperature channels in bulk"
+            "enable_temperature_range": "Enable temperature channels in bulk",
+            "relay_permissions": "Relay write permissions (DO1–DO8)"
           }
         },
         "device": {
@@ -97,9 +98,9 @@
             "unit": "Engineering unit",
             "poll_interval_mode": "Polling interval",
             "poll_interval": "Individual value (seconds; ignored for default)",
-            "write_enabled": "Prepare output write permission (no transmission until certified)"
+            "write_enabled": "Allow write access for this relay output"
           },
-          "description": "DI: NC only inverts the logical input reading; NO uses the raw value. AI/AO: the selected signal range changes decoding only, not hardware jumpers or device parameters. DO/AO writes remain locked in this beta. Disabling a channel does not switch off any load. Previously saved intervals below 5 seconds can only be retained unchanged; new values must be at least 5 seconds."
+          "description": "DI: NC only inverts the logical reading. AI/AO: signal mode changes decoding, not the hardware. MB307D: FC05 write permission is separate for each output, RTU/TCP laboratory use without loads only. Other devices stay read-only. Disabling a channel does not turn off a load. Existing intervals under 5 s may be retained."
         },
         "intervals": {
           "title": "Polling intervals",
@@ -155,6 +156,20 @@
             "last": "Last channel (1–32)",
             "confirm": "I confirm enabling the selected range"
           }
+        },
+        "relay_permissions": {
+          "title": "Relay write permissions",
+          "description": "Only selected relays may be operated through FC05. All eight switches remain visible; unpermitted ones are unavailable. Saving permissions never writes to the device. For the first unloaded hardware test enable only one output.",
+          "data": {
+            "do_1": "Allow switching digital output 1 (DO0)",
+            "do_2": "Allow switching digital output 2 (DO1)",
+            "do_3": "Allow switching digital output 3 (DO2)",
+            "do_4": "Allow switching digital output 4 (DO3)",
+            "do_5": "Allow switching digital output 5 (DO4)",
+            "do_6": "Allow switching digital output 6 (DO5)",
+            "do_7": "Allow switching digital output 7 (DO6)",
+            "do_8": "Allow switching digital output 8 (DO7)"
+          }
         }
       },
       "error": {
@@ -173,7 +188,8 @@
       "abort": {
         "reconfigure_successful": "Settings updated.",
         "address_test_unavailable": "Slave-ID changes are disabled in this beta.",
-        "bulk_disable_unavailable": "Available only for the TM-32DS."
+        "bulk_disable_unavailable": "Available only for the TM-32DS.",
+        "write_permissions_unavailable": "Relay permissions are only available for CWT-MB307D(II)-S."
       },
       "entry_type": "ComWinTop device",
       "initiate_flow": {
