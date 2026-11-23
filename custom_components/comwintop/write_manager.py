@@ -11,6 +11,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from .const import WRITE_TTL
+from .single_attempt import SingleAttemptUnavailable
 
 
 class WriteRejected(Exception):
@@ -114,6 +115,11 @@ class WriteManager:
                     if self.status.get(key) != "MISMATCH":
                         self.status[key] = "REJECTED"
                     self._reject(command, str(err))
+                except SingleAttemptUnavailable:
+                    # Rejection happens BEFORE the low-level frame exchange.
+                    # It must not poison every output on the shared unit.
+                    self.status[key] = "REJECTED"
+                    self._reject(command, "transport_preflight_unavailable")
                 except asyncio.CancelledError:
                     self.status[key] = "UNCONFIRMED" if command.sent else "REJECTED"
                     self._reject(command, "unloaded")
