@@ -11,4 +11,4 @@ Unterstützte CWT-Geräte:
 
 **Beta 0.1.0b30** für Home Assistant 2026.11+. Relais-Schreibbefehle (FC05) sind ausschließlich für MB-307D(II)-S über RTU-over-TCP nach ausdrücklicher Freigabe als Laborfunktion verfügbar. Nicht für sicherheitskritische Steuerungen.
 
-[Release](https://github.com/KS-303/homeassistant-comwintop/releases/latest) · [Probleme melden](https://github.com/KS-303/homeassistant-comwintop/issues)
+[Release](https://github.com/KS-303/homeassistant-comwintop/releases/tag/v0.1.0b30) · [Probleme melden](https://github.com/KS-303/homeassistant-comwintop/issues)
