@@ -84,9 +84,7 @@ async def test_all_eight_relay_controls_visible_while_locked_then_fc05_after_per
     flow = await manager.async_configure(flow["flow_id"], {"next_step_id": "relay_permissions"})
     assert flow["step_id"] == "relay_permissions"
     fields = {key.schema: value for key, value in flow["data_schema"].schema.items()}
-    assert set(fields) == {
-        f"Output {i} (DO{i - 1}) – Allow switching" for i in range(1, 9)
-    }
+    assert set(fields) == {f"Output {i} (DO{i - 1}) – Allow switching" for i in range(1, 9)}
     result = await manager.async_configure(
         flow["flow_id"], {"Output 1 (DO0) – Allow switching": True}
     )
