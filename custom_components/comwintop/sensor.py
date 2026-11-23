@@ -32,11 +32,22 @@ class ValueSensor(ChannelEntity, SensorEntity):
     def __init__(self, coordinator, key, group, index):
         super().__init__(coordinator, key, group, index)
         options = coordinator.options(key)
+        if coordinator.model == "mb_307d_ii_s" and group.kind == "ai":
+            # The hardware signal modes are not validated; show only integer
+            # register counts and make the uncertainty explicit in the name.
+            self._attr_translation_key = None
+            self._attr_name = (
+                f"{options.get('name') or f'Analoger Eingang {index + 1}'} – Rohwert"
+            )
+            self._attr_native_unit_of_measurement = None
+            self._attr_suggested_display_precision = 0
         if group.kind == "temperature":
             self._attr_device_class = SensorDeviceClass.TEMPERATURE
             self._attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
             self._attr_suggested_display_precision = 1
-        elif options.get("mode") in MODES:
+        elif options.get("mode") in MODES and not (
+            coordinator.model == "mb_307d_ii_s" and group.kind == "ai"
+        ):
             # AO readback always stays in physical V/mA, independent of setpoint display.
             display = options.get("display", "physical") if group.kind == "ai" else "physical"
             self._attr_native_unit_of_measurement = (
