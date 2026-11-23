@@ -96,7 +96,8 @@
             "scale_max": "Engineering value at maximum signal",
             "unit": "Engineering unit",
             "poll_interval_mode": "Polling interval",
-            "poll_interval": "Individual value (seconds; ignored for default)"
+            "poll_interval": "Individual value (seconds; ignored for default)",
+            "write_enabled": "Prepare output write permission (no transmission until certified)"
           },
           "description": "DI: NC only inverts the logical input reading; NO uses the raw value. AI/AO: the selected signal range changes decoding only, not hardware jumpers or device parameters. DO/AO writes remain locked in this beta. Disabling a channel does not switch off any load. Previously saved intervals below 5 seconds can only be retained unchanged; new values must be at least 5 seconds."
         },
