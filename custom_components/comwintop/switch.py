@@ -1,34 +1,29 @@
-"""Explicit per-channel DO switches; certified transport required to create any."""
+"""Visible MB307D relay controls; each actual write requires separate permission."""
 
 from homeassistant.components.switch import SwitchEntity
 
-from .const import HARDWARE_VALIDATED_WRITES
 from .entity import ChannelEntity
 from .profiles import channels
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
     for sub_id, coordinator in entry.runtime_data.units.items():
-        # Do not expose misleading or usable controls until FC05 no-retry,
-        # atomic send guard and recovery are hardware/transport validated.
-        if (
-            coordinator.model != "mb_307d_ii_s"
-            or (coordinator.model, entry.data["transport"], "fc05") not in HARDWARE_VALIDATED_WRITES
-        ):
+        # Always register control entities for the MB307D, even if per-channel
+        # permission has not yet been granted. Locked controls are unavailable.
+        # The low-level hardware release gate remains enforced by the coordinator.
+        if coordinator.model != "mb_307d_ii_s":
             continue
         entities = [
             RelaySwitch(coordinator, key, group, index)
             for key, group, index in channels(coordinator.model)
-            if group.kind == "do"
-            and coordinator.enabled(key)
-            and coordinator.options(key).get("write_enabled", False) is True
+            if group.kind == "do" and coordinator.enabled(key)
         ]
         if entities:
             async_add_entities(entities, config_subentry_id=sub_id)
 
 
 class RelaySwitch(ChannelEntity, SwitchEntity):
-    """Read state from FC01; switching (when certified) uses FC05."""
+    """Report FC01 state; FC05 is only possible with explicit permission."""
 
     _attr_assumed_state = False
 
@@ -37,12 +32,14 @@ class RelaySwitch(ChannelEntity, SwitchEntity):
         self._attr_unique_id = f"{coordinator.uid}_{key}_control"
         self._attr_translation_key = None
         self._attr_name = (
-            f"{coordinator.options(key).get('name') or f'Relais {index + 1}'} – Schalten"
+            f"{coordinator.options(key).get('name') or f'Digitaler Ausgang {index + 1}'} – Schalten"
         )
 
     @property
     def available(self):
-        return self.coordinator._can_write(self.key)
+        return self.coordinator._write_manager is not None and self.coordinator._can_write(
+            self.key
+        )
 
     @property
     def is_on(self):
