@@ -15,5 +15,8 @@ READ_DEADLINE = 4.0  # Original 3 s request budget plus one pacing slot.
 WRITE_TTL = 2.0
 READBACK_ATTEMPTS = 3
 READBACK_DELAY = 0.2
-# Explicit lab-only release for pinned Home Assistant RTU/TCP backend.\n# Still requires write_enabled=True separately for EACH relay.
-HARDWARE_VALIDATED_WRITES: frozenset[tuple[str, str, str]] = frozenset(\n    {("mb_307d_ii_s", "rtu_tcp", "fc05")}\n)
+# Explicit lab-only release for pinned Home Assistant RTU/TCP backend.
+# Still requires write_enabled=True separately for EACH relay.
+HARDWARE_VALIDATED_WRITES: frozenset[tuple[str, str, str]] = frozenset(
+    {("mb_307d_ii_s", "rtu_tcp", "fc05")}
+)
