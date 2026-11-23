@@ -9,7 +9,7 @@ import pytest
 from scripts import build_package
 
 
-def test_install_archive_excludes_extra_files_and_write_prototype(tmp_path, monkeypatch):
+def test_install_archive_excludes_extra_files_in_lab_release(tmp_path, monkeypatch):
     source = Path(__file__).resolve().parents[1] / "custom_components/comwintop"
     component = tmp_path / "custom_components/comwintop"
     copytree(source, component, ignore=lambda _folder, names: {"__pycache__"} & set(names))
@@ -25,7 +25,8 @@ def test_install_archive_excludes_extra_files_and_write_prototype(tmp_path, monk
         assert names == {
             f"custom_components/comwintop/{name}" for name in build_package.INSTALL_FILES
         }
-        assert "custom_components/comwintop/write_manager.py" not in names
+        assert "custom_components/comwintop/write_manager.py" in names
+        assert "custom_components/comwintop/single_attempt.py" in names
         assert not any("private-notes" in name for name in names)
         assert zipped.testzip() is None
 
