@@ -1,6 +1,5 @@
 """Real HA entity registration plus RTU-over-TCP FC05 laboratory regression."""
 
-import asyncio
 from types import MappingProxyType
 
 import pytest
@@ -82,8 +81,11 @@ async def test_all_eight_relay_controls_visible_while_locked_then_fc05_after_per
     await hass.async_block_till_done()
     coordinator = next(iter(entry.runtime_data.units.values()))
     await wait_for(lambda: coordinator._can_write("do_1"))
-    assert all(registry.async_get_entity_id("switch", DOMAIN, f"lab-mb307d_do_{i}_control")
-               == identities[i - 1] for i in range(1, 9))
+    assert all(
+        registry.async_get_entity_id("switch", DOMAIN, f"lab-mb307d_do_{i}_control")
+        == identities[i - 1]
+        for i in range(1, 9)
+    )
     assert hass.states.get(identities[0]).state in ("off", "on")
     assert hass.states.get(identities[1]).state == "unavailable"
 
