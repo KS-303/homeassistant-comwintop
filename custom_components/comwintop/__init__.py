@@ -13,6 +13,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
 from modbus_connection.exceptions import ModbusError
 
+from .bus_priority import PriorityBusLock
 from .const import BUS_MESSAGE_SPACING, PLATFORMS
 from .coordinator import UnitCoordinator
 from .model import validate_device
@@ -26,7 +27,7 @@ _LOGGER = logging.getLogger(__name__)
 @dataclass
 class Runtime:
     units: dict[str, UnitCoordinator]
-    bus_lock: asyncio.Lock
+    bus_lock: PriorityBusLock
     rtu_guard: RtuSessionGuard
 
 
@@ -101,7 +102,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         params = await hass.async_add_executor_job(params_from, dict(entry.data))
         rtu_guard = RtuSessionGuard(hass, entry)
         await rtu_guard.arm()
-        lock = asyncio.Lock()
+        lock = PriorityBusLock()
         ids: set[int] = set()
 
         for sub in entry.subentries.values():
