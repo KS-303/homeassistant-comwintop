@@ -486,7 +486,16 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
             return self.async_abort(reason="write_permissions_unavailable")
         errors = {}
         if user_input is not None:
-            selected = {f"do_{i}": user_input.get(f"do_{i}", False) is True for i in range(1, 9)}
+            language = ui_language(self.hass)
+            selected = {
+                f"do_{index}": user_input.get(
+                    f"Ausgang {index} (DO{index - 1}) – Schalten erlauben"
+                    if language == "de"
+                    else f"Output {index} (DO{index - 1}) – Allow switching",
+                    False,
+                ) is True
+                for index in range(1, 9)
+            }
             previous = dict(sub.data)
             updated = deepcopy(previous)
             for key, permitted in selected.items():
@@ -497,14 +506,23 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
                 errors["base"] = "invalid_channel"
             else:
                 return self.async_update_and_abort(entry, sub, data=validated)
+        # Use localized field IDs for this one-screen permission dialog.
+        # Home Assistant sometimes fails to resolve dynamic subentry data
+        # translations and otherwise displays raw "do_1" .. "do_8".
+        # These IDs are UI-only: persisted channel keys remain stable do_N.
+        language = ui_language(self.hass)
+        permission_labels = {
+            (f"Ausgang {index} (DO{index - 1}) – Schalten erlauben"
+             if language == "de"
+             else f"Output {index} (DO{index - 1}) – Allow switching"): f"do_{index}"
+            for index in range(1, 9)
+        }
         fields = {
             vol.Required(
-                f"do_{index}",
-                default=sub.data.get("channels", {})
-                .get(f"do_{index}", {})
-                .get("write_enabled", False),
+                label,
+                default=sub.data.get("channels", {}).get(key, {}).get("write_enabled", False),
             ): bool
-            for index in range(1, 9)
+            for label, key in permission_labels.items()
         }
         return self.async_show_form(
             step_id="relay_permissions",
