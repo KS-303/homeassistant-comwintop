@@ -13,6 +13,7 @@ else:
 INSTALL_FILES = (
     "__init__.py",
     "binary_sensor.py",
+    "bus_priority.py",
     "communication.py",
     "config_flow.py",
     "const.py",
