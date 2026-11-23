@@ -65,6 +65,7 @@ async def test_unconfirmed_ack_is_rejected_without_repeating(monkeypatch):
 
 async def test_no_transmission_when_guard_rejects(monkeypatch):
     base, _, unit = setup(monkeypatch)
+
     def refuse():
         raise RuntimeError("write_permission_revoked")
 
