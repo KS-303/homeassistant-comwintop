@@ -143,9 +143,9 @@ class UnitCoordinator(DataUpdateCoordinator):
                 await fc05_once(self.unit, address, bool(value), guard)
                 phase = "fc01_readback"
                 self.last_write_phase = phase
-                # Readbacks run through HA's paced read transport. Allow time
-                # for the required 1 s bus gap plus its own request deadline.
-                async with asyncio.timeout(READ_DEADLINE + BUS_MESSAGE_SPACING + 1):
+                # HA's existing four-second read deadline already includes
+                # the one-second spacing. Avoid artificially adding delay.
+                async with asyncio.timeout(READ_DEADLINE):
                     readback = await self.unit.read_coils(address, 1)
                 if len(readback) != 1 or type(readback[0]) is not bool:
                     raise ModbusProtocolError("invalid_do_readback")
