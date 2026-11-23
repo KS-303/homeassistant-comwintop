@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock
 import pytest
 from homeassistant.exceptions import HomeAssistantError
 
+from custom_components.comwintop.bus_priority import PriorityBusLock
 from custom_components.comwintop.coordinator import UnitCoordinator
 from custom_components.comwintop.model import Sample
 from custom_components.comwintop.write_manager import WriteManager, WriteRejected
@@ -22,7 +23,7 @@ class Guard:
 
 def make_coordinator(*, readback=True):
     coordinator = object.__new__(UnitCoordinator)
-    coordinator.bus_lock = asyncio.Lock()
+    coordinator.bus_lock = PriorityBusLock()
     coordinator.rtu_guard = Guard()
     coordinator.unit = SimpleNamespace(read_coils=AsyncMock(return_value=[readback]))
     coordinator.samples = {"do_1": Sample()}
