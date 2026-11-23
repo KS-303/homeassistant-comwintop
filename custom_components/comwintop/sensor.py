@@ -36,7 +36,10 @@ class ValueSensor(ChannelEntity, SensorEntity):
             # The hardware signal modes are not validated; show only integer
             # register counts and make the uncertainty explicit in the name.
             self._attr_translation_key = None
-            self._attr_name = f"{options.get('name') or f'Analoger Eingang {index + 1}'} – Rohwert"
+            german = coordinator.hass.config.language.lower().startswith("de")
+            default = f"Analoger Eingang {index + 1}" if german else f"Analog input {index + 1}"
+            suffix = "Rohwert" if german else "Raw value"
+            self._attr_name = f"{options.get('name') or default} – {suffix}"
             self._attr_native_unit_of_measurement = None
             self._attr_suggested_display_precision = 0
         if group.kind == "temperature":
