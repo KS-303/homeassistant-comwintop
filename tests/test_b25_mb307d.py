@@ -45,15 +45,16 @@ def test_write_permission_only_valid_for_mb307d_digital_outputs():
         validate_device(device(channels_config={"di_1": {"write_enabled": True}}))
     with pytest.raises(InvalidValue, match="invalid_write_permission"):
         validate_device(device(channels_config={"do_1": {"write_enabled": 1}}))
-    with pytest.raises(InvalidValue, match="unsupported_write_permission"):
-        validate_device(
-            {
-                "model": "mb_308n",
-                "unit_id": 1,
-                "device_uid": "mb308n-lab",
-                "channels": {"do_1": {"write_enabled": True}},
-            }
-        )
+    # Old MB308N permissions must remain loadable for migrations, but
+    # never create a writable switch in the new lab gate.
+    validate_device(
+        {
+            "model": "mb_308n",
+            "unit_id": 1,
+            "device_uid": "mb308n-lab",
+            "channels": {"do_1": {"write_enabled": True}},
+        }
+    )
 
 
 def test_move_or_disabling_output_revokes_permission():
@@ -69,6 +70,7 @@ def test_move_or_disabling_output_revokes_permission():
     assert disabled["channels"]["do_1"]["write_enabled"] is False
 
 
-def test_write_release_gate_stays_locked_until_transport_certified():
-    assert ("mb_307d_ii_s", "rtu_tcp", "fc05") not in HARDWARE_VALIDATED_WRITES
-    assert not HARDWARE_VALIDATED_WRITES
+def test_lab_gate_is_strictly_mb307d_rtu_tcp_fc05():
+    assert HARDWARE_VALIDATED_WRITES == frozenset(
+        {("mb_307d_ii_s", "rtu_tcp", "fc05")}
+    )
