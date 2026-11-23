@@ -127,13 +127,21 @@ class UnitCoordinator(DataUpdateCoordinator):
         async with self.bus_lock:
             if self.rtu_guard is not None:
                 await self.rtu_guard.settle()
-            await fc05_once(self.unit, address, bool(value), guard)
-            # FC01 is read-only and may run through the standard HA backend.
-            async with asyncio.timeout(READ_DEADLINE):
-                readback = await self.unit.read_coils(address, 1)
-            if len(readback) != 1 or type(readback[0]) is not bool:
-                raise ModbusProtocolError("invalid_do_readback")
-            return readback[0]
+            try:
+                await fc05_once(self.unit, address, bool(value), guard)
+                # FC01 is read-only and may run through the standard HA backend.
+                async with asyncio.timeout(READ_DEADLINE):
+                    readback = await self.unit.read_coils(address, 1)
+                if len(readback) != 1 or type(readback[0]) is not bool:
+                    raise ModbusProtocolError("invalid_do_readback")
+                return readback[0]
+            except (Exception, asyncio.CancelledError):
+                # An interrupted FC05 may already have reached the device.
+                # Never repeat it, and never resume automatically after
+                # uncertain RTU state or an unconfirmed readback.
+                if self.rtu_guard is not None:
+                    self.rtu_guard.latch("write_unconfirmed")
+                raise
 
     async def async_set_output(self, key, value):
         """Fail closed unless a backend is independently certified."""
