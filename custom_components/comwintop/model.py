@@ -121,9 +121,7 @@ def validate_device(data, *, previous=None, legacy=False):
         if "write_enabled" in options:
             if type(options["write_enabled"]) is not bool:
                 raise InvalidValue("invalid_write_permission")
-            if options["write_enabled"] and (
-                model != "mb_307d_ii_s" or not key.startswith("do_")
-            ):
+            if options["write_enabled"] and (model != "mb_307d_ii_s" or not key.startswith("do_")):
                 raise InvalidValue("unsupported_write_permission")
         if options.get("mode") not in (None, *MODES):
             raise InvalidValue("invalid_mode")
