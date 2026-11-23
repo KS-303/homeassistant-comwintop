@@ -76,8 +76,19 @@ async def test_all_eight_relay_controls_visible_while_locked_then_fc05_after_per
     assert not [item for item in mb307_rtu.trace if item[1] == 5]
 
     sub = next(iter(entry.subentries.values()))
-    updated = dict(sub.data) | {"channels": {"do_1": {"write_enabled": True}}}
-    hass.config_entries.async_update_subentry(entry, sub, data=updated)
+    manager = hass.config_entries.subentries
+    flow = await manager.async_init(
+        (entry.entry_id, "device"),
+        context={"source": "reconfigure", "subentry_id": sub.subentry_id},
+    )
+    flow = await manager.async_configure(
+        flow["flow_id"], {"next_step_id": "relay_permissions"}
+    )
+    assert flow["step_id"] == "relay_permissions"
+    fields = {key.schema: value for key, value in flow["data_schema"].schema.items()}
+    assert set(fields) == {f"do_{i}" for i in range(1, 9)}
+    result = await manager.async_configure(flow["flow_id"], {"do_1": True})
+    assert result["type"] == "abort", result
     await hass.async_block_till_done()
     coordinator = next(iter(entry.runtime_data.units.values()))
     await wait_for(lambda: coordinator._can_write("do_1"))
