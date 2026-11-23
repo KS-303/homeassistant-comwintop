@@ -66,8 +66,8 @@ async def fc05_once(unit, address: int, value: bool, guard):
     async with conn._pacer.paced(unit._unit_id):
         async with transport._communication_lock:
             # The shared backend may have reconnected while waiting for a lock.
-            current_conn, current_client, current_transport, current_base = (
-                _existing_connection(unit)
+            current_conn, current_client, current_transport, current_base = _existing_connection(
+                unit
             )
             if (
                 current_conn is not conn
