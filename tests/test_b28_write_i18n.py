@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from custom_components.comwintop.bus_priority import PriorityBusLock
 from custom_components.comwintop.coordinator import UnitCoordinator
 from custom_components.comwintop.single_attempt import SingleAttemptUnavailable
 from custom_components.comwintop.write_manager import WriteManager, WriteRejected
@@ -58,7 +59,7 @@ async def test_expired_before_fc05_does_not_latch_bus(monkeypatch):
 
     guard = DummyGuard()
     coordinator = object.__new__(UnitCoordinator)
-    coordinator.bus_lock = asyncio.Lock()
+    coordinator.bus_lock = PriorityBusLock()
     coordinator.rtu_guard = guard
     coordinator.unit = object()
     coordinator.samples = {}
@@ -78,7 +79,7 @@ async def test_incompatible_transport_does_not_latch_bus(monkeypatch):
 
     guard = DummyGuard()
     coordinator = object.__new__(UnitCoordinator)
-    coordinator.bus_lock = asyncio.Lock()
+    coordinator.bus_lock = PriorityBusLock()
     coordinator.rtu_guard = guard
     coordinator.unit = object()
     coordinator.samples = {}
@@ -98,7 +99,7 @@ async def test_unconfirmed_readback_latches_without_write_retry(monkeypatch):
 
     guard = DummyGuard()
     coordinator = object.__new__(UnitCoordinator)
-    coordinator.bus_lock = asyncio.Lock()
+    coordinator.bus_lock = PriorityBusLock()
     coordinator.rtu_guard = guard
     coordinator.unit = SimpleNamespace(read_coils=AsyncMock(side_effect=TimeoutError))
     coordinator.samples = {}
