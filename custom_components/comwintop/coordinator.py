@@ -149,6 +149,14 @@ class UnitCoordinator(DataUpdateCoordinator):
                     readback = await self.unit.read_coils(address, 1)
                 if len(readback) != 1 or type(readback[0]) is not bool:
                     raise ModbusProtocolError("invalid_do_readback")
+                # FC01 returned a genuine state from this slave. Publish it
+                # immediately instead of waiting up to the normal DO poll
+                # interval. It is a coil readback, NOT physical contact proof.
+                received = time.monotonic()
+                self.samples[key].accept(readback[0], readback[0], received)
+                self.last_response = received
+                self._refresh_read_status()
+                self.async_set_updated_data(self.samples)
                 phase = "confirmed"
                 self.last_write_phase = phase
                 return readback[0]
@@ -180,8 +188,43 @@ class UnitCoordinator(DataUpdateCoordinator):
         from homeassistant.exceptions import HomeAssistantError
 
         if self._write_manager is None:
-            raise HomeAssistantError("write_transport_not_certified")
-        return await self._write_manager.submit(key, value)
+            raise HomeAssistantError("Schreiben ist für diesen Modbus-Transport gesperrt.")
+        try:
+            return await self._write_manager.submit(key, value)
+        except WriteRejected as err:
+            german = self.hass.config.language.lower().startswith("de")
+            messages = {
+                "write_in_progress": (
+                    "Schaltvorgang läuft bereits. Bitte erst die Rückmeldung abwarten.",
+                    "Relay command in progress. Wait for readback confirmation.",
+                ),
+                "expired": (
+                    "Schaltauftrag abgelaufen, bevor er gesendet werden konnte.",
+                    "Relay command expired before transmission.",
+                ),
+                "write_locked": (
+                    "Schalten derzeit gesperrt. Freigabe und Rückmeldung prüfen.",
+                    "Switching is locked. Check permission and readback.",
+                ),
+                "readback_mismatch": (
+                    "Schaltzustand stimmt nicht mit der Rückmeldung überein.",
+                    "Relay state does not match readback.",
+                ),
+                "unconfirmed": (
+                    "Schaltbefehl nicht sicher bestätigt. Relaiszustand prüfen.",
+                    "Relay command unconfirmed. Check physical relay state.",
+                ),
+                "transport_preflight_unavailable": (
+                    "Schalttransport nicht bereit. Kein Telegramm gesendet.",
+                    "Write transport unavailable. No frame sent.",
+                ),
+            }
+            de, en = messages.get(
+                str(err),
+                ("Schaltauftrag abgelehnt. Status und Diagnose prüfen.",
+                 "Relay command rejected. Check status and diagnostics."),
+            )
+            raise HomeAssistantError(de if german else en) from err
 
     def options(self, key):
         return self.settings.get("channels", {}).get(key, {})
