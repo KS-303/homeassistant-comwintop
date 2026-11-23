@@ -89,9 +89,7 @@ async def test_all_eight_relay_controls_visible_while_locked_then_fc05_after_per
     assert hass.states.get(identities[0]).state in ("off", "on")
     assert hass.states.get(identities[1]).state == "unavailable"
 
-    await hass.services.async_call(
-        "switch", "turn_on", {"entity_id": identities[0]}, blocking=True
-    )
+    await hass.services.async_call("switch", "turn_on", {"entity_id": identities[0]}, blocking=True)
     assert mb307_rtu.bits.get((1, 0)) is True
     await hass.services.async_call(
         "switch", "turn_off", {"entity_id": identities[0]}, blocking=True
