@@ -221,8 +221,10 @@ class UnitCoordinator(DataUpdateCoordinator):
             }
             de, en = messages.get(
                 str(err),
-                ("Schaltauftrag abgelehnt. Status und Diagnose prüfen.",
-                 "Relay command rejected. Check status and diagnostics."),
+                (
+                    "Schaltauftrag abgelehnt. Status und Diagnose prüfen.",
+                    "Relay command rejected. Check status and diagnostics.",
+                ),
             )
             raise HomeAssistantError(de if german else en) from err
 
