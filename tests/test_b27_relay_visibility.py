@@ -61,6 +61,7 @@ def entry_for_mb307(sim):
 async def test_all_eight_relay_controls_visible_while_locked_then_fc05_after_permission(
     hass, mb307_rtu
 ):
+    hass.config.language = "de"
     entry = entry_for_mb307(mb307_rtu)
     await hass.config_entries.async_add(entry)
     await hass.async_block_till_done()
@@ -84,9 +85,9 @@ async def test_all_eight_relay_controls_visible_while_locked_then_fc05_after_per
     flow = await manager.async_configure(flow["flow_id"], {"next_step_id": "relay_permissions"})
     assert flow["step_id"] == "relay_permissions"
     fields = {key.schema: value for key, value in flow["data_schema"].schema.items()}
-    assert set(fields) == {f"Output {i} (DO{i - 1}) – Allow switching" for i in range(1, 9)}
+    assert set(fields) == {f"Ausgang {i} (DO{i - 1}) – Schalten erlauben" for i in range(1, 9)}
     result = await manager.async_configure(
-        flow["flow_id"], {"Output 1 (DO0) – Allow switching": True}
+        flow["flow_id"], {"Ausgang 1 (DO0) – Schalten erlauben": True}
     )
     assert result["type"] == "abort", result
     await hass.async_block_till_done()
