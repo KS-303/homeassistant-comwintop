@@ -303,11 +303,13 @@ def decode_channel(kind, raw, options, *, model=None):
         if type(raw) is not bool:
             raise InvalidValue("invalid_bit")
         return not raw if kind == "di" and options.get("nc", False) else raw
-    # MB307D AI0–AI7 read correctly on FC03/50–57, but signal range and
-    # engineering units have not been hardware-validated. Keep values
-    # unavailable while retaining the raw reply for diagnostics.
+    # MB307D AI0–AI7: FC03 50–57 is verified as a register read, but
+    # volts/milliamps and scaling have not been tested. Expose the *actual*
+    # unscaled 16-bit number, including zero. Reject malformed replies.
     if model == "mb_307d_ii_s" and kind == "ai":
-        raise InvalidValue("mb307d_analog_scaling_unverified")
+        if type(raw) is not int or not 0 <= raw <= 65535:
+            raise InvalidValue("invalid_mb307d_analog_raw")
+        return raw
     # Analog channels require an explicit physical-mode selection first.
     mode = options.get("mode")
     physical = analog_physical(raw, mode, output=kind == "ao")
