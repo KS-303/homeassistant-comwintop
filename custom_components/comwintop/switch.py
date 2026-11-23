@@ -37,9 +37,7 @@ class RelaySwitch(ChannelEntity, SwitchEntity):
 
     @property
     def available(self):
-        return self.coordinator._write_manager is not None and self.coordinator._can_write(
-            self.key
-        )
+        return self.coordinator._write_manager is not None and self.coordinator._can_write(self.key)
 
     @property
     def is_on(self):
