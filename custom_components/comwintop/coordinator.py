@@ -159,11 +159,12 @@ class UnitCoordinator(DataUpdateCoordinator):
             self.last_write_error = type(err).__name__
             raise
         except (Exception, asyncio.CancelledError) as err:
-            # Actual FC05/FC01 outcome may be unknown: no stale replay and
-            # no silent automatic RTU recovery.
             self.last_write_phase = phase
             self.last_write_error = type(err).__name__
-            if self.rtu_guard is not None:
+            # Waiting for the hub's own lock cannot have sent an FC05.
+            # Once the FC05 boundary is entered, a failure may be a
+            # physically completed but unconfirmed relay change.
+            if phase != "waiting_for_bus" and self.rtu_guard is not None:
                 self.rtu_guard.latch("write_unconfirmed")
             raise
         finally:
