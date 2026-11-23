@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 
 from custom_components.comwintop.profiles import (
-    BUILTIN_PROFILES,
     BUILTIN_NAMES,
+    BUILTIN_PROFILES,
     MODEL_NAMES,
     PROFILES,
     InvalidValue,
