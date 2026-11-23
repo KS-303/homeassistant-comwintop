@@ -12,9 +12,7 @@ async def spin():
 
 
 def test_only_lab_profile_is_released():
-    assert HARDWARE_VALIDATED_WRITES == frozenset(
-        {("mb_307d_ii_s", "rtu_tcp", "fc05")}
-    )
+    assert HARDWARE_VALIDATED_WRITES == frozenset({("mb_307d_ii_s", "rtu_tcp", "fc05")})
 
 
 async def test_latest_pending_wins():
