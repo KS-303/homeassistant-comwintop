@@ -6,6 +6,7 @@ import pytest
 
 from custom_components.comwintop.profiles import (
     BUILTIN_PROFILES,
+    BUILTIN_NAMES,
     MODEL_NAMES,
     PROFILES,
     InvalidValue,
@@ -35,7 +36,7 @@ def reset_registry():
     PROFILES.clear()
     PROFILES.update(BUILTIN_PROFILES)
     MODEL_NAMES.clear()
-    MODEL_NAMES.update({"tm_32ds": "CWT-TM-32DS", "mb_308n": "CWT-MB308N"})
+    MODEL_NAMES.update(BUILTIN_NAMES)
 
 
 def test_local_profile_and_invalid_variants():
