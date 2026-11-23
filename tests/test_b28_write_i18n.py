@@ -37,7 +37,9 @@ def test_full_translation_coverage_and_label_consistency():
         )
         assert (
             f"output {i}"
-            in english["config_subentries"]["device"]["step"]["relay_permissions"]["data"][key].lower()
+            in english["config_subentries"]["device"]["step"]["relay_permissions"]["data"][
+                key
+            ].lower()
         )
 
 
