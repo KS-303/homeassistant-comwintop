@@ -1,4 +1,4 @@
-name: Validate read-only beta
+name: Validate ComWinTop beta and lab
 on:
   push:
   pull_request:
