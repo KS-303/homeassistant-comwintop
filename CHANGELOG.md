@@ -1,3 +1,32 @@
+## 0.1.0b30 (Beta – FC05-Priorität im Labor)
+
+- Priorisiert wartende FC05/FC01-Transaktionen gegenüber neuen ComWinTop-Leseabfragen.
+- Die feste zweisekündige Schreibfrist, der einzelne FC05-Übertragungsversuch und die FC01-Rücklesung bleiben erhalten.
+- Kein Abbruch bereits laufender Leseabfragen. Hardware-Langzeittest und Lasttest bleiben offen.
+
+## 0.1.0b29 (Labor – bestätigte Relaisrückmeldung)
+
+- Schnelle Aktualisierung des HA-Relaiszustands nach erfolgreicher FC01-Rücklesung.
+- Gleichzeitige Befehle an dasselbe Relais werden abgewiesen statt verzögert wiederholt.
+
+## 0.1.0b28 (Labor – Fehlerdiagnose)
+
+- Trennt Ablehnung vor dem Senden von unklaren Sende- und Rückleseergebnissen.
+- Korrigiert deutsche Beschriftungen und diagnostische Meldungen.
+
+## 0.1.0b27 (Labor – Relaisbedienung)
+
+- Acht Relais-Entitäten und gemeinsame Konfiguration einzelner Schreibfreigaben für MB-307D(II)-S.
+
+## 0.1.0b26 (Labor – begrenzter FC05-Schreibpfad)
+
+- Einmaliger FC05-Aufruf ohne automatischen Busy-Retry auf geprüftem RTU-over-TCP-Backend.
+- Getrennte Schreibfreigabe pro Relais mit FC01-Rücklesung und sicherheitsorientierter Sperre.
+
+## 0.1.0b25 (Entwicklung – MB-307D-Profil)
+
+- Geräteprofil für MB-307D(II)-S und Vorbereitung der Relaisfreigabe; noch ohne produktive Schreibfunktion.
+
 ## 0.1.0b24 (Labor-Beta – Timeout-Diagnose und Statusentprellung)
 
 - Eine einzelne erfolglose RTU-Leseabfrage bleibt als Timeout gezählt,
