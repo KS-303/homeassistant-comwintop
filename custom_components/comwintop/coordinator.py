@@ -16,9 +16,15 @@ from modbus_connection.exceptions import (
 )
 
 from .communication import inspect_tm32ds
-from .const import BUS_MESSAGE_SPACING, DEFAULT_INTERVALS, READ_DEADLINE
+from .const import (
+    BUS_MESSAGE_SPACING,
+    DEFAULT_INTERVALS,
+    HARDWARE_VALIDATED_WRITES,
+    READ_DEADLINE,
+)
 from .model import Sample, effective_interval
 from .profiles import PROFILES, InvalidValue, channel_key, channels, decode_channel
+from .write_manager import WriteManager
 
 
 def failed_poll_delay(interval: float, failures: int) -> float:
@@ -90,7 +96,55 @@ class UnitCoordinator(DataUpdateCoordinator):
         # other units on the same HA connection. Starts after the last exchange.
         unit.set_message_spacing(BUS_MESSAGE_SPACING)
         self._unsubscribe = unit.on_connection_lost(self.connection_lost)
+        # A validated on-wire transport gate is mandatory. The current
+        # unpatched HA backend does not meet this requirement. Merely
+        # enabling a channel in the UI cannot activate writing.
+        self._write_manager = (
+            WriteManager(self._execute_do, self._can_write)
+            if (self.model, entry.data["transport"], "fc05") in HARDWARE_VALIDATED_WRITES
+            else None
+        )
         self.data = self.samples
+
+    def _can_write(self, key):
+        """Permissions and fresh state are checked again at transmit time."""
+        return (
+            self.model == "mb_307d_ii_s"
+            and key.startswith("do_")
+            and key in self.samples
+            and self.enabled(key)
+            and self.options(key).get("write_enabled", False) is True
+            and self.available(key)
+            and self.status == "ONLINE"
+            and not self._stopping
+            and (self.rtu_guard is None or not self.rtu_guard.unsafe)
+        )
+
+    async def _execute_do(self, key, value, guard):
+        """Future certified FC05 executor; never used by unpatched b25.
+
+        The low-level send boundary must be certified before any
+        HARDWARE_VALIDATED_WRITES entry is introduced.
+        """
+        address = int(key.removeprefix("do_")) - 1
+        async with self.bus_lock:
+            if self.rtu_guard is not None:
+                await self.rtu_guard.settle()
+            guard()
+            await self.unit.write_coil(address, bool(value), retry=False)
+            async with asyncio.timeout(READ_DEADLINE):
+                readback = await self.unit.read_coils(address, 1)
+            if len(readback) != 1 or type(readback[0]) is not bool:
+                raise ModbusProtocolError("invalid_do_readback")
+            return readback[0]
+
+    async def async_set_output(self, key, value):
+        """Fail closed unless a backend is independently certified."""
+        from homeassistant.exceptions import HomeAssistantError
+
+        if self._write_manager is None:
+            raise HomeAssistantError("write_transport_not_certified")
+        return await self._write_manager.submit(key, value)
 
     def options(self, key):
         return self.settings.get("channels", {}).get(key, {})
@@ -194,6 +248,8 @@ class UnitCoordinator(DataUpdateCoordinator):
         ]
 
     def mark_bus_unsafe(self):
+        if self._write_manager is not None:
+            self._write_manager.communication_lost()
         """Invalidate readings immediately; do not claim an RTU response is fresh."""
         self.latch_timeout_history()
         self.status = "OFFLINE"
@@ -208,6 +264,8 @@ class UnitCoordinator(DataUpdateCoordinator):
         self.async_set_updated_data(self.samples)
 
     def connection_lost(self):
+        if self._write_manager is not None:
+            self._write_manager.communication_lost()
         if self._stopping:
             return
         if self.rtu_guard is not None and self.rtu_guard.enabled:
@@ -252,6 +310,8 @@ class UnitCoordinator(DataUpdateCoordinator):
         if self._stopping:
             return
         self._stopping = True
+        if self._write_manager is not None:
+            await self._write_manager.close()
         self._unsubscribe()
         tasks = [t for t in (self._poll_task, self._age_task, self._communication_task) if t]
         for task in tasks:
