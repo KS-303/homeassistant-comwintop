@@ -13,8 +13,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         # atomic send guard and recovery are hardware/transport validated.
         if (
             coordinator.model != "mb_307d_ii_s"
-            or (coordinator.model, entry.data["transport"], "fc05")
-            not in HARDWARE_VALIDATED_WRITES
+            or (coordinator.model, entry.data["transport"], "fc05") not in HARDWARE_VALIDATED_WRITES
         ):
             continue
         entities = [
