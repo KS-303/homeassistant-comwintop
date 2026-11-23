@@ -216,7 +216,7 @@ async def test_actual_rtu_over_tcp_stack(fault):
 
 async def test_upstream_busy_retry_hazard_is_blocked_in_beta(sim):
     # Regression evidence: HA's pinned stack repeats FC05 on busy responses.
-    # This is intentionally NOT a write-release test; beta exposes no outputs.
+    # Normal HA write still retries Busy; b26 uses a separate one-shot transport.
     from custom_components.comwintop.const import HARDWARE_VALIDATED_WRITES
 
     sim.fault = "busy"
@@ -226,6 +226,6 @@ async def test_upstream_busy_retry_hazard_is_blocked_in_beta(sim):
             async with asyncio.timeout(1.3):
                 await c.for_unit(2).write_coil(0, True)
         assert len([r for r in sim.trace if r[1] == 5]) >= 2
-        assert not HARDWARE_VALIDATED_WRITES
+        assert HARDWARE_VALIDATED_WRITES == frozenset({("mb_307d_ii_s", "rtu_tcp", "fc05")})
     finally:
         await c.close()
