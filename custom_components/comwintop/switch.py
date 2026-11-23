@@ -40,6 +40,16 @@ class RelaySwitch(ChannelEntity, SwitchEntity):
         return self.coordinator._write_manager is not None and self.coordinator._can_write(self.key)
 
     @property
+    def extra_state_attributes(self):
+        """Expose timing and outcome without leaking gateway identity."""
+        return {
+            "write_enabled": self.coordinator.options(self.key).get("write_enabled", False),
+            "last_write_phase": self.coordinator.last_write_phase,
+            "last_write_duration_ms": self.coordinator.last_write_duration_ms,
+            "last_write_error": self.coordinator.last_write_error,
+        }
+
+    @property
     def is_on(self):
         return self.coordinator.samples[self.key].value
 
