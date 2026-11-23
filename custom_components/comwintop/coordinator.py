@@ -460,7 +460,7 @@ class UnitCoordinator(DataUpdateCoordinator):
                 # succeeded even when the physical probe reports an invalid value.
                 self.samples[key].consecutive_read_failures = 0
                 try:
-                    value = decode_channel(group.kind, raw, self.options(key))
+                    value = decode_channel(group.kind, raw, self.options(key), model=self.model)
                 except InvalidValue as err:
                     self.samples[key].invalid_value(str(err), raw, received)
                     self.counters["value_errors"] += 1
