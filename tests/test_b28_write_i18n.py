@@ -10,7 +10,7 @@ import pytest
 
 from custom_components.comwintop.coordinator import UnitCoordinator
 from custom_components.comwintop.single_attempt import SingleAttemptUnavailable
-from custom_components.comwintop.write_manager import WriteRejected
+from custom_components.comwintop.write_manager import WriteManager, WriteRejected
 
 ROOT = Path(__file__).resolve().parents[1] / "custom_components" / "comwintop"
 
@@ -107,3 +107,23 @@ async def test_unconfirmed_readback_latches_without_write_retry(monkeypatch):
     assert wire_calls == [1]
     assert guard.latched == ["write_readback_unconfirmed"]
     assert coordinator.last_write_phase == "fc01_readback"
+
+
+async def test_manager_preflight_unavailable_keeps_other_channels_usable():
+    calls = []
+
+    async def exec_command(key, value, guard):
+        if key == "do_1":
+            raise SingleAttemptUnavailable("version_not_supported")
+        guard()
+        calls.append((key, value))
+        return value
+
+    manager = WriteManager(exec_command, lambda _key: True)
+    with pytest.raises(WriteRejected, match="transport_preflight_unavailable"):
+        await manager.submit("do_1", True)
+    assert manager.uncertain is False
+    assert not manager.blocked
+    assert await manager.submit("do_2", True) is True
+    assert calls == [("do_2", True)]
+    await manager.close()
