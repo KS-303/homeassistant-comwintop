@@ -58,7 +58,7 @@
             "unit_id": "Modbus-Adresse (1–247)",
             "acknowledge_beta": "Experimentelle Beta-Version bestätigen"
           },
-          "description": "DO/AO-Schreiben und Slave-ID-Änderungen sind in dieser Beta gesperrt. Ein erfolgreicher Lesezugriff bestätigt weder den Gerätetyp noch die elektrische Funktion. Analoge Signalbereiche je Kanal einstellen. Beim Anlegen eines TM-32DS werden seine 32 Kanäle lesend geprüft; unbestätigte Kanäle bleiben vorerst aus."
+          "description": "Diese Beta unterstützt das CWT-MB307D(II)-S mit lesenden DI/DO/AI-Registern und einer einzeln freizugebenden FC05-Laborsteuerung über RTU/TCP. Andere Module bleiben nur lesbar. Die Slave-ID wird nicht geschrieben."
         },
         "reconfigure": {
           "title": "Gerät konfigurieren",
@@ -68,7 +68,8 @@
             "intervals": "Abfrageintervalle",
             "communication": "Modbus-Kommunikation anzeigen",
             "disable_temperature_range": "Temperaturkanäle gesammelt deaktivieren",
-            "enable_temperature_range": "Temperaturkanäle gesammelt aktivieren"
+            "enable_temperature_range": "Temperaturkanäle gesammelt aktivieren",
+            "relay_permissions": "Relais-Schreibfreigaben (DO1–DO8)"
           }
         },
         "device": {
@@ -97,9 +98,9 @@
             "unit": "Einheit der Messgröße",
             "poll_interval_mode": "Abfrageintervall",
             "poll_interval": "Individueller Wert (Sekunden; bei Standard ignoriert)",
-            "write_enabled": "Schreibfreigabe vormerken (Schalten erst nach Transportprüfung)"
+            "write_enabled": "Schreibzugriff für diesen Relaisausgang freigeben"
           },
-          "description": "DI: NC invertiert ausschließlich die logische Anzeige; NO bleibt unverändert. AI/AO: Signalbereich im Formular ist eine Dekodier-Einstellung und ändert keine Jumper oder Geräteparameter. DO und AO sind in dieser Beta nur lesbar. Kanal deaktivieren schaltet keine Last ab. Bereits gespeicherte Intervalle unter 5 Sekunden können nur unverändert beibehalten werden. Neue Werte müssen mindestens 5 Sekunden betragen."
+          "description": "DI: NC invertiert nur die logische Anzeige. AI/AO: Signalbereich ändert nur die Dekodierung, nicht die Hardware. MB307D: DO-Schaltfreigabe separat je Ausgang möglich, nur als RTU/TCP-Labortest ohne Last; andere Geräte bleiben nur lesbar. Kanal deaktivieren schaltet keine Last ab. Bisherige Intervalle unter 5 s dürfen unverändert bleiben."
         },
         "intervals": {
           "title": "Abfrageintervalle",
@@ -155,6 +156,20 @@
             "last": "Letzter Kanal (1–32)",
             "confirm": "Ich bestätige die Aktivierung des gewählten Bereichs"
           }
+        },
+        "relay_permissions": {
+          "title": "Relais-Schreibfreigabe",
+          "description": "Nur die markierten Relais dürfen über FC05 geschaltet werden. Die acht Schalter bleiben sichtbar; nicht freigegebene sind nicht verfügbar. Dies ändert ausschließlich die Home-Assistant-Berechtigung, keine Hardware-Ausgänge. Für die ersten Tests ohne angeschlossene Last nur einen Ausgang freigeben.",
+          "data": {
+            "do_1": "Digitalen Ausgang 1 zum Schalten freigeben (DO0)",
+            "do_2": "Digitalen Ausgang 2 zum Schalten freigeben (DO1)",
+            "do_3": "Digitalen Ausgang 3 zum Schalten freigeben (DO2)",
+            "do_4": "Digitalen Ausgang 4 zum Schalten freigeben (DO3)",
+            "do_5": "Digitalen Ausgang 5 zum Schalten freigeben (DO4)",
+            "do_6": "Digitalen Ausgang 6 zum Schalten freigeben (DO5)",
+            "do_7": "Digitalen Ausgang 7 zum Schalten freigeben (DO6)",
+            "do_8": "Digitalen Ausgang 8 zum Schalten freigeben (DO7)"
+          }
         }
       },
       "error": {
@@ -173,7 +188,8 @@
       "abort": {
         "reconfigure_successful": "Einstellungen aktualisiert.",
         "address_test_unavailable": "Die Slave-ID-Änderung ist in dieser Beta gesperrt.",
-        "bulk_disable_unavailable": "Nur für den TM-32DS verfügbar."
+        "bulk_disable_unavailable": "Nur für den TM-32DS verfügbar.",
+        "write_permissions_unavailable": "Relais-Schreibfreigabe nur für CWT-MB307D(II)-S verfügbar."
       },
       "entry_type": "ComWinTop-Gerät",
       "initiate_flow": {
