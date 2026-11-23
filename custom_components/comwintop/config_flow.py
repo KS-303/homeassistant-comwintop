@@ -751,9 +751,9 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
         if kind == "do" and sub.data["model"] == "mb_307d_ii_s":
             # Permission is explicit, per output, and OFF by default.
             # The transport release gate remains independent.
-            fields[
-                vol.Required("write_enabled", default=options.get("write_enabled", False))
-            ] = bool
+            fields[vol.Required("write_enabled", default=options.get("write_enabled", False))] = (
+                bool
+            )
         if kind in ("ai", "ao"):
             fields[vol.Required("mode", default=options.get("mode", "0_10v"))] = select(
                 labeled_options(MODES, SIGNAL_LABELS[ui_language(self.hass)])
