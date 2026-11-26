@@ -125,6 +125,15 @@ def ui_language(hass):
     return "de" if hass.config.language.lower().startswith("de") else "en"
 
 
+def channel_label(model, kind, index, language):
+    """Label the configured channel, not just its feedback entity."""
+    if kind == "do":
+        name = "Digitaler Ausgang" if language == "de" else "Digital output"
+        suffix = " – Rückmeldung" if language == "de" else " – readback"
+        return f"{name} {index + 1}" + ("" if model == "mb_307d_ii_s" else suffix)
+    return f"{CHANNEL_LABELS[language][kind]} {index + 1}"
+
+
 def labeled_options(values, labels):
     return [{"value": value, "label": labels[value]} for value in values]
 
@@ -699,11 +708,14 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
             self._channel = user_input["channel"]
             return await self.async_step_channel_settings()
         model = sub.data["model"]
-        labels = CHANNEL_LABELS[ui_language(self.hass)]
+        language = ui_language(self.hass)
         # A labeled membership validator serializes to a native HA dropdown.
         # Values remain stable internal IDs (e.g. temperature_3), not labels.
         channel_selector = vol.In(
-            {key: f"{labels[group.kind]} {index + 1}" for key, group, index in channels(model)}
+            {
+                key: channel_label(model, group.kind, index, language)
+                for key, group, index in channels(model)
+            }
         )
         return self.async_show_form(
             step_id="channel",
