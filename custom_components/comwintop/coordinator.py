@@ -221,7 +221,7 @@ class UnitCoordinator(DataUpdateCoordinator):
             self.recovery_phase = "applying"
             try:
 
-                def guard(key=key):
+                def guard(key=key, generation=generation):
                     if (
                         not self._recovery_pending
                         or self._recovery_failed
