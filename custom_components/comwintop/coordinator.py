@@ -117,6 +117,7 @@ class UnitCoordinator(DataUpdateCoordinator):
         self._recovery_failed = False
         self._recovery_since = 0.0
         self._recovery_misses = 0
+        self._recovery_done = set()
         self.recovery_phase = "idle"
         self.recovery_at = None
 
@@ -164,6 +165,7 @@ class UnitCoordinator(DataUpdateCoordinator):
         if self._recovery_pending:
             return
         self._recovery_pending = True
+        self._recovery_done.clear()
         self._recovery_since = time.monotonic()
         self.recovery_phase = "pending"
         self.recovery_at = datetime.now(UTC).isoformat()
@@ -179,9 +181,23 @@ class UnitCoordinator(DataUpdateCoordinator):
         for key in self._recovery_targets():
             self._next[key] = 0.0
 
+    def _fail_output_recovery(self, reason):
+        self._recovery_failed = True
+        self.recovery_phase = "failed"
+        self.recovery_at = datetime.now(UTC).isoformat()
+        self.counters["relay_recovery_failed"] += 1
+        self._logger.error("ComWinTop relay recovery failed: %s", reason)
+        self.rtu_guard.latch("relay_recovery_failed")
+        self.async_set_updated_data(self.samples)
+
     async def _maybe_recover_outputs(self):
-        """Apply current opt-in settings once after fresh coil reads."""
+        """Check one target per poll turn; never replay an old command."""
         if not self._recovery_pending or self._recovery_failed:
+            return
+        # A permanently invalid register must not leave the write lock
+        # pending forever. Physical repair is required after this deadline.
+        if time.monotonic() - self._recovery_since >= 120:
+            self._fail_output_recovery("recovery_deadline")
             return
         manager = self._write_manager
         if manager is None or manager.closed or manager.tasks:
@@ -189,20 +205,21 @@ class UnitCoordinator(DataUpdateCoordinator):
         targets = self._recovery_targets()
         if not targets or self.status != "ONLINE":
             return
-        if any(
-            not self._can_write(key, recovery=True)
-            or self.samples[key].received is None
-            or self.samples[key].received < self._recovery_since
-            or type(self.samples[key].value) is not bool
-            for key in targets
-        ):
-            return
-        generation = manager.generation
-        self.recovery_phase = "applying"
-        try:
-            for key, value in targets.items():
-                if key in manager.blocked:
-                    raise WriteRejected("recovery_channel_locked")
+        remaining = {key: value for key, value in targets.items() if key not in self._recovery_done}
+        # Poll normally between individual writes so short poll intervals
+        # remain usable even when all eight relays need to be reset.
+        for key, value in remaining.items():
+            sample = self.samples[key]
+            if (
+                not self._can_write(key, recovery=True)
+                or sample.received is None
+                or sample.received < self._recovery_since
+                or type(sample.value) is not bool
+            ):
+                continue
+            generation = manager.generation
+            self.recovery_phase = "applying"
+            try:
 
                 def guard(key=key):
                     if (
@@ -211,35 +228,34 @@ class UnitCoordinator(DataUpdateCoordinator):
                         or manager.generation != generation
                         or manager.closed
                         or manager.tasks
+                        or key in manager.blocked
                         or not self._can_write(key, recovery=True)
+                        or time.monotonic() - self._recovery_since >= 120
                     ):
                         raise WriteRejected("recovery_preflight_rejected")
 
                 guard()
-                if self.samples[key].value is value:
-                    continue
-                if await self._execute_do(key, value, guard) is not value:
-                    raise WriteRejected("recovery_readback_mismatch")
-            if manager.generation != generation or self.rtu_guard.unsafe:
-                raise WriteRejected("recovery_generation_changed")
-            await self._recovery_store.save(False)
-            if manager.generation != generation or self.rtu_guard.unsafe:
-                raise WriteRejected("recovery_generation_changed")
-        except asyncio.CancelledError:
-            raise
-        except Exception as err:
-            self._recovery_failed = True
-            self.recovery_phase = "failed"
-            self.counters["relay_recovery_failed"] += 1
-            self._logger.error("ComWinTop relay recovery failed: %s", type(err).__name__)
-            self.rtu_guard.latch("relay_recovery_failed")
-        else:
-            self._recovery_pending = False
-            self.recovery_phase = "confirmed"
-            self.recovery_at = datetime.now(UTC).isoformat()
-            self.counters["relay_recovery_completed"] += 1
-            manager.recovered()
-        self.async_set_updated_data(self.samples)
+                if sample.value is not value:
+                    if await self._execute_do(key, value, guard) is not value:
+                        raise WriteRejected("recovery_readback_mismatch")
+                if manager.generation != generation or self.rtu_guard.unsafe:
+                    raise WriteRejected("recovery_generation_changed")
+                self._recovery_done.add(key)
+                if self._recovery_done == set(targets):
+                    await self._recovery_store.save(False)
+                    if manager.generation != generation or self.rtu_guard.unsafe:
+                        raise WriteRejected("recovery_generation_changed")
+                    self._recovery_pending = False
+                    self.recovery_phase = "confirmed"
+                    self.recovery_at = datetime.now(UTC).isoformat()
+                    self.counters["relay_recovery_completed"] += 1
+                    manager.recovered()
+            except asyncio.CancelledError:
+                raise
+            except Exception as err:
+                self._fail_output_recovery(type(err).__name__)
+            self.async_set_updated_data(self.samples)
+            return
 
     async def _execute_do(self, key, value, guard):
         """One FC05 request and one FC01 readback, no duplicate write attempts."""

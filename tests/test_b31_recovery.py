@@ -1,5 +1,6 @@
 """Opt-in relay recovery regression tests."""
 
+import time
 from collections import Counter
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
@@ -35,10 +36,11 @@ def make_unit(*, readback=False):
     unit = object.__new__(UnitCoordinator)
     unit._recovery_pending = True
     unit._recovery_failed = False
-    unit._recovery_since = 10
+    unit._recovery_since = time.monotonic()
+    unit._recovery_done = set()
     unit.status = "ONLINE"
     unit._recovery_targets = lambda: {"do_1": False}
-    unit.samples = {"do_1": Sample(value=True, received=11)}
+    unit.samples = {"do_1": Sample(value=True, received=unit._recovery_since + 0.01)}
     unit._can_write = lambda _key, **_kwargs: True
     unit._write_manager = WriteManager(AsyncMock(), lambda _key: True)
     unit._write_manager.communication_lost()
@@ -53,10 +55,10 @@ def make_unit(*, readback=False):
 
 async def test_no_write_until_fresh_then_once():
     unit = make_unit()
-    unit.samples["do_1"].received = 9
+    unit.samples["do_1"].received = unit._recovery_since - 1
     await unit._maybe_recover_outputs()
     unit._execute_do.assert_not_awaited()
-    unit.samples["do_1"].received = 11
+    unit.samples["do_1"].received = unit._recovery_since + 0.01
     await unit._maybe_recover_outputs()
     await unit._maybe_recover_outputs()
     assert unit._execute_do.await_count == 1
@@ -98,3 +100,29 @@ async def test_marker_survives_new_store_instance(hass):
     assert await RecoveryStore(hass, entry, sub).load() is True
     await store.save(False)
     assert await RecoveryStore(hass, entry, sub).load() is False
+
+
+async def test_multiple_targets_allow_polling_between_writes():
+    unit = make_unit()
+    unit._recovery_targets = lambda: {"do_1": False, "do_2": False}
+    unit.samples["do_2"] = Sample(value=True, received=unit._recovery_since - 1)
+    await unit._maybe_recover_outputs()
+    assert unit._execute_do.await_count == 1
+    assert unit._write_manager.uncertain
+    await unit._maybe_recover_outputs()
+    assert unit._execute_do.await_count == 1
+    unit.samples["do_2"].received = time.monotonic()
+    await unit._maybe_recover_outputs()
+    assert unit._execute_do.await_count == 2
+    assert unit.recovery_phase == "confirmed"
+    assert not unit._write_manager.uncertain
+
+
+async def test_recovery_deadline_fails_closed():
+    unit = make_unit()
+    unit._recovery_since -= 121
+    await unit._maybe_recover_outputs()
+    unit._execute_do.assert_not_awaited()
+    assert unit._write_manager.uncertain
+    assert unit.recovery_phase == "failed"
+    unit.rtu_guard.latch.assert_called_once_with("relay_recovery_failed")
