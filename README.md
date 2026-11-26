@@ -2,7 +2,7 @@
 
 **Lokale Modbus-I/O-Integration für CWT-Geräte – ohne Cloud und ohne Register-YAML für die integrierten Modelle.**
 
-**Aktuelle Version:** `0.1.0b30` (Beta) · **Home Assistant:** ab 2026.11
+**Aktuelle Version:** `0.1.0b31` (Beta) · **Home Assistant:** ab 2026.11
 
 ## Unterstützte Geräte und Register
 
@@ -26,7 +26,7 @@ Die Analogskalierung des MB-307D(II)-S und die vollständige Hardwareabnahme des
 ## Installation
 
 1. Im **Home Assistant Marketplace** das Repository `https://github.com/KS-303/homeassistant-comwintop` als benutzerdefinierte **Integration** hinzufügen.
-2. ComWinTop installieren (Beta `0.1.0b30` wählen) und Home Assistant neu starten.
+2. ComWinTop installieren (Beta `0.1.0b31` wählen) und Home Assistant neu starten.
 3. **Einstellungen → Geräte & Dienste → Integration hinzufügen → ComWinTop** öffnen.
 
 ## Verbindung einrichten
@@ -51,12 +51,13 @@ Unter **Einstellungen → Geräte & Dienste → ComWinTop → Gerät konfigurier
 - **Abfrageintervalle:** Intervalle je Kanalgruppe einstellen; neue Werte **5–3600 Sekunden**. Einzelkanäle können die Gruppeneinstellung übernehmen oder überschreiben.
 - **TM-32DS:** Beim Hinzufügen werden angeschlossene Temperaturfühler lesend erkannt. Deaktivierte Kanäle lassen sich später manuell aktivieren; negative Temperaturen müssen pro Kanal erlaubt werden.
 - **MB-307D(II)-S:** Unter **Relais-Schreibfreigaben (DO1–DO8)** Ausgänge einzeln freigeben. **FC05 ist nur über RTU-over-TCP als Laborfunktion verfügbar**; der gemeldete Zustand wird über FC01 rückgelesen.
+- **Relais-Wiederanlauf:** Je DO unter Kanal konfigurieren AUS, EIN oder keine Zustandsvorgabe (Standard) wählen. Nur freigegebene MB307D-Relais über RTU-over-TCP; bei einer RTU-Sperre erst nach bestätigter Reparatur. Kein Hardware-Watchdog.
 - **Modbus-Kommunikation anzeigen:** Beim TM-32DS die Kommunikationsparameter und Register 16 lesend prüfen.
 
 ComWinTop stellt Messwerte, Zustände und Diagnoseinformationen als Home-Assistant-Entitäten bereit. Zusätzliche **lesende Geräteprofile** können unter `/config/comwintop/profiles/` abgelegt werden.
 
 ## Beta-Hinweise
 
-b30 ist eine **Testversion**. Relaisbefehle sind ausschließlich im beschriebenen Laborumfang freigegeben; andere Schreibfunktionen bleiben gesperrt. Eine bestätigte Rücklesung beweist keine tatsächliche Kontaktstellung. **Nicht für sicherheitskritische Steuerungen oder unbeaufsichtigte Lastschaltungen verwenden.**
+b31 ist eine **Testversion**. Relaisbefehle sind ausschließlich im beschriebenen Laborumfang freigegeben; andere Schreibfunktionen bleiben gesperrt. Eine bestätigte Rücklesung beweist keine tatsächliche Kontaktstellung. **Nicht für sicherheitskritische Steuerungen oder unbeaufsichtigte Lastschaltungen verwenden.**
 
-[Beta-Release](https://github.com/KS-303/homeassistant-comwintop/releases/tag/v0.1.0b30) · [Änderungen](CHANGELOG.md) · [Bekannte Grenzen](docs/known_limits.md) · [Fehler melden](https://github.com/KS-303/homeassistant-comwintop/issues)
+[Beta-Release](https://github.com/KS-303/homeassistant-comwintop/releases/tag/v0.1.0b31) · [Änderungen](CHANGELOG.md) · [Bekannte Grenzen](docs/known_limits.md) · [Fehler melden](https://github.com/KS-303/homeassistant-comwintop/issues)

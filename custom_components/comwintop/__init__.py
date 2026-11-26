@@ -127,6 +127,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 raise
             coordinators[sub.subentry_id] = coordinator
             rtu_guard.attach(coordinator)
+            await coordinator.prepare_recovery()
 
         aggregate_rate = sum(unit.minimum_read_rate_hz for unit in coordinators.values())
         if aggregate_rate * BUS_MESSAGE_SPACING >= 0.9:

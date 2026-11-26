@@ -28,6 +28,8 @@ async def async_get_config_entry_diagnostics(hass, entry):
                 "status": unit.status,
                 "counters": dict(unit.counters),
                 "timeout_history": getattr(unit, "timeout_history", []),
+                "relay_recovery_phase": getattr(unit, "recovery_phase", "idle"),
+                "relay_recovery_at": getattr(unit, "recovery_at", None),
                 "bus_lock_wait_ms": unit.bus_lock_wait_ms,
                 "read_call_ms": unit.read_call_ms,
                 "minimum_read_rate_hz": unit.minimum_read_rate_hz,

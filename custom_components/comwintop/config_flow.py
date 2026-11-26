@@ -813,6 +813,25 @@ class DeviceFlow(config_entries.ConfigSubentryFlow):
             fields[vol.Required("write_enabled", default=options.get("write_enabled", False))] = (
                 bool
             )
+            fields[
+                vol.Required("recovery_state", default=options.get("recovery_state", "hold"))
+            ] = select(
+                labeled_options(
+                    ("hold", "off", "on"),
+                    {
+                        "de": {
+                            "hold": "Keine Zustandsvorgabe (Standard)",
+                            "off": "Relais AUS",
+                            "on": "Relais EIN",
+                        },
+                        "en": {
+                            "hold": "No state override (default)",
+                            "off": "Relay OFF",
+                            "on": "Relay ON",
+                        },
+                    }[ui_language(self.hass)],
+                )
+            )
         if kind in ("ai", "ao"):
             fields[vol.Required("mode", default=options.get("mode", "0_10v"))] = select(
                 labeled_options(MODES, SIGNAL_LABELS[ui_language(self.hass)])
