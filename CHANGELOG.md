@@ -1,3 +1,10 @@
+## 0.1.0b31 (Beta – Relais-Wiederanlauf, Labor)
+
+- Optionaler Sollzustand pro freigegebenem MB307D-DO nach erkanntem Ausfall.
+- Persistenter Wiederanlaufauftrag über bestätigte RTU-Reparatur und Neuladen.
+- Frische FC01-Rückmeldung, einmaliger FC05 bei Abweichung; keine automatische Entsperrung.
+- Keine Abschaltung während des Ausfalls; Hardwareabnahme ausstehend.
+
 ## 0.1.0b30 (Beta – FC05-Priorität im Labor)
 
 - Priorisiert wartende FC05/FC01-Transaktionen gegenüber neuen ComWinTop-Leseabfragen.

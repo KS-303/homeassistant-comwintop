@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - '.github/release/b30.txt'
+      - '.github/release/b31.txt'
 
 permissions:
   contents: write
@@ -21,16 +21,16 @@ jobs:
         with:
           python-version: '3.14.10'
           cache: pip
-      - name: Verify b30 and run full checks
+      - name: Verify b31 and run full checks
         run: |
           python -m pip install -r requirements-test.txt
           python - <<'PY'
           import json, tomllib
           from pathlib import Path
           version = json.loads(Path("custom_components/comwintop/manifest.json").read_text())["version"]
-          assert version == "0.1.0b30"
+          assert version == "0.1.0b31"
           assert tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"] == version
-          assert Path(".github/release/b30.txt").read_text().strip() == version
+          assert Path(".github/release/b31.txt").read_text().strip() == version
           PY
           ruff check .
           ruff format --check .
@@ -42,7 +42,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           test ! -f /tmp/no-use
-          gh release create v0.1.0b30 dist/comwintop-0.1.0b30-install.zip dist/comwintop-0.1.0b30-install.zip.sha256 \
+          gh release create v0.1.0b31 dist/comwintop-0.1.0b31-install.zip dist/comwintop-0.1.0b31-install.zip.sha256 \
             --target "$GITHUB_SHA" --prerelease \
-            --title "ComWinTop 0.1.0b30 (Beta)" \
-            --notes-file docs/release_notes_b30.md
+            --title "ComWinTop 0.1.0b31 (Beta)" \
+            --notes-file docs/release_notes_b31.md

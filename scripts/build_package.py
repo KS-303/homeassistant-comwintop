@@ -25,6 +25,7 @@ INSTALL_FILES = (
     "number.py",
     "profiles.py",
     "repairs.py",
+    "recovery.py",
     "rtu_safety.py",
     "sensor.py",
     "strings.json",
