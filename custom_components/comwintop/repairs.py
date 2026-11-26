@@ -13,6 +13,8 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
+from .recovery import RecoveryStore, recovery_targets
+from .rtu_safety import RtuSessionGuard
 
 
 class RtuRecoveryFlow(RepairsFlow):
@@ -62,6 +64,19 @@ class RtuRecoveryFlow(RepairsFlow):
         saved = await store.async_load()
         if not isinstance(saved, dict) or saved.get("active") is not True:
             raise HomeAssistantError("RTU marker not in expected active state")
+        # Record explicit targets before allowing the physical bus to reopen.
+        # Include entries that lost their runtime during a Home Assistant restart.
+        for entry in self.hass.config_entries.async_entries(DOMAIN):
+            if entry.data.get("transport") != "rtu_tcp":
+                continue
+            gate = RtuSessionGuard(self.hass, entry)
+            if marker_key != gate.marker_key and (
+                gate._legacy_store is None or marker_key != gate._legacy_store.key
+            ):
+                continue
+            for sub in entry.subentries.values():
+                if recovery_targets(entry.data, sub.data):
+                    await RecoveryStore(self.hass, entry, sub).save(True)
         await store.async_save({"active": False})
 
         def persisted():

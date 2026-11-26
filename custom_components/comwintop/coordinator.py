@@ -24,6 +24,7 @@ from .const import (
 )
 from .model import Sample, effective_interval
 from .profiles import PROFILES, InvalidValue, channel_key, channels, decode_channel
+from .recovery import RecoveryStore, recovery_targets
 from .single_attempt import SingleAttemptUnavailable, fc05_once
 from .write_manager import WriteManager, WriteRejected
 
@@ -109,8 +110,17 @@ class UnitCoordinator(DataUpdateCoordinator):
             else None
         )
         self.data = self.samples
+        self._recovery_store = (
+            RecoveryStore(hass, entry, subentry) if self._write_manager is not None else None
+        )
+        self._recovery_pending = False
+        self._recovery_failed = False
+        self._recovery_since = 0.0
+        self._recovery_misses = 0
+        self.recovery_phase = "idle"
+        self.recovery_at = None
 
-    def _can_write(self, key):
+    def _can_write(self, key, *, recovery=False):
         """Permissions and fresh state are checked again at transmit time."""
         return (
             self.model == "mb_307d_ii_s"
@@ -121,8 +131,115 @@ class UnitCoordinator(DataUpdateCoordinator):
             and self.available(key)
             and self.status == "ONLINE"
             and not self._stopping
-            and (self.rtu_guard is None or not self.rtu_guard.unsafe)
+            and (recovery or not getattr(self, "_recovery_pending", False))
+            and (
+                self.rtu_guard is None
+                or (
+                    not self.rtu_guard.unsafe
+                    and not getattr(self.rtu_guard, "unverified_after_timeout", False)
+                )
+            )
         )
+
+    def _recovery_targets(self):
+        return recovery_targets(self.config_entry.data, self.settings)
+
+    async def prepare_recovery(self):
+        """Load durable intent before polling or exposing controls."""
+        if self._recovery_store is None:
+            return
+        if await self._recovery_store.load():
+            if self._recovery_targets():
+                self._recovery_pending = True
+                self._recovery_since = time.monotonic()
+                self.recovery_phase = "pending"
+                self.recovery_at = datetime.now(UTC).isoformat()
+                self._write_manager.communication_lost()
+            else:
+                await self._recovery_store.save(False)
+
+    async def _mark_output_recovery(self):
+        if self._recovery_store is None or not self._recovery_targets():
+            return
+        if self._recovery_pending:
+            return
+        self._recovery_pending = True
+        self._recovery_since = time.monotonic()
+        self.recovery_phase = "pending"
+        self.recovery_at = datetime.now(UTC).isoformat()
+        self._write_manager.communication_lost()
+        self.async_set_updated_data(self.samples)
+        try:
+            await self._recovery_store.save(True)
+        except Exception:
+            self._recovery_failed = True
+            self.recovery_phase = "storage_error"
+            self.rtu_guard.latch("relay_recovery_storage_error")
+            raise
+        for key in self._recovery_targets():
+            self._next[key] = 0.0
+
+    async def _maybe_recover_outputs(self):
+        """Apply current opt-in settings once after fresh coil reads."""
+        if not self._recovery_pending or self._recovery_failed:
+            return
+        manager = self._write_manager
+        if manager is None or manager.closed or manager.tasks:
+            return
+        targets = self._recovery_targets()
+        if not targets or self.status != "ONLINE":
+            return
+        if any(
+            not self._can_write(key, recovery=True)
+            or self.samples[key].received is None
+            or self.samples[key].received < self._recovery_since
+            or type(self.samples[key].value) is not bool
+            for key in targets
+        ):
+            return
+        generation = manager.generation
+        self.recovery_phase = "applying"
+        try:
+            for key, value in targets.items():
+                if key in manager.blocked:
+                    raise WriteRejected("recovery_channel_locked")
+
+                def guard(key=key):
+                    if (
+                        not self._recovery_pending
+                        or self._recovery_failed
+                        or manager.generation != generation
+                        or manager.closed
+                        or manager.tasks
+                        or not self._can_write(key, recovery=True)
+                    ):
+                        raise WriteRejected("recovery_preflight_rejected")
+
+                guard()
+                if self.samples[key].value is value:
+                    continue
+                if await self._execute_do(key, value, guard) is not value:
+                    raise WriteRejected("recovery_readback_mismatch")
+            if manager.generation != generation or self.rtu_guard.unsafe:
+                raise WriteRejected("recovery_generation_changed")
+            await self._recovery_store.save(False)
+            if manager.generation != generation or self.rtu_guard.unsafe:
+                raise WriteRejected("recovery_generation_changed")
+        except asyncio.CancelledError:
+            raise
+        except Exception as err:
+            self._recovery_failed = True
+            self.recovery_phase = "failed"
+            self.counters["relay_recovery_failed"] += 1
+            self._logger.error("ComWinTop relay recovery failed: %s", type(err).__name__)
+            self.rtu_guard.latch("relay_recovery_failed")
+        else:
+            self._recovery_pending = False
+            self.recovery_phase = "confirmed"
+            self.recovery_at = datetime.now(UTC).isoformat()
+            self.counters["relay_recovery_completed"] += 1
+            manager.recovered()
+        self.async_set_updated_data(self.samples)
 
     async def _execute_do(self, key, value, guard):
         """One FC05 request and one FC01 readback, no duplicate write attempts."""
@@ -517,6 +634,7 @@ class UnitCoordinator(DataUpdateCoordinator):
             if self.rtu_guard is not None and self.rtu_guard.unsafe:
                 await asyncio.sleep(1)
                 continue
+            await self._maybe_recover_outputs()
             now = time.monotonic()
             next_due = min(
                 (deadline for key, deadline in self._next.items() if self.enabled(key)),
@@ -610,6 +728,7 @@ class UnitCoordinator(DataUpdateCoordinator):
                     self.samples[key].accept(value, raw, received)
                     self._known_bad.discard(key)
             self.complete_timeouts(group.kind, group.start + offset, count)
+            self._recovery_misses = 0
             self.failures = 0
             self.last_response = received
             self._refresh_read_status()
@@ -627,6 +746,7 @@ class UnitCoordinator(DataUpdateCoordinator):
                 # the cached communication register once through the same bus.
                 self._communication_refresh.set()
         except IllegalDataAddressError:
+            self._recovery_misses = 0
             self.counters["register_exceptions"] += 1
             if count > 1:
                 half = count // 2
@@ -645,6 +765,7 @@ class UnitCoordinator(DataUpdateCoordinator):
                 self.last_response = time.monotonic()
                 self._refresh_read_status()
         except ModbusExceptionError:
+            self._recovery_misses = 0
             # Busy and other exceptions are not evidence of a bad register.
             # Never fan a 32-register block out into 63 busy retries.
             self.failures += 1
@@ -664,6 +785,13 @@ class UnitCoordinator(DataUpdateCoordinator):
             self.counters[code] += 1
             if code == "timeout":
                 self.record_timeout(group.kind, group.start + offset, count)
+                self._recovery_misses = getattr(self, "_recovery_misses", 0) + 1
+                if (
+                    self._recovery_misses >= 3
+                    and getattr(self, "_recovery_store", None) is not None
+                    and not self.rtu_guard.unsafe
+                ):
+                    await self._mark_output_recovery()
             for key in keys:
                 self.samples[key].read_failed(code)
             self._refresh_read_status()
