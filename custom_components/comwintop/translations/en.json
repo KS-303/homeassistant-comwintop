@@ -98,7 +98,8 @@
             "unit": "Engineering unit",
             "poll_interval_mode": "Polling interval",
             "poll_interval": "Individual value (seconds; ignored for default)",
-            "write_enabled": "Allow write access for this relay output"
+            "write_enabled": "Allow write access for this relay output",
+            "recovery_state": "Output state after bus/power restoration"
           },
           "description": "DI: NC only inverts the logical reading. AI/AO: signal mode changes decoding, not the hardware. MB307D: FC05 write permission is separate for each output, RTU/TCP laboratory use without loads only. Other devices stay read-only. Disabling a channel does not turn off a load. Existing intervals under 5 s may be retained."
         },

@@ -98,7 +98,8 @@
             "unit": "Einheit der Messgröße",
             "poll_interval_mode": "Abfrageintervall",
             "poll_interval": "Individueller Wert (Sekunden; bei Standard ignoriert)",
-            "write_enabled": "Schreibzugriff für diesen Relaisausgang freigeben"
+            "write_enabled": "Schreibzugriff für diesen Relaisausgang freigeben",
+            "recovery_state": "Wiederanlaufverhalten bei Bus-/Spannungswiederkehr"
           },
           "description": "DI: NC invertiert nur die logische Anzeige. AI/AO: Signalbereich ändert nur die Dekodierung, nicht die Hardware. MB307D: DO-Schaltfreigabe separat je Ausgang möglich, nur als RTU/TCP-Labortest ohne Last; andere Geräte bleiben nur lesbar. Kanal deaktivieren schaltet keine Last ab. Bisherige Intervalle unter 5 s dürfen unverändert bleiben."
         },

@@ -127,6 +127,12 @@ def validate_device(data, *, previous=None, legacy=False):
                 key.startswith(("do_", "ao_")) and model in ("mb_307d_ii_s", "mb_308n")
             ):
                 raise InvalidValue("unsupported_write_permission")
+        if "recovery_state" in options and (
+            model != "mb_307d_ii_s"
+            or not key.startswith("do_")
+            or options["recovery_state"] not in ("hold", "off", "on")
+        ):
+            raise InvalidValue("invalid_recovery_state")
         if options.get("mode") not in (None, *MODES):
             raise InvalidValue("invalid_mode")
         if options.get("display", "physical") not in ("physical", "percent", "scaled"):
